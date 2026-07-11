@@ -1,0 +1,242 @@
+import React, { useEffect, useState, useCallback } from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ActivityIndicator,
+} from "react-native";
+
+import {
+  useNavigation,
+  useRoute,
+  useFocusEffect,
+} from "@react-navigation/native";
+
+import FeatureCard from "../../components/FeatureCard";
+import usePurchases from "../../hooks/usePurchases";
+import usePurchase from "../../hooks/usePurchase";
+
+import { fetchBuyOptionsForChapter, Product } from "../../services/productsService";
+import { recordChapterView } from "../../utils/recentActivity";
+
+import { COLORS } from "../../theme/colors";
+import { FONT } from "../../theme/fonts";
+import { SPACING } from "../../theme/spacing";
+import { RADIUS } from "../../theme/radius";
+import { SHADOW } from "../../theme/shadows";
+
+export default function ChapterDetailsScreen() {
+  const navigation = useNavigation<any>();
+  const route = useRoute<any>();
+
+  const {
+    chapterId,
+    chapterTitle,
+    subjectId,
+    subjectTitle,
+    yearId,
+    yearTitle,
+  } = route.params;
+
+  const [buyOptions, setBuyOptions] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const { isChapterOwned, refresh: refreshPurchases } = usePurchases();
+  const { buy, purchasing } = usePurchase();
+
+  const unlocked = isChapterOwned({ id: chapterId, subjectId, yearId });
+
+  useEffect(() => {
+    fetchBuyOptionsForChapter(chapterId, subjectId, yearId)
+      .then(setBuyOptions)
+      .catch((err) => console.error("Failed to load buy options:", err))
+      .finally(() => setLoading(false));
+  }, [chapterId, subjectId, yearId]);
+
+  // Powers the Home dashboard's "Continue Learning" / "Recently Viewed"
+  // sections - purely local (AsyncStorage), no backend write involved.
+  useEffect(() => {
+    recordChapterView({
+      chapterId,
+      chapterTitle,
+      subjectId,
+      subjectTitle,
+      yearId,
+      yearTitle,
+    });
+  }, [chapterId]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshPurchases();
+    }, [refreshPurchases])
+  );
+
+  function goTo(screen: string) {
+    navigation.navigate(screen, {
+      chapterId,
+      chapterTitle,
+      subjectId,
+      yearId,
+      unlocked,
+    });
+  }
+
+  const scopeLabel: Record<string, string> = {
+    chapter: "This Chapter",
+    subject: `Full Subject: ${subjectTitle}`,
+    year: `Full Year: ${yearTitle}`,
+    bundle: "Multi-Year Bundle",
+  };
+
+  return (
+    <View style={styles.container}>
+      <Text style={styles.title}>{chapterTitle}</Text>
+      <Text style={styles.subtitle}>
+        {unlocked ? "✅ Unlocked" : "🔒 Locked - purchase to unlock"}
+      </Text>
+
+      <FeatureCard
+        title="PDF Notes"
+        icon="📚"
+        color={COLORS.success}
+        onPress={() => goTo("Notes")}
+      />
+
+      <FeatureCard
+        title="Video Lectures"
+        icon="🎥"
+        color={COLORS.info}
+        onPress={() => goTo("Videos")}
+      />
+
+      <FeatureCard
+        title="MCQ Quiz"
+        icon="📝"
+        color={COLORS.warning}
+        onPress={() => goTo("QuizTests")}
+      />
+
+      {!unlocked && (
+        <>
+          <Text style={styles.buySectionTitle}>Unlock Options</Text>
+
+          {loading ? (
+            <ActivityIndicator size="large" color={COLORS.accent} />
+          ) : buyOptions.length === 0 ? (
+            <Text style={styles.empty}>
+              No purchase options set up for this chapter yet.
+            </Text>
+          ) : (
+            buyOptions.map((product) => (
+              <View key={product.id} style={styles.buyCard}>
+                <View style={styles.buyCardContent}>
+                  <Text style={styles.buyCardTitle}>{product.title}</Text>
+                  <Text style={styles.buyCardScope}>
+                    {scopeLabel[product.scope] ?? product.scope}
+                  </Text>
+                </View>
+
+                <Text
+                  style={styles.buyCardPrice}
+                  onPress={() => buy(product.id, product.title)}
+                >
+                  ₹{product.price}
+                </Text>
+              </View>
+            ))
+          )}
+        </>
+      )}
+
+      {purchasing && (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color={COLORS.white} />
+        </View>
+      )}
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+    padding: SPACING.lg,
+    paddingTop: 60,
+  },
+
+  title: {
+    fontSize: FONT.title,
+    fontWeight: "bold",
+    color: COLORS.text,
+  },
+
+  subtitle: {
+    fontSize: FONT.body,
+    color: COLORS.subtitle,
+    marginTop: 6,
+    marginBottom: SPACING.xl,
+  },
+
+  buySectionTitle: {
+    fontSize: FONT.subHeading,
+    fontWeight: "700",
+    color: COLORS.text,
+    marginTop: SPACING.xl,
+    marginBottom: SPACING.md,
+  },
+
+  empty: {
+    color: COLORS.subtitle,
+    fontSize: FONT.body,
+  },
+
+  buyCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: COLORS.card,
+    borderWidth: 1,
+    borderColor: COLORS.border,
+    borderRadius: RADIUS.lg,
+    padding: SPACING.md,
+    marginBottom: SPACING.md,
+    ...SHADOW.card,
+  },
+
+  buyCardContent: {
+    flex: 1,
+    paddingRight: SPACING.md,
+  },
+
+  buyCardTitle: {
+    fontSize: FONT.body,
+    fontWeight: "700",
+    color: COLORS.text,
+  },
+
+  buyCardScope: {
+    fontSize: FONT.small,
+    color: COLORS.subtitle,
+    marginTop: 2,
+  },
+
+  buyCardPrice: {
+    fontSize: FONT.body,
+    fontWeight: "700",
+    color: COLORS.white,
+    backgroundColor: COLORS.accent,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 30,
+    overflow: "hidden",
+  },
+
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+});

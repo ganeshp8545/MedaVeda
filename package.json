@@ -1,0 +1,43 @@
+{
+  "name": "ayurpulse-mobile",
+  "version": "1.0.0",
+  "private": true,
+  "main": "node_modules/expo/AppEntry.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web"
+  },
+  "dependencies": {
+    "@expo/metro-runtime": "~57.0.3",
+    "@expo/vector-icons": "^15.0.2",
+    "@hookform/resolvers": "^3.9.1",
+    "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-navigation/native": "^7.0.14",
+    "@react-navigation/native-stack": "^7.2.0",
+    "@supabase/supabase-js": "^2.47.10",
+    "expo": "~57.0.4",
+    "expo-splash-screen": "~57.0.2",
+    "expo-status-bar": "~57.0.0",
+    "expo-web-browser": "~57.0.0",
+    "firebase": "^12.16.0",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-hook-form": "^7.54.2",
+    "react-native": "0.86.0",
+    "react-native-blob-util": "^0.24.10",
+    "react-native-pdf": "^7.0.4",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "4.25.2",
+    "react-native-web": "^0.21.2",
+    "react-native-webview": "13.16.1",
+    "yup": "^1.6.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@types/react": "~19.2.2",
+    "babel-preset-expo": "~57.0.2",
+    "typescript": "~5.8.3"
+  }
+}
