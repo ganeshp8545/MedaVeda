@@ -39,8 +39,17 @@ export default function PaymentCheckoutScreen() {
   } = route.params ?? {};
 
   const [verifying, setVerifying] = useState(false);
-  // Guards against the WebView firing more than one message for the same
-  // attempt (e.g. a dismiss event arriving right after a handler event).
+  // Guards against processing the *same* WebView message twice (e.g. a
+  // dismiss event arriving right after a handler event) - separate from
+  // settledRef below, which only becomes true once we've actually reached
+  // a terminal outcome (navigated to Success/Failed, or gone back).
+  const messageHandledRef = useRef(false);
+  // True only once this screen has truly finished (navigated away). Left
+  // false while a verify/recovery attempt is merely in flight, so the
+  // AppState-based recovery check (below) can still kick in and retry via
+  // Razorpay's own records if that in-flight attempt gets dropped - e.g.
+  // by Android suspending the network mid-request while backgrounded for
+  // a UPI app switch, which is exactly the scenario this exists for.
   const settledRef = useRef(false);
 
   const missingParams =
@@ -67,7 +76,7 @@ export default function PaymentCheckoutScreen() {
   );
 
   async function handleMessage(event: WebViewMessageEvent) {
-    if (settledRef.current) return;
+    if (messageHandledRef.current) return;
 
     let message: any;
     try {
@@ -77,7 +86,7 @@ export default function PaymentCheckoutScreen() {
     }
 
     if (message.type === "success") {
-      settledRef.current = true;
+      messageHandledRef.current = true;
       setVerifying(true);
       try {
         const result = await verifyPayment(verifyUrl, {
@@ -88,33 +97,48 @@ export default function PaymentCheckoutScreen() {
         });
 
         if (result.success) {
+          settledRef.current = true;
           resetTo("PaymentSuccess", {
             title: productTitle,
             amount: result.amount,
             orderId: internalOrderId,
           });
         } else {
+          settledRef.current = true;
           goToFailed(result.message || "Payment verification failed.");
         }
       } catch {
         // The payment may well have succeeded on Razorpay's side even if
-        // this network call failed - don't claim it failed outright.
-        goToFailed(
-          `Payment may have succeeded but verification could not be confirmed. Payment ID: ${message.razorpay_payment_id || "unknown"}. Please check My Purchases or contact support.`
-        );
+        // this network call failed (dropped mid-request, timed out, etc).
+        // Don't mark this settled and don't send the student to a dead
+        // end yet - leave settledRef false so the AppState recovery check
+        // (and another WebView message, if one still comes) can still
+        // resolve this via Razorpay's own records. Just let
+        // messageHandledRef stop us from re-running this same branch for
+        // a duplicate "success" message.
+        setVerifying(true);
+        const recovered = await runRecoveryCheck();
+        if (!recovered) {
+          settledRef.current = true;
+          goToFailed(
+            `Payment may have succeeded but verification could not be confirmed. Payment ID: ${message.razorpay_payment_id || "unknown"}. Please check My Purchases or contact support.`
+          );
+        }
       } finally {
-        setVerifying(false);
+        if (!settledRef.current) setVerifying(false);
       }
       return;
     }
 
     if (message.type === "failed") {
+      messageHandledRef.current = true;
       settledRef.current = true;
       goToFailed(message.reason || "Payment failed.");
       return;
     }
 
     if (message.type === "cancelled") {
+      messageHandledRef.current = true;
       settledRef.current = true;
       if (internalOrderId) {
         markOrderStatus(internalOrderId, "failed").catch(() => {});
@@ -134,9 +158,9 @@ export default function PaymentCheckoutScreen() {
   // itself crashes. Safe to call even when nothing was actually paid yet -
   // it just comes back { success: false } and this screen keeps waiting.
   const recovering = useRef(false);
-  const runRecoveryCheck = useCallback(async () => {
-    if (settledRef.current || recovering.current) return;
-    if (!verifyUrl || !internalOrderId) return;
+  const runRecoveryCheck = useCallback(async (): Promise<boolean> => {
+    if (settledRef.current || recovering.current) return false;
+    if (!verifyUrl || !internalOrderId) return false;
     recovering.current = true;
     setVerifying(true);
     try {
@@ -148,13 +172,16 @@ export default function PaymentCheckoutScreen() {
           amount: result.amount,
           orderId: internalOrderId,
         });
+        return true;
       }
-      // If not successful yet, say nothing and let the student keep
-      // watching/retry - the payment may just not have gone through yet,
-      // or may still be in progress in the UPI app.
+      // Not paid yet (or still processing on Razorpay's side) - say
+      // nothing and let the student keep watching; the next resume or
+      // retry will check again.
+      return false;
     } catch {
       // Transient network hiccup while checking - stay quiet, next resume
       // or retry will check again.
+      return false;
     } finally {
       recovering.current = false;
       if (!settledRef.current) setVerifying(false);
