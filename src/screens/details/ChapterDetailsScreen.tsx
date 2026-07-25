@@ -44,7 +44,10 @@ export default function ChapterDetailsScreen() {
   const { isChapterOwned, refresh: refreshPurchases } = usePurchases();
   const { buy, purchasing } = usePurchase();
 
-  const unlocked = isChapterOwned({ id: chapterId, subjectId, yearId });
+  // MedVeda 2.0: only PDF Notes is paid content - Video Lectures and
+  // MCQ Quiz are always free, so "unlocked" here only ever gates the
+  // Notes purchase panel below, not access to Videos/Quiz.
+  const notesUnlocked = isChapterOwned({ id: chapterId, subjectId, yearId });
 
   useEffect(() => {
     fetchBuyOptionsForChapter(chapterId, subjectId, yearId)
@@ -77,8 +80,10 @@ export default function ChapterDetailsScreen() {
       chapterId,
       chapterTitle,
       subjectId,
+      subjectTitle,
       yearId,
-      unlocked,
+      yearTitle,
+      unlocked: notesUnlocked,
     });
   }
 
@@ -93,7 +98,8 @@ export default function ChapterDetailsScreen() {
     <View style={styles.container}>
       <Text style={styles.title}>{chapterTitle}</Text>
       <Text style={styles.subtitle}>
-        {unlocked ? "✅ Unlocked" : "🔒 Locked - purchase to unlock"}
+        🎥 Videos & 📝 Quiz are always free · 📚 Notes{" "}
+        {notesUnlocked ? "unlocked ✅" : "require purchase 🔒"}
       </Text>
 
       <FeatureCard
@@ -107,19 +113,23 @@ export default function ChapterDetailsScreen() {
         title="Video Lectures"
         icon="🎥"
         color={COLORS.info}
-        onPress={() => goTo("Videos")}
+        onPress={() =>
+          navigation.navigate("Videos", { subjectId, subjectTitle, yearId, yearTitle })
+        }
       />
 
       <FeatureCard
         title="MCQ Quiz"
         icon="📝"
         color={COLORS.warning}
-        onPress={() => goTo("QuizTests")}
+        onPress={() =>
+          navigation.navigate("QuizTests", { subjectId, subjectTitle, yearId, yearTitle })
+        }
       />
 
-      {!unlocked && (
+      {!notesUnlocked && (
         <>
-          <Text style={styles.buySectionTitle}>Unlock Options</Text>
+          <Text style={styles.buySectionTitle}>Unlock PDF Notes</Text>
 
           {loading ? (
             <ActivityIndicator size="large" color={COLORS.accent} />
@@ -139,7 +149,7 @@ export default function ChapterDetailsScreen() {
 
                 <Text
                   style={styles.buyCardPrice}
-                  onPress={() => buy(product.id, product.title)}
+                  onPress={() => buy(product)}
                 >
                   ₹{product.price}
                 </Text>
@@ -228,7 +238,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     backgroundColor: COLORS.accent,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: SPACING.sm,
     borderRadius: 30,
     overflow: "hidden",
   },

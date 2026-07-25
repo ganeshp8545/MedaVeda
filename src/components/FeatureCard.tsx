@@ -1,16 +1,12 @@
 import React from "react";
-import {
-  TouchableOpacity,
-  Text,
-  StyleSheet,
-  View,
-} from "react-native";
+import { Text, StyleSheet, View } from "react-native";
 
 import { COLORS } from "../theme/colors";
 import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
-import { FONT } from "../theme/fonts";
+import { FONT, FONT_WEIGHT } from "../theme/typography";
 import { SPACING } from "../theme/spacing";
+import AnimatedPressable from "./motion/AnimatedPressable";
 
 type Props = {
   title: string;
@@ -19,18 +15,9 @@ type Props = {
   onPress: () => void;
 };
 
-export default function FeatureCard({
-  title,
-  icon,
-  color,
-  onPress,
-}: Props) {
+export default function FeatureCard({ title, icon, color, onPress }: Props) {
   return (
-    <TouchableOpacity
-      style={styles.card}
-      onPress={onPress}
-      activeOpacity={0.85}
-    >
+    <AnimatedPressable onPress={onPress} style={styles.card}>
       <View style={[styles.iconBadge, { backgroundColor: `${color}26` }]}>
         <Text style={styles.icon}>{icon}</Text>
       </View>
@@ -38,7 +25,7 @@ export default function FeatureCard({
       <Text style={styles.title}>{title}</Text>
 
       <Text style={[styles.chevron, { color }]}>›</Text>
-    </TouchableOpacity>
+    </AnimatedPressable>
   );
 }
 
@@ -71,7 +58,7 @@ const styles = StyleSheet.create({
   title: {
     flex: 1,
     fontSize: FONT.subHeading,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHT.semiBold as any,
     color: COLORS.text,
   },
 

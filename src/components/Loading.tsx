@@ -8,6 +8,7 @@ import {
 
 import { COLORS } from "../theme/colors";
 import { FONT } from "../theme/fonts";
+import { SPACING } from "../theme/spacing";
 
 export default function Loading() {
   return (
@@ -33,7 +34,7 @@ const styles = StyleSheet.create({
   },
 
   text: {
-    marginTop: 15,
+    marginTop: SPACING.md,
     fontSize: FONT.body,
     color: COLORS.subtitle,
   },

@@ -23,6 +23,12 @@ export default function PdfViewerScreen() {
   // of the check already done before navigating here).
   const { pdfUrl } = route.params ?? {};
 
+  // Downloaded Notes (roadmap change 8) are opened by passing their local
+  // file:// URI in place of the usual remote pdfUrl - same screen, same
+  // prop, no separate "offline viewer" needed. `cache: true` only makes
+  // sense for a remote fetch, so skip it here.
+  const isLocalFile = typeof pdfUrl === "string" && pdfUrl.startsWith("file://");
+
   const [page, setPage] = useState(1);
   const [numberOfPages, setNumberOfPages] = useState(0);
   const [loadError, setLoadError] = useState(false);
@@ -58,7 +64,7 @@ export default function PdfViewerScreen() {
           especially with signed Firebase Storage URLs - this renders the
           full PDF reliably, with pinch-to-zoom and page-by-page scrolling. */}
       <Pdf
-        source={{ uri: pdfUrl, cache: true }}
+        source={{ uri: pdfUrl, cache: !isLocalFile }}
         style={styles.pdf}
         trustAllCerts={false}
         enablePaging={false}

@@ -1,75 +1,73 @@
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { getUserDoc, setUserDoc } from "../repositories/usersRepository";
+import { UserProfile, UserRole } from "../types/user";
+import { supabase } from "../config/supabase";
 
-import { db } from "../config/firebase";
+export type { UserProfile, UserRole } from "../types/user";
 
-// SRS Part 5, section 8 (TypeScript Models) - the User model.
-// Backs the `users` collection described in section 1 ("Student profile,
-// role, purchased packages, progress") and the Student Profile fields
-// listed in SRS Part 4, section 5.
+// Called right after signup. Uses merge:true so it's safe to call more
+// than once (e.g. retried after a transient failure) without overwriting
+// fields written elsewhere.
 //
-// Note: `purchasedPackages`/`completedChapters`/`completedMcqs` etc. are
-// intentionally NOT duplicated onto this doc - they're derived live from
-// the `purchases` collection (purchasesService) and quiz attempt history
-// (useQuizStats) respectively, so there's a single source of truth and no
-// risk of this profile doc drifting out of sync with those.
-export type UserRole = "student" | "admin";
-
-export interface UserProfile {
-  uid: string;
-  name: string;
-  email: string;
-  mobile?: string;
-  college?: string;
-  currentYearId?: string;
-  currentYearTitle?: string;
-  role: UserRole;
-  createdAt?: number;
-}
-
-const usersCollectionName = "users";
-
-// Called right after signup. Uses `setDoc(..., { merge: true })` so it's
-// safe to call more than once (e.g. retried after a transient failure)
-// without overwriting fields written elsewhere.
+// NOTE: does NOT send `role` - the "profiles" table has no such column
+// (admin-vs-student is decided server-side by the `admins` table / the
+// am_i_admin() RPC, never by anything the client writes). Sending it used
+// to make this whole update fail silently, so the student's name never
+// got saved after signup.
 export async function createUserProfile(
   uid: string,
   data: { name: string; email: string }
 ): Promise<void> {
-  await setDoc(
-    doc(db, usersCollectionName, uid),
-    {
-      name: data.name,
-      email: data.email,
-      role: "student" as UserRole,
-      createdAt: Date.now(),
-    },
-    { merge: true }
-  );
+  await setUserDoc(uid, {
+    name: data.name,
+    email: data.email,
+    createdAt: Date.now(),
+  });
 }
 
-export async function fetchUserProfile(
-  uid: string
-): Promise<UserProfile | null> {
-  const snap = await getDoc(doc(db, usersCollectionName, uid));
-  if (!snap.exists()) return null;
+export async function fetchUserProfile(uid: string): Promise<UserProfile | null> {
+  const data = await getUserDoc(uid);
+  if (!data) return null;
 
-  const data = snap.data() as any;
   return {
-    uid: snap.id,
+    uid: data.uid,
     name: data.name ?? "",
     email: data.email ?? "",
-    mobile: data.mobile,
-    college: data.college,
-    currentYearId: data.currentYearId,
-    currentYearTitle: data.currentYearTitle,
-    role: (data.role as UserRole) ?? "student",
+    mobile: data.phone ?? undefined,
+    role: "student",
     createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt,
   };
 }
 
 export async function updateUserProfile(
   uid: string,
-  data: Partial<Pick<UserProfile, "name" | "mobile" | "college" | "currentYearId" | "currentYearTitle">>
+  data: Partial<Pick<UserProfile, "name" | "mobile">>
 ): Promise<void> {
-  await setDoc(doc(db, usersCollectionName, uid), data, { merge: true });
+  // The DB column is "phone", not "mobile". Translate here so every
+  // screen can keep using the friendlier `mobile` name without knowing
+  // about the DB's naming.
+  const { mobile, ...rest } = data;
+  await setUserDoc(uid, {
+    ...rest,
+    ...(mobile !== undefined ? { phone: mobile } : {}),
+  });
+}
+
+// Permanently deletes the signed-in student's account (Play Store account
+// deletion requirement). The anon key used on the client can never delete
+// an auth.users row itself, so this calls a Supabase Edge Function
+// ("delete-account") that runs with the service-role key server-side to:
+//   1. delete the row from "profiles" (and any owned data via FK cascade
+//      / RLS-safe cleanup on the server), then
+//   2. delete the corresponding auth.users row via supabase.auth.admin.
+// The client only signs the local session out after the server confirms
+// success, so a failed/partial deletion never leaves the user stuck
+// logged-out with data still on the server.
+export async function deleteAccount(): Promise<void> {
+  const { error } = await supabase.functions.invoke("delete-account");
+
+  if (error) {
+    throw new Error(error.message || "Failed to delete account. Please try again.");
+  }
+
+  await supabase.auth.signOut();
 }

@@ -3,6 +3,7 @@ import { Animated, StyleSheet, View, ViewStyle } from "react-native";
 
 import { COLORS } from "../theme/colors";
 import { RADIUS } from "../theme/radius";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   width?: number | `${number}%`;
@@ -93,7 +94,7 @@ export function SkeletonStrip({ count = 3 }: { count?: number }) {
 
 const styles = StyleSheet.create({
   row: {
-    marginBottom: 8,
+    marginBottom: SPACING.lg,
   },
   card: {
     flexDirection: "row",
@@ -102,10 +103,11 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
-    padding: 15,
+    padding: SPACING.md,
     marginBottom: 12,
   },
   stripRow: {
     flexDirection: "row",
+    marginBottom: SPACING.lg,
   },
 });

@@ -1,21 +1,46 @@
 import React, { useEffect } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { COLORS } from "../../theme/colors";
+import { SPACING } from "../../theme/spacing";
+import { supabase } from "../../config/supabase";
 
+// BUG FIX ("app logs the student out on its own"): this screen used to
+// navigate straight to "Login" after a fixed 2s delay, no matter what -
+// it never once checked whether a session was already saved on the
+// device. That meant a student who never tapped Logout still landed on
+// the Login screen every single time they reopened the app (killed the
+// app, restarted their phone, etc.), which looks and feels exactly like
+// being logged out even though their session/refresh_token was still
+// valid and sitting in secure storage the whole time.
+//
+// Fix: actually check for a persisted session (getSession() reads it
+// from secureSessionStorage and transparently refreshes it if it's
+// stale but the refresh_token is still valid) and route based on that -
+// only send them to Login if there's genuinely no valid session.
 export default function SplashScreen({ navigation }: any) {
   useEffect(() => {
-    const timer = setTimeout(() => {
-      navigation.replace("Login");
-    }, 2000);
+    let isMounted = true;
 
-    return () => clearTimeout(timer);
+    async function decideDestination() {
+      const minSplashTime = new Promise((resolve) => setTimeout(resolve, 1200));
+      const [{ data }] = await Promise.all([supabase.auth.getSession(), minSplashTime]);
+
+      if (!isMounted) return;
+      navigation.replace(data.session ? "Home" : "Login");
+    }
+
+    decideDestination();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   return (
     <View style={styles.container}>
       <Text style={styles.logo}>🌿</Text>
 
-      <Text style={styles.title}>AyurPulse</Text>
+      <Text style={styles.title}>MedVeda</Text>
 
       <Text style={styles.subtitle}>
         Learn Ayurveda{"\n"}Anytime, Anywhere
@@ -36,7 +61,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.background,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: SPACING.lg,
   },
 
   logo: {
@@ -47,13 +72,13 @@ const styles = StyleSheet.create({
     fontSize: 34,
     fontWeight: "bold",
     color: COLORS.text,
-    marginTop: 15,
+    marginTop: SPACING.md,
   },
 
   subtitle: {
     fontSize: 18,
     color: COLORS.subtitle,
-    marginTop: 10,
+    marginTop: SPACING.sm,
     textAlign: "center",
   },
 });

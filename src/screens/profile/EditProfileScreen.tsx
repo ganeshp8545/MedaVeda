@@ -9,24 +9,24 @@ import {
   ActivityIndicator,
 } from "react-native";
 
-import { updateProfile } from "firebase/auth";
 import { useNavigation } from "@react-navigation/native";
 
-import { auth } from "../../config/firebase";
+import { supabase } from "../../config/supabase";
+import { getCurrentUser } from "../../services/authState";
 import { fetchUserProfile, updateUserProfile } from "../../services/usersService";
 
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { SPACING } from "../../theme/spacing";
 
 export default function EditProfileScreen() {
   const navigation = useNavigation<any>();
 
-  const user = auth.currentUser;
+  const user = getCurrentUser();
 
-  const [name, setName] = useState(user?.displayName || "");
+  const [name, setName] = useState(user?.user_metadata?.name || "");
   const [mobile, setMobile] = useState("");
-  const [college, setCollege] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -36,12 +36,11 @@ export default function EditProfileScreen() {
       return;
     }
 
-    fetchUserProfile(user.uid)
+    fetchUserProfile(user.id)
       .then((profile) => {
         if (profile) {
           if (profile.name) setName(profile.name);
           if (profile.mobile) setMobile(profile.mobile);
-          if (profile.college) setCollege(profile.college);
         }
       })
       .catch((err) => console.error("Failed to load profile:", err))
@@ -54,14 +53,13 @@ export default function EditProfileScreen() {
     try {
       setSaving(true);
 
-      await updateProfile(user, {
-        displayName: name,
+      await supabase.auth.updateUser({
+        data: { name },
       });
 
-      await updateUserProfile(user.uid, {
+      await updateUserProfile(user.id, {
         name,
         mobile: mobile || undefined,
-        college: college || undefined,
       });
 
       Alert.alert("Success", "Profile updated successfully.");
@@ -103,14 +101,6 @@ export default function EditProfileScreen() {
         keyboardType="phone-pad"
       />
 
-      <TextInput
-        style={styles.input}
-        placeholder="College"
-        placeholderTextColor={COLORS.subtitle}
-        value={college}
-        onChangeText={setCollege}
-      />
-
       <TouchableOpacity
         style={[styles.button, saving && styles.buttonDisabled]}
         onPress={handleSave}
@@ -132,7 +122,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    padding: 20,
+    padding: SPACING.lg,
     justifyContent: "center",
   },
 
@@ -145,7 +135,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "bold",
     color: COLORS.text,
-    marginBottom: 30,
+    marginBottom: SPACING.xl,
     textAlign: "center",
   },
 
@@ -155,7 +145,7 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     padding: 16,
     fontSize: 18,
-    marginBottom: 20,
+    marginBottom: SPACING.lg,
     borderWidth: 1,
     borderColor: COLORS.border,
   },

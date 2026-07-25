@@ -9,6 +9,7 @@ import {
 import { COLORS } from "../theme/colors";
 import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   icon: string;
@@ -63,7 +64,7 @@ const styles = StyleSheet.create({
 
   icon: {
     fontSize: 26,
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
 
   title: {

@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
+  ActivityIndicator,
 } from "react-native";
 
 import EmptyState from "../../components/EmptyState";
@@ -17,31 +18,57 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 
 import OptionCard from "../../components/OptionCard";
 import ProgressBar from "../../components/ProgressBar";
-import UnlockOptionsPanel from "../../components/UnlockOptionsPanel";
 
-import { auth, db } from "../../config/firebase";
+import { getCurrentUser } from "../../services/authState";
 import { QuizTest } from "../../services/quizService";
-
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { recordQuizAttempt } from "../../services/quizAttempts";
+import { loadOfflineQuiz } from "../../utils/downloadManager";
+import SuccessBurst from "../../components/motion/SuccessBurst";
 
 const QUESTION_TIME_SECONDS = 30;
 
 // Plays a single Test's questions (20 MCQs). Access has already been
-// decided one screen back (TestListScreen), which only lets you navigate
-// here for a Test you're actually allowed to play - either the free
-// preview Test, or any Test in an unlocked chapter.
+// MedVeda 2.0: Quiz Tests are always free - plays whatever Test it's
+// given, no purchase/lock checks anywhere in this flow.
+//
+// OFFLINE MODE: this screen now has two entry points -
+//   1. Normal: navigated here with `test` already in route.params (from
+//      TestListScreen, which already had the full data in memory).
+//   2. Offline: navigated here from DownloadsScreen with only
+//      `offlineFileUri` + `quizId` - the JSON is read off-device, no
+//      network involved at all.
+// Either way, once `test` is resolved the rest of this screen behaves
+// identically - and score submission always goes through the local-first
+// recordQuizAttempt (see below) so finishing a test never fails for lack
+// of signal, online or off.
 export default function QuizScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
 
-  const {
-    chapterId,
-    chapterTitle,
-    subjectId,
-    yearId,
-    test,
-    hasMoreLockedTests,
-  } = route.params ?? {};
+  const { subjectId, subjectTitle, offlineFileUri } = route.params ?? {};
+
+  const [test, setTest] = useState<QuizTest | undefined>(route.params?.test);
+  const [loadingOffline, setLoadingOffline] = useState(!route.params?.test && !!offlineFileUri);
+
+  useEffect(() => {
+    if (test || !offlineFileUri) return;
+    let isMounted = true;
+
+    loadOfflineQuiz<QuizTest>(offlineFileUri)
+      .then((data) => {
+        if (isMounted) setTest(data);
+      })
+      .catch((err) => {
+        console.error("Failed to load offline quiz:", err);
+      })
+      .finally(() => {
+        if (isMounted) setLoadingOffline(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [offlineFileUri, test]);
 
   const questions = (test as QuizTest | undefined)?.questions ?? [];
 
@@ -64,10 +91,18 @@ export default function QuizScreen() {
   const [finished, setFinished] = useState(false);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_SECONDS);
 
+  if (loadingOffline) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={COLORS.accent} />
+      </View>
+    );
+  }
+
   if (!test || questions.length === 0) {
     return (
       <View style={styles.container}>
-        <Text style={styles.title}>{chapterTitle ?? "Quiz"}</Text>
+        <Text style={styles.title}>{subjectTitle ?? "Quiz"}</Text>
         <EmptyState title="This test couldn't be opened. Please go back and try again." />
         <TouchableOpacity
           activeOpacity={0.8}
@@ -88,17 +123,21 @@ export default function QuizScreen() {
 
   const saveScore = async () => {
     try {
-      await addDoc(collection(db, "quizScores"), {
-        userId: auth.currentUser?.uid,
-        email: auth.currentUser?.email,
-        chapterId,
-        chapterTitle,
-        testId: test.id,
-        testTitle: test.title,
+      const user = getCurrentUser();
+
+      // Local-first: this always succeeds instantly, even with zero
+      // signal - syncEngine drains it to Supabase's quiz_scores table
+      // the moment connectivity returns (see services/quizAttempts.ts).
+      recordQuizAttempt({
+        quizId: test.id,
+        quizTitle: test.title,
+        subjectId,
+        subjectTitle,
+        userId: user?.id,
+        userEmail: user?.email,
         score,
-        total: questions.length,
-        percentage: Math.round((score / questions.length) * 100),
-        createdAt: serverTimestamp(),
+        totalQuestions: questions.length,
+        answers,
       });
     } catch (error) {
       console.log(error);
@@ -177,6 +216,7 @@ export default function QuizScreen() {
     return (
       <View style={styles.center}>
         <View style={styles.resultCard}>
+          {passed && <SuccessBurst play={finished && passed} />}
           <Text style={styles.resultEmoji}>{passed ? "🏆" : "📚"}</Text>
 
           <Text style={styles.finish}>
@@ -197,25 +237,6 @@ export default function QuizScreen() {
           >
             <Text style={styles.statusText}>{passed ? "PASS" : "FAIL"}</Text>
           </View>
-
-          {hasMoreLockedTests && (
-            <>
-              <View style={styles.lockedBanner}>
-                <Text style={styles.lockedBannerText}>
-                  🔒 More tests available - purchase this chapter to unlock
-                  the full quiz.
-                </Text>
-              </View>
-
-              <View style={{ width: "100%" }}>
-                <UnlockOptionsPanel
-                  chapterId={chapterId}
-                  subjectId={subjectId}
-                  yearId={yearId}
-                />
-              </View>
-            </>
-          )}
 
           <TouchableOpacity
             activeOpacity={0.8}
@@ -245,7 +266,7 @@ export default function QuizScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{chapterTitle}</Text>
+      <Text style={styles.title}>{subjectTitle}</Text>
       <Text style={styles.subtitle}>{test.title}</Text>
 
       <Text style={styles.progressTitle}>Quiz Progress</Text>
@@ -322,19 +343,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     marginBottom: SPACING.sm,
   },
-  lockedBanner: {
-    marginTop: SPACING.md,
-    padding: SPACING.md,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.surfaceMuted,
-    borderWidth: 1,
-    borderColor: COLORS.border,
-  },
-  lockedBannerText: {
-    fontSize: FONT.small,
-    color: COLORS.subtitle,
-    textAlign: "center",
-  },
   resultCard: {
     width: "100%",
     backgroundColor: COLORS.card,
@@ -352,7 +360,7 @@ const styles = StyleSheet.create({
   resultEmoji: { fontSize: 60, marginBottom: SPACING.md },
   statusBadge: {
     marginTop: SPACING.md,
-    paddingHorizontal: 20,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: 8,
     borderRadius: 30,
   },

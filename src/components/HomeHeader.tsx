@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -9,40 +9,35 @@ import {
 } from "react-native";
 
 import { useNavigation } from "@react-navigation/native";
-import { auth } from "../config/firebase";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "../theme/colors";
 import { FONT } from "../theme/fonts";
 import { SPACING } from "../theme/spacing";
-import { SHADOW } from "../theme/shadows";
 import GradientBackground from "./GradientBackground";
+import NotificationBell from "./NotificationBell";
+import SideDrawer from "./SideDrawer";
 
-export default function HomeHeader() {
+type Props = {
+  unreadNotificationCount?: number;
+};
+
+// Redesigned per the latest layout request:
+//   - Left: a 3-line (hamburger) icon that opens the side drawer menu,
+//     followed by the app name - no more Settings/Profile icon pair, no
+//     greeting message, no email address.
+//   - Right: a search icon (opens the Search screen) sitting right next
+//     to the notification bell - the search bar row that used to live
+//     below this row is gone.
+export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
+  const [drawerVisible, setDrawerVisible] = useState(false);
 
-  const hour = new Date().getHours();
-
-  let greeting = "Good Morning";
-  let emoji = "☀️";
-
-  if (hour >= 12 && hour < 17) {
-    greeting = "Good Afternoon";
-    emoji = "🌤️";
-  } else if (hour >= 17) {
-    greeting = "Good Evening";
-    emoji = "🌙";
-  }
-
-  const email = auth.currentUser?.email ?? "";
-  const initial = email ? email[0].toUpperCase() : "?";
-
-  // Entrance: header content eases up + fades in on mount.
+  // Entrance: header content eases up + fades in on mount - kept from
+  // the previous header for a consistent first-load feel.
   const opacity = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(10)).current;
-
-  // Signature flourish: a slow, subtle "breathing" glow on the avatar -
-  // the one continuous animation on this screen, kept gentle on purpose.
-  const glow = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     Animated.parallel([
@@ -59,28 +54,7 @@ export default function HomeHeader() {
         useNativeDriver: true,
       }),
     ]).start();
-
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(glow, {
-          toValue: 1,
-          duration: 1800,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-        Animated.timing(glow, {
-          toValue: 0,
-          duration: 1800,
-          easing: Easing.inOut(Easing.sin),
-          useNativeDriver: true,
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [opacity, translateY, glow]);
-
-  const avatarScale = glow.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
+  }, [opacity, translateY]);
 
   return (
     <View style={styles.header}>
@@ -90,46 +64,55 @@ export default function HomeHeader() {
       />
 
       <Animated.View
-        style={[styles.content, { opacity, transform: [{ translateY }] }]}
+        style={[
+          styles.content,
+          {
+            paddingTop: insets.top + 12,
+            opacity,
+            transform: [{ translateY }],
+          },
+        ]}
       >
-        <View style={styles.left}>
-          <Text style={styles.brand}>AYURPULSE</Text>
 
-          <Text style={styles.greeting}>
-            {greeting} {emoji}
-          </Text>
-
-          <Text style={styles.email} numberOfLines={1}>
-            {email}
-          </Text>
-        </View>
-
-        <View style={styles.actions}>
-          <TouchableOpacity
-            onPress={() => navigation.navigate("Profile")}
-            activeOpacity={0.8}
-          >
-            <Animated.View
-              style={[
-                styles.iconButton,
-                styles.avatarGlow,
-                { transform: [{ scale: avatarScale }] },
-              ]}
+        <View style={styles.topRow}>
+          <View style={styles.left}>
+            <TouchableOpacity
+              style={styles.menuButton}
+              onPress={() => setDrawerVisible(true)}
+              activeOpacity={0.8}
             >
-              <Text style={styles.avatarText}>{initial}</Text>
-              <View style={styles.avatarSheen} pointerEvents="none" />
-            </Animated.View>
-          </TouchableOpacity>
+              <Text style={styles.menuIcon}>☰</Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.iconButton, styles.iconButtonGhost]}
-            onPress={() => navigation.navigate("Settings")}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.icon}>⚙️</Text>
-          </TouchableOpacity>
+            <Text style={styles.brand}>MedVeda</Text>
+          </View>
+
+          <View style={styles.right}>
+            <TouchableOpacity
+              style={styles.searchButton}
+              onPress={() => navigation.navigate("Search")}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.searchIcon}>🔍</Text>
+            </TouchableOpacity>
+
+            <NotificationBell
+              count={unreadNotificationCount}
+              onPress={() => navigation.navigate("Notifications")}
+            />
+
+            <TouchableOpacity
+              style={styles.settingsButton}
+              onPress={() => navigation.navigate("Settings")}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.settingsIcon}>⚙️</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
+
+      <SideDrawer visible={drawerVisible} onClose={() => setDrawerVisible(false)} />
     </View>
   );
 }
@@ -142,81 +125,74 @@ const styles = StyleSheet.create({
   },
 
   content: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    paddingTop: 28,
-    paddingBottom: SPACING.md,
+    paddingBottom: SPACING.lg,
     paddingHorizontal: SPACING.lg,
   },
 
+  topRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
   left: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
-    paddingRight: SPACING.md,
   },
 
-  brand: {
-    fontSize: FONT.heading,
-    fontWeight: "700",
-    letterSpacing: 2,
-    color: COLORS.accentLight,
-    marginBottom: 6,
+  right: {
+    flexDirection: "row",
+    alignItems: "center",
   },
 
-  greeting: {
-    fontSize: FONT.body,
-    fontWeight: "700",
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.sm,
+  },
+
+  menuIcon: {
+    fontSize: 18,
     color: COLORS.white,
   },
 
-  email: {
-    fontSize: FONT.small,
-    color: "rgba(255,255,255,0.65)",
-    marginTop: 4,
+  brand: {
+    fontSize: FONT.subHeading,
+    fontWeight: "700",
+    letterSpacing: 1,
+    color: COLORS.white,
   },
 
-  actions: {
-    flexDirection: "row",
-  },
-
-  iconButton: {
+  searchButton: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: COLORS.accent,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: SPACING.sm,
+  },
+
+  searchIcon: {
+    fontSize: 18,
+  },
+
+  settingsButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "rgba(255,255,255,0.12)",
     justifyContent: "center",
     alignItems: "center",
     marginLeft: SPACING.sm,
   },
 
-  avatarGlow: {
-    ...SHADOW.glow,
-  },
-
-  // Kept fully inside the circle's bounds (rather than clipped via
-  // overflow:hidden) so it never fights with the glow shadow on the
-  // same view - overflow:hidden would silently cut the shadow off.
-  avatarSheen: {
-    position: "absolute",
-    top: 5,
-    left: 7,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: "rgba(255,255,255,0.3)",
-  },
-
-  iconButtonGhost: {
-    backgroundColor: "rgba(255,255,255,0.12)",
-  },
-
-  avatarText: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: COLORS.primaryDark,
-  },
-
-  icon: {
+  settingsIcon: {
     fontSize: 18,
   },
 });

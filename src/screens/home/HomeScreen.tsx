@@ -7,23 +7,25 @@ import {
   TouchableOpacity,
   StyleSheet,
   FlatList,
+  ActivityIndicator,
 } from "react-native";
 
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import { fetchYears, Year } from "../../services/yearsService";
+import { fetchProductsByYear, Product } from "../../services/productsService";
 import { fetchMyPurchases, MyPurchase } from "../../services/purchasesService";
-import { fetchNotifications, AppNotification } from "../../services/notificationsService";
+import { fetchNotifications, getUnreadNotificationCount, AppNotification } from "../../services/notificationsService";
 import { fetchLatestChapters, fetchRecommendedChapters, Chapter } from "../../services/chaptersService";
 import { getLastViewedChapter, getRecentChapters, RecentChapterEntry } from "../../utils/recentActivity";
 
 import useQuizStats from "../../hooks/useQuizStats";
-import { auth } from "../../config/firebase";
+import usePurchases from "../../hooks/usePurchases";
+import usePurchase from "../../hooks/usePurchase";
+import { getCurrentUser, getCurrentUserDisplayName } from "../../services/authState";
 
 import YearCard from "../../components/YearCard";
 import HomeHeader from "../../components/HomeHeader";
-import FloatingSearchBar from "../../components/FloatingSearchBar";
-import GreetingBanner from "../../components/GreetingBanner";
 import StudentProfileCard from "../../components/StudentProfileCard";
 import ContinueLearningCard from "../../components/ContinueLearningCard";
 import DailyQuoteCard from "../../components/DailyQuoteCard";
@@ -33,6 +35,7 @@ import MiniChapterCard from "../../components/MiniChapterCard";
 import BottomNav from "../../components/BottomNav";
 import StaggerItem from "../../components/StaggerItem";
 import ProductCard from "../../components/ProductCard";
+import ProductPosterCard from "../../components/ProductPosterCard";
 import FeatureCard from "../../components/FeatureCard";
 import { SkeletonBlock, SkeletonCardRow, SkeletonStrip } from "../../components/Skeleton";
 
@@ -55,11 +58,25 @@ export default function HomeScreen() {
   const [yearsLoading, setYearsLoading] = useState(true);
   const [yearsError, setYearsError] = useState<string | null>(null);
 
+  // "Buy Notes" section: one Full-Year Notes Product per Academic Year
+  // (the same "year" scope Product created in the admin panel's Products
+  // page), shown right on the Home screen like Academic Years is. This is
+  // the quick "buy the whole year" shortcut - the full Year -> Subject ->
+  // Chapter drill-down for granular buying lives on the Store screen.
+  const [yearProducts, setYearProducts] = useState<
+    { year: Year; product: Product | null }[]
+  >([]);
+  const [yearProductsLoading, setYearProductsLoading] = useState(true);
+
+  const { isOwned, refresh: refreshPurchases2 } = usePurchases();
+  const { buy, purchasing } = usePurchase();
+
   const [purchases, setPurchases] = useState<MyPurchase[]>([]);
   const [purchasesLoading, setPurchasesLoading] = useState(true);
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [notificationsLoading, setNotificationsLoading] = useState(true);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   const [latestChapters, setLatestChapters] = useState<Chapter[]>([]);
   const [latestLoading, setLatestLoading] = useState(true);
@@ -71,8 +88,8 @@ export default function HomeScreen() {
   const [recentChapters, setRecentChapters] = useState<RecentChapterEntry[]>([]);
   const [recentLoading, setRecentLoading] = useState(true);
 
-  const email = auth.currentUser?.email ?? "";
-  const displayName = auth.currentUser?.displayName || (email ? email.split("@")[0] : "Student");
+  const email = getCurrentUser()?.email ?? "";
+  const displayName = getCurrentUserDisplayName() || (email ? email.split("@")[0] : "Student");
 
   const loadYears = useCallback(() => {
     setYearsLoading(true);
@@ -90,6 +107,23 @@ export default function HomeScreen() {
       .finally(() => setYearsLoading(false));
   }, []);
 
+  const loadYearProducts = useCallback(() => {
+    setYearProductsLoading(true);
+    return fetchYears()
+      .then(async (yrs) => {
+        const sorted = [...yrs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+        const results = await Promise.all(
+          sorted.map(async (year) => {
+            const products = await fetchProductsByYear(year.id);
+            return { year, product: products[0] ?? null };
+          })
+        );
+        setYearProducts(results);
+      })
+      .catch((err) => console.error("Failed to load year notes products:", err))
+      .finally(() => setYearProductsLoading(false));
+  }, []);
+
   const loadPurchases = useCallback(() => {
     setPurchasesLoading(true);
     return fetchMyPurchases()
@@ -103,6 +137,12 @@ export default function HomeScreen() {
     return fetchNotifications()
       .then(setNotifications)
       .finally(() => setNotificationsLoading(false));
+  }, []);
+
+  const loadUnreadNotificationCount = useCallback(() => {
+    return getUnreadNotificationCount()
+      .then(setUnreadNotificationCount)
+      .catch((err) => console.error("Failed to load unread notification count:", err));
   }, []);
 
   const loadLatest = useCallback(() => {
@@ -133,8 +173,10 @@ export default function HomeScreen() {
 
   useEffect(() => {
     loadYears();
+    loadYearProducts();
     loadPurchases();
     loadNotifications();
+    loadUnreadNotificationCount();
     loadLatest();
   }, []);
 
@@ -149,20 +191,24 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       loadRecentActivity();
-    }, [loadRecentActivity])
+      refreshPurchases2();
+      loadUnreadNotificationCount();
+    }, [loadRecentActivity, refreshPurchases2, loadUnreadNotificationCount])
   );
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     Promise.all([
       loadYears(),
+      loadYearProducts(),
       loadPurchases(),
       loadNotifications(),
+      loadUnreadNotificationCount(),
       loadLatest(),
       loadRecommended(),
       loadRecentActivity(),
     ]).finally(() => setRefreshing(false));
-  }, [loadYears, loadPurchases, loadNotifications, loadLatest, loadRecommended, loadRecentActivity]);
+  }, [loadYears, loadYearProducts, loadPurchases, loadNotifications, loadUnreadNotificationCount, loadLatest, loadRecommended, loadRecentActivity]);
 
   const goToChapter = (c: { id: string; title: string; subjectId: string; subjectTitle: string; yearId: string; yearTitle: string }) => {
     navigation.navigate("ChapterDetails", {
@@ -179,7 +225,7 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
-      <HomeHeader />
+      <HomeHeader unreadNotificationCount={unreadNotificationCount} />
 
       <ScrollView
         style={styles.body}
@@ -189,12 +235,6 @@ export default function HomeScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={COLORS.accent} />
         }
       >
-        <View style={styles.searchWrap}>
-          <FloatingSearchBar />
-        </View>
-
-        <GreetingBanner name={displayName} />
-
         {statsLoading || purchasesLoading ? (
           <SkeletonBlock height={92} borderRadius={RADIUS.lg} style={{ marginBottom: SPACING.lg }} />
         ) : (
@@ -268,6 +308,47 @@ export default function HomeScreen() {
           color={COLORS.warning}
           onPress={() => navigation.navigate("Years", { mode: "quiz" })}
         />
+
+        <SectionHeader title="Buy Notes" onSeeAll={() => navigation.navigate("Store")} />
+        {yearProductsLoading ? (
+          <SkeletonCardRow count={3} />
+        ) : yearProducts.filter((yp) => yp.product !== null).length === 0 ? (
+          <Text style={styles.emptyText}>
+            No year-wise Notes packages available yet.
+          </Text>
+        ) : (
+          <FlatList
+            data={yearProducts.filter((yp) => yp.product !== null)}
+            keyExtractor={(yp) => yp.year.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ marginBottom: SPACING.lg }}
+            renderItem={({ item: yp, index }) => {
+              const product = yp.product as Product;
+              const owned = isOwned(product);
+
+              return (
+                <StaggerItem index={index}>
+                  <ProductPosterCard
+                    title={yp.year.title}
+                    caption="Full Year Notes"
+                    price={product.price}
+                    originalPrice={product.originalPrice}
+                    owned={owned}
+                    colorIndex={index}
+                    icon="📚"
+                    onPress={() => {
+                      if (owned) navigation.navigate("MyPurchases");
+                      else navigation.navigate("Subjects", { yearId: yp.year.id, yearTitle: yp.year.title });
+                    }}
+                    onBuyPress={!owned ? () => buy(product) : undefined}
+                    buying={purchasing}
+                  />
+                </StaggerItem>
+              );
+            }}
+          />
+        )}
 
         <SectionHeader title="Latest Updates" onSeeAll={() => navigation.navigate("Search")} />
         {latestLoading ? (
@@ -349,14 +430,14 @@ export default function HomeScreen() {
           </>
         )}
 
-        <SectionHeader title="Purchased Packages" onSeeAll={() => navigation.navigate("Store")} />
+        <SectionHeader title="Purchased Packages" onSeeAll={() => navigation.navigate("MyPurchases")} />
         {purchasesLoading ? (
           <SkeletonCardRow count={2} />
         ) : purchases.length === 0 ? (
           <TouchableOpacity style={styles.storeBanner} activeOpacity={0.85} onPress={() => navigation.navigate("Store")}>
             <Text style={styles.storeBannerIcon}>🛍️</Text>
             <View style={{ flex: 1 }}>
-              <Text style={styles.storeBannerTitle}>Browse Store</Text>
+              <Text style={styles.storeBannerTitle}>Browse Notes</Text>
               <Text style={styles.storeBannerSubtitle}>Chapters, Subject & Year Packs, Bundles</Text>
             </View>
             <Text style={styles.storeBannerChevron}>›</Text>
@@ -369,7 +450,7 @@ export default function HomeScreen() {
               scope={p.scope}
               price={0}
               owned
-              onPress={() => navigation.navigate("Store")}
+              onPress={() => navigation.navigate("MyPurchases")}
             />
           ))
         )}
@@ -387,6 +468,12 @@ export default function HomeScreen() {
       </ScrollView>
 
       <BottomNav active="Home" />
+
+      {purchasing && (
+        <View style={styles.overlay}>
+          <ActivityIndicator size="large" color={COLORS.white} />
+        </View>
+      )}
     </View>
   );
 }
@@ -400,11 +487,7 @@ const styles = StyleSheet.create({
   body: {
     flex: 1,
     paddingHorizontal: SPACING.lg,
-  },
-
-  searchWrap: {
-    marginTop: SPACING.md,
-    marginBottom: SPACING.lg,
+    paddingTop: SPACING.md,
   },
 
   yearsList: {
@@ -451,5 +534,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: SPACING.lg,
     lineHeight: 22,
+  },
+
+  overlay: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    alignItems: "center",
+    justifyContent: "center",
   },
 });

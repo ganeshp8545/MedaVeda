@@ -9,7 +9,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // If it isn't installed yet, run:
 //   npx expo install @react-native-async-storage/async-storage
 
-const STORAGE_KEY = "ayurpulse:recentChapters";
+const STORAGE_KEY = "medveda:recentChapters";
 const MAX_ENTRIES = 10;
 
 export interface RecentChapterEntry {

@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     backgroundColor: `${COLORS.accent}26`,
     borderRadius: 20,
-    paddingHorizontal: 10,
+    paddingHorizontal: SPACING.sm,
     paddingVertical: 3,
     marginBottom: 6,
   },

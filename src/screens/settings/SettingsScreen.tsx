@@ -1,7 +1,5 @@
 import React, { useState } from "react";
 import {
-  View,
-  Text,
   StyleSheet,
   ScrollView,
   Alert,
@@ -15,22 +13,23 @@ import SettingsItem from "../../components/SettingsItem";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
 
 import { COLORS } from "../../theme/colors";
-import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 
-import { signOut } from "firebase/auth";
-import { auth } from "../../config/firebase";
+import { supabase } from "../../config/supabase";
+import { deleteAccount } from "../../services/usersService";
 
 
 export default function SettingsScreen() {
   const navigation = useNavigation<any>();
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
+  const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const handleShare = async () => {
     try {
       await Share.share({
         message:
-          "Download AyurPulse - The Ultimate BAMS Study App.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse",
+          "Download MedVeda - The Ultimate BAMS Study App.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse",
       });
     } catch (error) {
       console.error(error);
@@ -39,7 +38,7 @@ export default function SettingsScreen() {
 
   const handleContact = async () => {
     const url =
-      "mailto:support@ayurpulse.in?subject=AyurPulse Support";
+      "mailto:medvedaforu@gmail.com?subject=MedVeda Support";
 
     const supported = await Linking.canOpenURL(url);
 
@@ -71,7 +70,7 @@ export default function SettingsScreen() {
     setLogoutDialogVisible(false);
 
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       // Previously missing: without this, the user was left on this
       // screen after signing out (no global auth-state listener exists
       // to redirect them), able to keep tapping into screens with no
@@ -87,29 +86,44 @@ export default function SettingsScreen() {
     }
   };
 
+  const confirmDeleteAccount = async () => {
+    if (deleting) return;
+    setDeleting(true);
+
+    try {
+      await deleteAccount();
+      setDeleteDialogVisible(false);
+      // No global auth-state listener redirects on sign-out (same reason
+      // Logout above does it explicitly), so navigate away manually.
+      navigation.replace("Login");
+    } catch (error: any) {
+      console.error("Delete account failed:", error);
+      setDeleteDialogVisible(false);
+
+      Alert.alert(
+        "Delete Account Failed",
+        error?.message || "Something went wrong. Please try again, or contact support."
+      );
+    } finally {
+      setDeleting(false);
+    }
+  };
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      <Text style={styles.title}>
-        ⚙️ Settings
-      </Text>
-
-      <Text style={styles.subtitle}>
-        Manage your account and application settings.
-      </Text>
-
       <SettingsItem
-        icon="👤"
-        title="My Profile"
-        onPress={() => navigation.navigate("Profile")}
+        icon="⏰"
+        title="Study Reminder"
+        onPress={() => navigation.navigate("StudyReminder")}
       />
 
       <SettingsItem
         icon="🛍️"
-        title="Store"
+        title="Notes"
         onPress={() => navigation.navigate("Store")}
       />
 
@@ -133,7 +147,7 @@ export default function SettingsScreen() {
 
       <SettingsItem
         icon="ℹ️"
-        title="About AyurPulse"
+        title="About MedVeda"
         onPress={() => navigation.navigate("About")}
       />
 
@@ -155,6 +169,13 @@ export default function SettingsScreen() {
         onPress={() => setLogoutDialogVisible(true)}
       />
 
+      <SettingsItem
+        icon="🗑️"
+        title="Delete Account"
+        destructive
+        onPress={() => setDeleteDialogVisible(true)}
+      />
+
       <ConfirmationDialog
         visible={logoutDialogVisible}
         title="Logout"
@@ -163,6 +184,16 @@ export default function SettingsScreen() {
         destructive
         onConfirm={confirmLogout}
         onCancel={() => setLogoutDialogVisible(false)}
+      />
+
+      <ConfirmationDialog
+        visible={deleteDialogVisible}
+        title="Delete Account"
+        message="This will permanently delete your account, purchases, and all saved data. This action cannot be undone."
+        confirmLabel={deleting ? "Deleting…" : "Delete"}
+        destructive
+        onConfirm={confirmDeleteAccount}
+        onCancel={() => !deleting && setDeleteDialogVisible(false)}
       />
     </ScrollView>
   );
@@ -178,18 +209,5 @@ const styles = StyleSheet.create({
     padding: SPACING.lg,
     paddingTop: 60,
     paddingBottom: 40,
-  },
-
-  title: {
-    fontSize: FONT.title,
-    fontWeight: "bold",
-    color: COLORS.text,
-  },
-
-  subtitle: {
-    fontSize: FONT.body,
-    color: COLORS.subtitle,
-    marginTop: 6,
-    marginBottom: SPACING.xl,
   },
 });

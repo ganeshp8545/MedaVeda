@@ -3,6 +3,7 @@ import { View, Text, StyleSheet } from "react-native";
 
 import { COLORS } from "../theme/colors";
 import { SHADOW } from "../theme/shadows";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   name: string;
@@ -45,7 +46,7 @@ const styles = StyleSheet.create({
   },
 
   name: {
-    marginTop: 15,
+    marginTop: SPACING.md,
     fontSize: 24,
     fontWeight: "bold",
     color: COLORS.text,

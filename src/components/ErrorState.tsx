@@ -7,6 +7,7 @@ import {
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   message: string;
@@ -52,7 +53,7 @@ const styles = StyleSheet.create({
   },
 
   message: {
-    marginTop: 15,
+    marginTop: SPACING.md,
     fontSize: 18,
     color: COLORS.text,
     textAlign: "center",

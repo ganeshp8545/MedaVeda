@@ -15,13 +15,14 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import { loginSchema } from "../../validation/loginSchema";
 
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../config/firebase";
+import { supabase } from "../../config/supabase";
 import { createUserProfile, fetchUserProfile } from "../../services/usersService";
+import { logDebug, logError } from "../../utils/logger";
 
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { SPACING } from "../../theme/spacing";
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
@@ -42,36 +43,35 @@ export default function LoginScreen() {
 
   const onLogin = async (data: any) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+      if (error) throw error;
 
-      console.log("Login Success");
-      console.log(userCredential.user.email);
+      logDebug("Login success");
 
-      // Backfill a profile doc for accounts that predate this feature.
-      // Only creates one if it's genuinely missing - never overwrites an
-      // existing profile (e.g. a name the student already customized).
+      // Backfill a profile row for accounts that predate this feature.
+      // Normally the DB trigger (see schema.sql) already creates one on
+      // signup - this only kicks in for older/edge-case accounts. Never
+      // overwrites an existing profile (e.g. a name the student already
+      // customized).
       try {
-        const existingProfile = await fetchUserProfile(userCredential.user.uid);
+        const existingProfile = await fetchUserProfile(authData.user!.id);
         if (!existingProfile) {
-          await createUserProfile(userCredential.user.uid, {
-            name: userCredential.user.displayName || data.email.split("@")[0],
+          await createUserProfile(authData.user!.id, {
+            name: authData.user?.user_metadata?.name || data.email.split("@")[0],
             email: data.email,
           });
         }
       } catch (profileError) {
-        console.log("profile backfill failed:", profileError);
+        logDebug("profile backfill failed:", profileError);
       }
 
       navigation.replace("Home");
 
     } catch (error: any) {
-      console.log(error.code);
-      console.log(error.message);
-
+      logError("Login failed", error);
       Alert.alert("Login Failed", "Invalid email or password");
     }
   };
@@ -80,7 +80,7 @@ export default function LoginScreen() {
     <View style={styles.container}>
       <Text style={styles.logo}>🌿</Text>
 
-      <Text style={styles.title}>AyurPulse</Text>
+      <Text style={styles.title}>MedVeda</Text>
 
       <Text style={styles.subtitle}>
         Learn Ayurveda Anytime, Anywhere
@@ -197,13 +197,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.text,
     textAlign: "center",
-    marginTop: 10,
+    marginTop: SPACING.sm,
   },
 
   subtitle: {
     textAlign: "center",
     color: COLORS.subtitle,
-    marginTop: 10,
+    marginTop: SPACING.sm,
     marginBottom: 40,
   },
 
@@ -211,10 +211,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
-    padding: 15,
+    padding: SPACING.md,
     backgroundColor: COLORS.card,
     color: COLORS.text,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
 
   passwordContainer: {
@@ -223,26 +223,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
-    paddingHorizontal: 15,
+    paddingHorizontal: SPACING.md,
     backgroundColor: COLORS.card,
   },
 
   passwordInput: {
     flex: 1,
-    paddingVertical: 15,
+    paddingVertical: SPACING.md,
     color: COLORS.text,
   },
 
   error: {
     color: COLORS.error,
-    marginTop: 5,
-    marginBottom: 10,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
 
   forgot: {
     color: COLORS.accentLight,
     textAlign: "right",
-    marginTop: 15,
+    marginTop: SPACING.md,
     marginBottom: 25,
   },
 

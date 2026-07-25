@@ -16,12 +16,13 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import { forgotPasswordSchema } from "../../validation/forgotPasswordSchema";
 
-import { sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "../../config/firebase";
+import { supabase } from "../../config/supabase";
+import { logError } from "../../utils/logger";
 
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { SPACING } from "../../theme/spacing";
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation<any>();
@@ -47,32 +48,25 @@ export default function ForgotPasswordScreen() {
     setSending(true);
 
     try {
-      await sendPasswordResetEmail(auth, data.email);
+      // Supabase doesn't reveal whether the email is registered (it
+      // always resolves successfully for privacy), so no separate
+      // "user-not-found" branch is needed here.
+      const { error } = await supabase.auth.resetPasswordForEmail(data.email);
+      if (error) throw error;
+
       setSentEmail(data.email);
       setSent(true);
     } catch (error: any) {
-      console.log(error.code);
-      console.log(error.message);
+      logError("Forgot password failed", error);
 
-      // Firebase's "user-not-found" reveals whether an email is
-      // registered, which is an account-enumeration risk. Show the same
-      // success state for that case as for a real send, and only surface
-      // genuinely actionable errors (bad email format, rate limiting,
-      // network issues) to the user.
-      if (error.code === "auth/user-not-found") {
-        setSentEmail(data.email);
-        setSent(true);
-        return;
-      }
-
-      if (error.code === "auth/invalid-email") {
+      if (error.message?.includes("valid email")) {
         Alert.alert("Invalid Email", "Please enter a valid email address.");
-      } else if (error.code === "auth/too-many-requests") {
+      } else if (error.message?.includes("rate limit")) {
         Alert.alert(
           "Too Many Attempts",
           "You've requested this too many times. Please wait a while before trying again."
         );
-      } else if (error.code === "auth/network-request-failed") {
+      } else if (error.message?.includes("network")) {
         Alert.alert(
           "Network Error",
           "Could not reach the server. Check your internet connection and try again."
@@ -211,7 +205,7 @@ const styles = StyleSheet.create({
 
   successIcon: {
     alignSelf: "center",
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
 
   title: {
@@ -219,14 +213,14 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     color: COLORS.text,
     textAlign: "center",
-    marginTop: 10,
+    marginTop: SPACING.sm,
   },
 
   subtitle: {
     textAlign: "center",
     color: COLORS.subtitle,
-    marginTop: 10,
-    marginBottom: 30,
+    marginTop: SPACING.sm,
+    marginBottom: SPACING.xl,
     lineHeight: 20,
   },
 
@@ -234,23 +228,23 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
-    padding: 15,
+    padding: SPACING.md,
     backgroundColor: COLORS.card,
     color: COLORS.text,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
 
   error: {
     color: COLORS.error,
-    marginTop: 5,
-    marginBottom: 10,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
   },
 
   button: {
     backgroundColor: COLORS.accent,
     padding: 16,
     borderRadius: RADIUS.md,
-    marginTop: 10,
+    marginTop: SPACING.sm,
     ...SHADOW.glow,
   },
 
@@ -273,7 +267,7 @@ const styles = StyleSheet.create({
   },
 
   resend: {
-    marginTop: 20,
+    marginTop: SPACING.lg,
     textAlign: "center",
     color: COLORS.accentLight,
     fontSize: 15,

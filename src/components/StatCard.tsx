@@ -9,6 +9,7 @@ import { COLORS } from "../theme/colors";
 import { FONT } from "../theme/fonts";
 import { SHADOW } from "../theme/shadows";
 import { RADIUS } from "../theme/radius";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   title: string;
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
 
   badgeIcon: {

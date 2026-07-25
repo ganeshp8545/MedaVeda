@@ -4,6 +4,7 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
+  ActivityIndicator,
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
@@ -17,6 +18,18 @@ type Props = {
   onPress: () => void;
   locked?: boolean;
   free?: boolean;
+  // Roadmap change 8 - Offline/Downloads. All optional and default to
+  // "no download affordance at all", so every other NoteCard usage keeps
+  // working unchanged if it doesn't pass these.
+  downloaded?: boolean;
+  downloading?: boolean;
+  downloadProgress?: number; // 0-1, only meaningful while downloading
+  onDownloadPress?: () => void;
+  onRemoveDownloadPress?: () => void;
+  // True while a signed URL is being resolved for this note (see
+  // NotesScreen's resolvingNoteId) - shows a spinner instead of the icon
+  // and disables the card so a slow network doesn't look unresponsive.
+  opening?: boolean;
 };
 
 export default function NoteCard({
@@ -24,14 +37,28 @@ export default function NoteCard({
   onPress,
   locked = false,
   free = false,
+  downloaded = false,
+  downloading = false,
+  downloadProgress = 0,
+  onDownloadPress,
+  onRemoveDownloadPress,
+  opening = false,
 }: Props) {
+  // Locked notes can't be downloaded at all - purchase first.
+  const showDownloadAction = !locked && !!(onDownloadPress || onRemoveDownloadPress);
+
   return (
     <TouchableOpacity
       style={[styles.card, locked && styles.cardLocked]}
       onPress={onPress}
       activeOpacity={0.85}
+      disabled={opening}
     >
-      <Text style={styles.icon}>{locked ? "🔒" : free ? "🎁" : "📚"}</Text>
+      {opening ? (
+        <ActivityIndicator size="small" color={COLORS.accent} style={styles.icon} />
+      ) : (
+        <Text style={styles.icon}>{locked ? "🔒" : free ? "🎁" : "📚"}</Text>
+      )}
 
       <View style={styles.content}>
         <View style={styles.titleRow}>
@@ -48,11 +75,38 @@ export default function NoteCard({
         <Text style={styles.subtitle}>
           {locked
             ? "Premium - Purchase required to unlock"
+            : downloaded
+            ? "Downloaded - Available Offline"
             : free
             ? "Free Preview - Tap to Open PDF"
             : "Tap to Open PDF"}
         </Text>
       </View>
+
+      {showDownloadAction && (
+        <TouchableOpacity
+          style={styles.downloadButton}
+          activeOpacity={0.7}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          onPress={(e) => {
+            // Don't also trigger the card's own onPress (open PDF).
+            e.stopPropagation?.();
+            if (downloaded) {
+              onRemoveDownloadPress?.();
+            } else if (!downloading) {
+              onDownloadPress?.();
+            }
+          }}
+        >
+          {downloading ? (
+            <ActivityIndicator size="small" color={COLORS.accent} />
+          ) : (
+            <Text style={styles.downloadIcon}>
+              {downloaded ? "🗑️" : "⬇️"}
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
     </TouchableOpacity>
   );
 }
@@ -82,7 +136,7 @@ const styles = StyleSheet.create({
 
   icon: {
     fontSize: 30,
-    marginRight: 15,
+    marginRight: SPACING.md,
   },
 
   content: {
@@ -115,9 +169,23 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    marginTop: 5,
+    marginTop: SPACING.xs,
     color: COLORS.subtitle,
     fontSize: FONT.small,
+  },
+
+  downloadButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginLeft: SPACING.sm,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: COLORS.surfaceMuted,
+  },
+
+  downloadIcon: {
+    fontSize: 18,
   },
 
 });

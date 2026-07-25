@@ -49,31 +49,23 @@ export default function ChaptersScreen() {
     item.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  const MODE_SCREEN: Record<string, string> = {
-    notes: "Notes",
-    videos: "Videos",
-    quiz: "QuizTests",
-  };
-
   const MODE_LABEL: Record<string, string> = {
     notes: "📚 Notes",
-    videos: "🎥 Video Lectures",
-    quiz: "📝 MCQ Test",
   };
 
+  // Video/MCQ shortcuts never reach this screen anymore (they branch off
+  // at Subjects, straight to Videos/QuizTests) - this only ever handles
+  // the "notes" shortcut or general browsing (mode undefined).
   function openChapter(item: Chapter) {
-    const unlocked = isChapterOwned({ id: item.id, subjectId, yearId });
-
-    if (mode) {
-      // Direct shortcut from Home (Notes/Video/MCQ) - skip the
-      // ChapterDetails hub and go straight to the content, with the buy
-      // option now built into that screen itself for locked chapters.
-      navigation.navigate(MODE_SCREEN[mode], {
+    if (mode === "notes") {
+      navigation.navigate("Notes", {
         chapterId: item.id,
         chapterTitle: item.title,
         subjectId,
+        subjectTitle,
         yearId,
-        unlocked,
+        yearTitle,
+        unlocked: isChapterOwned({ id: item.id, subjectId, yearId }),
       });
       return;
     }

@@ -3,17 +3,22 @@ import {
   View,
   Text,
   FlatList,
+  TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  ScrollView,
 } from "react-native";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
-import ProductCard from "../../components/ProductCard";
+import ProductPosterCard from "../../components/ProductPosterCard";
+import SectionHeader from "../../components/SectionHeader";
 import EmptyState from "../../components/EmptyState";
-import FilterChip from "../../components/FilterChip";
+import BottomNav from "../../components/BottomNav";
 
-import { fetchAllProducts, Product } from "../../services/productsService";
+import {
+  fetchProductsByYear,
+  fetchProductsBySubject,
+  Product,
+} from "../../services/productsService";
 import { fetchYears, Year } from "../../services/yearsService";
 import { fetchSubjectsByYear, Subject } from "../../services/subjectsService";
 import usePurchases from "../../hooks/usePurchases";
@@ -22,68 +27,63 @@ import usePurchase from "../../hooks/usePurchase";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
+import { RADIUS } from "../../theme/radius";
 
-// A product "belongs to" a year if it's directly tagged with that year
-// (every scope except bundle carries yearId - confirmed against the admin
-// panel's ProductFormModal, which always sets yearId/yearTitle even for
-// chapter/subject-scoped products, to support this exact drill-down), or
-// for bundles, if that year is one of the bundled yearIds.
-function belongsToYear(product: Product, yearId: string): boolean {
-  if (product.scope === "bundle") return (product.yearIds ?? []).includes(yearId);
-  return product.yearId === yearId;
-}
+type YearBlock = {
+  year: Year;
+  yearProduct: Product | null;
+  subjects: Subject[];
+  subjectProducts: Record<string, Product | null>;
+};
 
-function belongsToSubject(product: Product, subjectId: string): boolean {
-  return product.subjectId === subjectId;
-}
-
-// General catalog of everything sellable: individual chapters, subject
-// packs, year packs, and multi-year bundles. For contextual buying (e.g.
-// "unlock just this chapter"), ChapterDetailsScreen already surfaces the
-// relevant options directly - this screen is for browsing/upselling
-// bigger packs from one place.
+// Store is grouped by Year - each Year gets its own horizontal row of
+// poster cards, one per Subject (with its own Notes price + owned state).
+// Tapping a Subject card drops into that Subject's Chapters, same place
+// SubjectsScreen sends you for browsing notes, so chapter-level buying
+// still works exactly as before. The Year's own "Full Year Notes" pack is
+// buyable from the pill next to the Year title.
 export default function StoreScreen() {
-  const [products, setProducts] = useState<Product[]>([]);
+  const navigation = useNavigation<any>();
+  const [blocks, setBlocks] = useState<YearBlock[]>([]);
   const [loading, setLoading] = useState(true);
-
-  const [years, setYears] = useState<Year[]>([]);
-  const [subjects, setSubjects] = useState<Subject[]>([]);
-  const [subjectsLoading, setSubjectsLoading] = useState(false);
-
-  const [selectedYearId, setSelectedYearId] = useState<string | null>(null);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
 
   const { isOwned, refresh: refreshPurchases } = usePurchases();
   const { buy, purchasing } = usePurchase();
 
   useEffect(() => {
-    fetchAllProducts()
-      .then(setProducts)
-      .catch((err) => console.error("Failed to load products:", err))
-      .finally(() => setLoading(false));
-
     fetchYears()
-      .then(setYears)
-      .catch((err) => console.error("Failed to load years:", err));
+      .then(async (allYears) => {
+        const sorted = [...allYears].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        const loaded = await Promise.all(
+          sorted.map(async (year) => {
+            const [yearProducts, subjects] = await Promise.all([
+              fetchProductsByYear(year.id),
+              fetchSubjectsByYear(year.id),
+            ]);
+
+            const subjectProductLists = await Promise.all(
+              subjects.map((s) => fetchProductsBySubject(s.id))
+            );
+            const subjectProducts: Record<string, Product | null> = {};
+            subjects.forEach((s, i) => {
+              subjectProducts[s.id] = subjectProductLists[i][0] ?? null;
+            });
+
+            return {
+              year,
+              yearProduct: yearProducts[0] ?? null,
+              subjects,
+              subjectProducts,
+            };
+          })
+        );
+
+        setBlocks(loaded);
+      })
+      .catch((err) => console.error("Failed to load Store:", err))
+      .finally(() => setLoading(false));
   }, []);
-
-  // Load the Subject row whenever a Year is picked; clear it (and any
-  // previously selected Subject) when "All Years" is picked again.
-  useEffect(() => {
-    if (!selectedYearId) {
-      setSubjects([]);
-      setSelectedSubjectId(null);
-      return;
-    }
-
-    setSelectedSubjectId(null);
-    setSubjectsLoading(true);
-
-    fetchSubjectsByYear(selectedYearId)
-      .then(setSubjects)
-      .catch((err) => console.error("Failed to load subjects:", err))
-      .finally(() => setSubjectsLoading(false));
-  }, [selectedYearId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -91,98 +91,102 @@ export default function StoreScreen() {
     }, [refreshPurchases])
   );
 
-  const filteredProducts = products.filter((p) => {
-    if (selectedYearId && !belongsToYear(p, selectedYearId)) return false;
-    if (selectedSubjectId && !belongsToSubject(p, selectedSubjectId)) return false;
-    return true;
-  });
+  function handleBuy(product: Product | null) {
+    if (!product || isOwned(product)) return;
+    buy(product);
+  }
+
+  function openSubject(subject: Subject, year: Year) {
+    navigation.navigate("Chapters", {
+      subjectId: subject.id,
+      subjectTitle: subject.title,
+      yearId: year.id,
+      yearTitle: year.title,
+    });
+  }
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Store</Text>
-      <Text style={styles.subtitle}>Chapters, Subject & Year Packs, Bundles</Text>
+    <View style={styles.screen}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Notes</Text>
+        <Text style={styles.subtitle}>Buy a Year, a Subject, or just one Chapter</Text>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.chipRow}
-      >
-        <FilterChip
-          label="All Years"
-          selected={selectedYearId === null}
-          onPress={() => setSelectedYearId(null)}
-        />
-        {years.map((year) => (
-          <FilterChip
-            key={year.id}
-            label={year.title}
-            selected={selectedYearId === year.id}
-            onPress={() =>
-              setSelectedYearId(selectedYearId === year.id ? null : year.id)
-            }
+        {loading ? (
+          <ActivityIndicator size="large" color={COLORS.accent} />
+        ) : (
+          <FlatList
+            data={blocks}
+            keyExtractor={(block) => block.year.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: SPACING.xl }}
+            renderItem={({ item: block, index: yearIndex }) => {
+              const yearOwned = block.yearProduct ? isOwned(block.yearProduct) : false;
+
+              return (
+                <View style={styles.yearBlock}>
+                  <SectionHeader title={block.year.title} />
+
+                  {block.yearProduct && (
+                    <TouchableOpacity
+                      style={[
+                        styles.fullYearPill,
+                        yearOwned && styles.fullYearPillOwned,
+                      ]}
+                      activeOpacity={0.85}
+                      onPress={() => handleBuy(block.yearProduct)}
+                      disabled={yearOwned}
+                    >
+                      <Text style={styles.fullYearPillText}>
+                        {yearOwned
+                          ? "✓ Full Year Notes Owned"
+                          : `Buy Full Year Notes · ₹${block.yearProduct.price}`}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {block.subjects.length === 0 ? (
+                    <Text style={styles.nestedEmptyText}>
+                      No subjects in this year yet.
+                    </Text>
+                  ) : (
+                    <FlatList
+                      data={block.subjects}
+                      keyExtractor={(s) => s.id}
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={{ paddingBottom: SPACING.sm }}
+                      renderItem={({ item: subject, index }) => {
+                        const subjectProduct = block.subjectProducts[subject.id] ?? null;
+                        const owned = subjectProduct ? isOwned(subjectProduct) : false;
+
+                        return (
+                          <ProductPosterCard
+                            title={subject.title}
+                            caption="Full Subject Notes"
+                            price={subjectProduct?.price ?? 0}
+                            originalPrice={subjectProduct?.originalPrice}
+                            owned={owned}
+                            colorIndex={yearIndex + index}
+                            icon="📖"
+                            onPress={() => openSubject(subject, block.year)}
+                            onBuyPress={
+                              subjectProduct ? () => handleBuy(subjectProduct) : undefined
+                            }
+                            buying={purchasing}
+                          />
+                        );
+                      }}
+                    />
+                  )}
+                </View>
+              );
+            }}
+            ListEmptyComponent={<EmptyState title="🔍 No Academic Years Found" />}
           />
-        ))}
-      </ScrollView>
+        )}
+      </View>
 
-      {selectedYearId && (
-        subjectsLoading ? (
-          <ActivityIndicator
-            size="small"
-            color={COLORS.accent}
-            style={styles.subjectLoader}
-          />
-        ) : subjects.length > 0 ? (
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.chipRow}
-          >
-            <FilterChip
-              label="All Subjects"
-              selected={selectedSubjectId === null}
-              onPress={() => setSelectedSubjectId(null)}
-            />
-            {subjects.map((subject) => (
-              <FilterChip
-                key={subject.id}
-                label={subject.title}
-                selected={selectedSubjectId === subject.id}
-                onPress={() =>
-                  setSelectedSubjectId(
-                    selectedSubjectId === subject.id ? null : subject.id
-                  )
-                }
-              />
-            ))}
-          </ScrollView>
-        ) : null
-      )}
-
-      {loading ? (
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      ) : (
-        <FlatList
-          data={filteredProducts}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 30 }}
-          renderItem={({ item }) => (
-            <ProductCard
-              title={item.title}
-              description={item.description}
-              scope={item.scope}
-              price={item.price}
-              owned={isOwned(item)}
-              onPress={() => {
-                if (!isOwned(item)) buy(item.id, item.title);
-              }}
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyState title="🔍 No Products Match This Filter" />
-          }
-        />
-      )}
+      <BottomNav active="Store" />
 
       {purchasing && (
         <View style={styles.overlay}>
@@ -194,6 +198,11 @@ export default function StoreScreen() {
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -211,12 +220,31 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginBottom: SPACING.lg,
   },
-  chipRow: {
-    paddingBottom: SPACING.md,
+  yearBlock: {
+    marginBottom: SPACING.lg,
   },
-  subjectLoader: {
+  fullYearPill: {
     alignSelf: "flex-start",
+    backgroundColor: COLORS.accent,
+    borderRadius: RADIUS.full,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
     marginBottom: SPACING.md,
+  },
+  fullYearPillOwned: {
+    backgroundColor: COLORS.surfaceMuted,
+    borderWidth: 1,
+    borderColor: COLORS.success,
+  },
+  fullYearPillText: {
+    color: COLORS.white,
+    fontWeight: "700",
+    fontSize: FONT.small,
+  },
+  nestedEmptyText: {
+    fontSize: FONT.small,
+    color: COLORS.subtitle,
+    marginBottom: SPACING.sm,
   },
   overlay: {
     ...StyleSheet.absoluteFill,
@@ -225,4 +253,3 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 });
-

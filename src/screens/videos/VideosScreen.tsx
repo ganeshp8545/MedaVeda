@@ -14,19 +14,19 @@ import { useRoute } from "@react-navigation/native";
 import VideoCard from "../../components/VideoCard";
 import EmptyState from "../../components/EmptyState";
 import SearchBar from "../../components/SearchBar";
-import UnlockOptionsPanel from "../../components/UnlockOptionsPanel";
 
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 
-import { fetchVideosByChapter, Video } from "../../services/videosService";
+import { fetchVideosBySubject, Video } from "../../services/videosService";
 
-// Video lectures are gated the same way as Notes/Quiz now - locked unless
-// the chapter (or its subject/year/bundle) has been purchased.
+// MedVeda 2.0: Video Lectures are always free for every student, for
+// the whole Subject - only PDF Notes are paid (and chapter-scoped)
+// content. No purchase check, no lock icons, no Unlock panel here.
 export default function VideosScreen() {
   const route = useRoute<any>();
-  const { chapterId, chapterTitle, subjectId, yearId, unlocked } = route.params;
+  const { subjectId, subjectTitle } = route.params;
 
   const [search, setSearch] = useState("");
   const [videos, setVideos] = useState<Video[]>([]);
@@ -35,7 +35,7 @@ export default function VideosScreen() {
   useEffect(() => {
     let isMounted = true;
 
-    fetchVideosByChapter(chapterId)
+    fetchVideosBySubject(subjectId)
       .then((data) => {
         if (isMounted) setVideos(data);
       })
@@ -52,28 +52,20 @@ export default function VideosScreen() {
     return () => {
       isMounted = false;
     };
-  }, [chapterId]);
+  }, [subjectId]);
 
   const filteredData = videos.filter((item) =>
     item.title.toLowerCase().includes(search.toLowerCase())
   );
 
   function handleVideoPress(item: Video) {
-    if (!unlocked) {
-      Alert.alert(
-        "🔒 Locked",
-        "This video is part of paid content. Purchase this chapter (or subject/year) to unlock it."
-      );
-      return;
-    }
-
     Linking.openURL(item.youtubeUrl);
   }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>{chapterTitle}</Text>
-      <Text style={styles.subtitle}>Video Lectures</Text>
+      <Text style={styles.title}>{subjectTitle}</Text>
+      <Text style={styles.subtitle}>Video Lectures - Free</Text>
 
       <SearchBar
         value={search}
@@ -88,24 +80,15 @@ export default function VideosScreen() {
           data={filteredData}
           keyExtractor={(item) => item.id}
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 30 }}
+          contentContainerStyle={{ paddingTop: SPACING.sm, paddingBottom: SPACING.xl }}
           renderItem={({ item }) => (
             <VideoCard
               title={item.title}
-              locked={!unlocked}
+              locked={false}
               onPress={() => handleVideoPress(item)}
             />
           )}
           ListEmptyComponent={<EmptyState title="🔍 No Videos Found" />}
-          ListFooterComponent={
-            !unlocked ? (
-              <UnlockOptionsPanel
-                chapterId={chapterId}
-                subjectId={subjectId}
-                yearId={yearId}
-              />
-            ) : null
-          }
         />
       )}
     </View>

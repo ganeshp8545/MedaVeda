@@ -1,8 +1,9 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text, View, TouchableOpacity } from "react-native";
+import { Swipeable } from "react-native-gesture-handler";
 
 import { COLORS } from "../theme/colors";
-import { FONT } from "../theme/fonts";
+import { FONT } from "../theme/typography";
 import { SPACING } from "../theme/spacing";
 import { RADIUS } from "../theme/radius";
 import { NotificationType } from "../services/notificationsService";
@@ -11,6 +12,8 @@ type Props = {
   title: string;
   body: string;
   type?: NotificationType;
+  read?: boolean;
+  onArchive?: () => void;
 };
 
 const TYPE_ICON: Record<NotificationType, string> = {
@@ -22,18 +25,23 @@ const TYPE_ICON: Record<NotificationType, string> = {
   app_update: "🔄",
 };
 
-export default function NotificationRow({ title, body, type }: Props) {
+// NOTIFICATIONS SYSTEM - swipe left to archive (permanently hides it
+// from this device's Notification Center - see archiveNotification in
+// notificationsService.ts). Swipeable is react-native-gesture-handler's
+// built-in component - no extra dependency beyond what the Animation
+// System package already installed.
+export default function NotificationRow({ title, body, type, read = false, onArchive }: Props) {
   const icon = type ? TYPE_ICON[type] : undefined;
 
-  return (
-    <View style={styles.row}>
+  const content = (
+    <View style={[styles.row, read && styles.rowRead]}>
       {icon ? (
         <Text style={styles.icon}>{icon}</Text>
       ) : (
-        <View style={styles.dot} />
+        <View style={[styles.dot, read && styles.dotRead]} />
       )}
       <View style={styles.textBlock}>
-        <Text style={styles.title}>{title}</Text>
+        <Text style={[styles.title, read && styles.titleRead]}>{title}</Text>
         {!!body && (
           <Text style={styles.body} numberOfLines={2}>
             {body}
@@ -41,6 +49,23 @@ export default function NotificationRow({ title, body, type }: Props) {
         )}
       </View>
     </View>
+  );
+
+  if (!onArchive) return content;
+
+  return (
+    <Swipeable
+      renderRightActions={() => (
+        <TouchableOpacity style={styles.archiveAction} onPress={onArchive} activeOpacity={0.8}>
+          <Text style={styles.archiveIcon}>🗄️</Text>
+          <Text style={styles.archiveLabel}>Archive</Text>
+        </TouchableOpacity>
+      )}
+      onSwipeableOpen={onArchive}
+      overshootRight={false}
+    >
+      {content}
+    </Swipeable>
   );
 }
 
@@ -53,6 +78,9 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     padding: SPACING.md,
     marginBottom: SPACING.sm,
+  },
+  rowRead: {
+    opacity: 0.6,
   },
   icon: {
     fontSize: 16,
@@ -67,6 +95,9 @@ const styles = StyleSheet.create({
     marginTop: 6,
     marginRight: SPACING.sm,
   },
+  dotRead: {
+    backgroundColor: COLORS.border,
+  },
   textBlock: {
     flex: 1,
   },
@@ -75,9 +106,31 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: COLORS.text,
   },
+  titleRead: {
+    fontWeight: "500",
+    color: COLORS.subtitle,
+  },
   body: {
     fontSize: FONT.tiny,
     color: COLORS.subtitle,
+    marginTop: 2,
+  },
+  archiveAction: {
+    backgroundColor: COLORS.error,
+    justifyContent: "center",
+    alignItems: "center",
+    width: 84,
+    borderRadius: RADIUS.md,
+    marginBottom: SPACING.sm,
+    marginLeft: SPACING.sm,
+  },
+  archiveIcon: {
+    fontSize: 18,
+  },
+  archiveLabel: {
+    fontSize: FONT.tiny,
+    color: COLORS.white,
+    fontWeight: "700",
     marginTop: 2,
   },
 });

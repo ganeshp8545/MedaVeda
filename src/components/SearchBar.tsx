@@ -3,12 +3,16 @@ import {
   View,
   Text,
   TextInput,
+  TouchableOpacity,
   StyleSheet,
+  ViewStyle,
+  StyleProp,
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
 import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   value: string;
@@ -18,6 +22,15 @@ type Props = {
    * default behavior for every other screen is unchanged. */
   floating?: boolean;
   editable?: boolean;
+  /** Global Search System - focuses the input the instant the screen
+   * mounts, so typing can start with zero extra taps. Off by default so
+   * every other existing call site (Home, Chapters, Store...) is unaffected. */
+  autoFocus?: boolean;
+  onSubmitEditing?: () => void;
+  /** Shows a small × to clear the field once there's text - optional so
+   * screens that don't pass it keep the plain look they already have. */
+  onClear?: () => void;
+  style?: StyleProp<ViewStyle>;
 };
 
 export default function SearchBar({
@@ -26,9 +39,13 @@ export default function SearchBar({
   placeholder = "Search...",
   floating = false,
   editable = true,
+  autoFocus = false,
+  onSubmitEditing,
+  onClear,
+  style,
 }: Props) {
   return (
-    <View style={[styles.container, floating && styles.containerFloating]}>
+    <View style={[styles.container, floating && styles.containerFloating, style]}>
       <View style={[styles.iconWrap, floating && styles.iconWrapFloating]}>
         <Text style={styles.icon}>🔍</Text>
       </View>
@@ -42,8 +59,16 @@ export default function SearchBar({
         autoCapitalize="none"
         returnKeyType="search"
         editable={editable}
+        autoFocus={autoFocus}
+        onSubmitEditing={onSubmitEditing}
         style={styles.input}
       />
+
+      {!!onClear && value.length > 0 && (
+        <TouchableOpacity onPress={onClear} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+          <Text style={styles.clearIcon}>✕</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -57,6 +82,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     paddingHorizontal: 18,
+    marginBottom: SPACING.lg,
     ...SHADOW.raised,
   },
 
@@ -69,7 +95,7 @@ const styles = StyleSheet.create({
   },
 
   iconWrap: {
-    marginRight: 10,
+    marginRight: SPACING.sm,
   },
 
   iconWrapFloating: {
@@ -79,11 +105,18 @@ const styles = StyleSheet.create({
     backgroundColor: `${COLORS.accent}1F`,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
+    marginRight: SPACING.sm,
   },
 
   icon: {
     fontSize: 16,
+  },
+
+  clearIcon: {
+    fontSize: 14,
+    color: COLORS.subtitle,
+    marginLeft: SPACING.sm,
+    paddingLeft: 2,
   },
 
   input: {

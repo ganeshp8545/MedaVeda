@@ -20,12 +20,15 @@ export type RootStackParamList = {
     mode?: "notes" | "videos" | "quiz";
   };
 
+  // Only reached for the "notes" shortcut (and general browsing) now -
+  // Video/MCQ shortcuts skip straight from Subjects to Videos/QuizTests,
+  // since those are subject-scoped, not chapter-scoped, content.
   Chapters: {
     subjectId: string;
     subjectTitle: string;
     yearId: string;
     yearTitle: string;
-    mode?: "notes" | "videos" | "quiz";
+    mode?: "notes";
   };
 
   ChapterDetails: {
@@ -48,30 +51,30 @@ export type RootStackParamList = {
     unlocked: boolean;
   };
 
+  // Product-based split: Video Lectures are always free and subject-scoped
+  // (no chapterId, no unlocked check - every video in the subject shows).
   Videos: {
-    chapterId: string;
-    chapterTitle: string;
     subjectId: string;
+    subjectTitle: string;
     yearId: string;
-    unlocked: boolean;
+    yearTitle: string;
   };
 
-  // Test list for a chapter - shows every Test with lock/free state.
+  // Test list for a Subject - always free, shows every Test in it.
   QuizTests: {
-    chapterId: string;
-    chapterTitle: string;
     subjectId: string;
+    subjectTitle: string;
     yearId: string;
-    unlocked: boolean;
+    yearTitle: string;
   };
 
-  // Plays a single Test's 20 questions. Access is decided one screen back
-  // (QuizTests), so this screen just plays whatever Test it's given.
+  // Plays a single Test's questions. Access is already free/unrestricted,
+  // so this screen just plays whatever Test it's given.
   Quiz: {
-    chapterId: string;
-    chapterTitle: string;
     subjectId: string;
+    subjectTitle: string;
     yearId: string;
+    yearTitle: string;
     test: {
       id: string;
       title: string;
@@ -81,12 +84,14 @@ export type RootStackParamList = {
         answer: string;
       }[];
     };
-    hasMoreLockedTests?: boolean;
   };
 
   Profile: undefined;
   EditProfile: undefined;
+  ChangePassword: undefined;
   MyPurchases: undefined;
+  Downloads: undefined;
+  Notifications: undefined;
 
   PdfViewer: {
     pdfUrl: string;
@@ -94,6 +99,30 @@ export type RootStackParamList = {
 
   Search: undefined;
   Settings: undefined;
+  StudyReminder: undefined;
+
+  // Reached only via deep link from the hosted Razorpay checkout page
+  // (see the contract note in PaymentSuccessScreen.tsx). Params come
+  // straight from the redirect URL's query string.
+  PaymentSuccess: {
+    title?: string;
+    amount?: string;
+    orderId?: string;
+  };
+  PaymentFailed: {
+    title?: string;
+    reason?: string;
+  };
+  PaymentCheckout: {
+    keyId: string;
+    razorpayOrderId: string;
+    amountPaise: number;
+    productTitle: string;
+    internalOrderId: string;
+    verifyUrl: string;
+    prefillName?: string;
+    prefillEmail?: string;
+  };
   About: undefined;
   Contact: undefined;
   Privacy: undefined;

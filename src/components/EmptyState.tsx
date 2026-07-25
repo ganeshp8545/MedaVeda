@@ -7,6 +7,7 @@ import {
 
 import { COLORS } from "../theme/colors";
 import { FONT } from "../theme/fonts";
+import { SPACING } from "../theme/spacing";
 
 export default function EmptyState({
   title,
@@ -32,7 +33,7 @@ const styles = StyleSheet.create({
 
   icon: {
     fontSize: 50,
-    marginBottom: 15,
+    marginBottom: SPACING.md,
   },
 
   title: {

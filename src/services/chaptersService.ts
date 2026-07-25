@@ -1,47 +1,19 @@
-import {
-  collection,
-  getDocs,
-  limit,
-  orderBy,
-  query,
-  where,
-} from "firebase/firestore";
-
-import { db } from "../config/firebase";
 import { fetchWithCacheFallback } from "../utils/localCache";
+import {
+  getChaptersBySubject,
+  getChaptersOrderedByCreatedAt,
+  getActiveChapters,
+} from "../repositories/chaptersRepository";
 
-export interface Chapter {
-  id: string;
-  title: string;
-  order: number;
-  active: boolean;
-  subjectId: string;
-  subjectTitle: string;
-  yearId: string;
-  yearTitle: string;
-}
+export type { Chapter } from "../types/chapter";
 
-const chaptersCollection = collection(db, "chapters");
-
-export async function fetchChaptersBySubject(
-  subjectId: string
-): Promise<Chapter[]> {
+export async function fetchChaptersBySubject(subjectId: string) {
   return fetchWithCacheFallback(`chapters:${subjectId}`, async () => {
-    const q = query(
-      chaptersCollection,
-      where("subjectId", "==", subjectId),
-      where("active", "==", true)
-    );
+    const chapters = await getChaptersBySubject(subjectId);
 
-    const snapshot = await getDocs(q);
-
-    const results = snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    })) as Chapter[];
-
-    // Sorted client-side so this never needs a Firestore composite index.
-    return results.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    // Sorted client-side (instead of Firestore orderBy) so this query
+    // never needs a manual composite index to be created in the console.
+    return chapters.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   });
 }
 
@@ -49,27 +21,12 @@ export async function fetchChaptersBySubject(
 // `createdAt` timestamp if the admin panel writes one; if that field or
 // its required index isn't there yet, falls back to an unordered slice
 // so the section still shows something instead of erroring out.
-export async function fetchLatestChapters(max = 6): Promise<Chapter[]> {
+export async function fetchLatestChapters(max = 6) {
   try {
-    const q = query(
-      chaptersCollection,
-      where("active", "==", true),
-      orderBy("createdAt", "desc"),
-      limit(max)
-    );
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    })) as Chapter[];
+    return await getChaptersOrderedByCreatedAt(max);
   } catch (error) {
     console.log("fetchLatestChapters: falling back to unordered query", error);
-    const q = query(chaptersCollection, where("active", "==", true), limit(max));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    })) as Chapter[];
+    return getActiveChapters(max);
   }
 }
 
@@ -81,14 +38,8 @@ export async function fetchRecommendedChapters(
   ownedChapterIds: Set<string>,
   preferredYearId?: string,
   max = 6
-): Promise<Chapter[]> {
-  const q = query(chaptersCollection, where("active", "==", true), limit(30));
-  const snapshot = await getDocs(q);
-
-  const all = snapshot.docs.map((docSnap) => ({
-    id: docSnap.id,
-    ...docSnap.data(),
-  })) as Chapter[];
+) {
+  const all = await getActiveChapters(30);
 
   const notOwned = all.filter((c) => !ownedChapterIds.has(c.id));
 

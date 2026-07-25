@@ -1,12 +1,17 @@
-import React, { useEffect, useRef } from "react";
-import { Animated, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import React from "react";
+import { StyleSheet, Text, View } from "react-native";
 
 import { COLORS } from "../theme/colors";
-import { FONT } from "../theme/fonts";
+import { FONT, FONT_WEIGHT, LETTER_SPACING } from "../theme/typography";
 import { SPACING } from "../theme/spacing";
 import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
+
 import ProgressRing from "./ProgressRing";
+import StreakBadge from "./StreakBadge";
+import GradientBackground from "./GradientBackground";
+import AnimatedPressable from "./motion/AnimatedPressable";
+import useStreak from "../hooks/useStreak";
 
 type Props = {
   name: string;
@@ -16,6 +21,11 @@ type Props = {
   onPress?: () => void;
 };
 
+// DESIGN SYSTEM - premium hero card. Same information as before (name,
+// email, packages owned, overall quiz progress) plus a new Study Streak
+// badge, now on a subtle brand-gradient surface instead of a flat card
+// background, with AnimatedPressable's spring press-feedback replacing
+// the plain TouchableOpacity fade.
 export default function StudentProfileCard({
   name,
   email,
@@ -23,34 +33,18 @@ export default function StudentProfileCard({
   purchasedCount,
   onPress,
 }: Props) {
-  const scale = useRef(new Animated.Value(0.9)).current;
-  const opacity = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    Animated.parallel([
-      Animated.spring(scale, {
-        toValue: 1,
-        friction: 7,
-        tension: 60,
-        useNativeDriver: true,
-      }),
-      Animated.timing(opacity, {
-        toValue: 1,
-        duration: 350,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [scale, opacity]);
-
+  const { currentStreak, loading: streakLoading } = useStreak();
   const initial = name ? name.charAt(0).toUpperCase() : "?";
 
   return (
-    <Animated.View style={{ opacity, transform: [{ scale }] }}>
-      <TouchableOpacity
-        activeOpacity={onPress ? 0.85 : 1}
-        onPress={onPress}
-        style={styles.card}
-      >
+    <AnimatedPressable onPress={onPress} disabled={!onPress} scaleTo={0.98}>
+      <View style={styles.card}>
+        <GradientBackground
+          colors={[COLORS.card, COLORS.primaryDark, COLORS.card]}
+          direction="diagonal"
+          style={styles.gradientLayer}
+        />
+
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>
           <View style={styles.avatarSheen} pointerEvents="none" />
@@ -64,18 +58,17 @@ export default function StudentProfileCard({
             {email}
           </Text>
 
-          <View style={styles.divider} />
-
-          <View style={styles.badgeRow}>
+          <View style={styles.metaRow}>
             <Text style={styles.badgeText}>
-              📦 {purchasedCount} {purchasedCount === 1 ? "package" : "packages"} owned
+              📦 {purchasedCount} {purchasedCount === 1 ? "package" : "packages"}
             </Text>
+            {!streakLoading && <StreakBadge days={currentStreak} />}
           </View>
         </View>
 
         <ProgressRing percentage={progressPercentage} size={72} strokeWidth={7} label="progress" />
-      </TouchableOpacity>
-    </Animated.View>
+      </View>
+    </AnimatedPressable>
   );
 }
 
@@ -89,8 +82,14 @@ const styles = StyleSheet.create({
     borderColor: COLORS.border,
     padding: SPACING.md,
     marginBottom: SPACING.lg,
+    overflow: "hidden",
     ...SHADOW.card,
   },
+
+  gradientLayer: {
+    opacity: 0.55,
+  },
+
   avatar: {
     width: 56,
     height: 56,
@@ -102,8 +101,6 @@ const styles = StyleSheet.create({
     ...SHADOW.glow,
   },
 
-  // Kept inside the circle's bounds rather than relying on
-  // overflow:hidden, which would otherwise clip the glow shadow above.
   avatarSheen: {
     position: "absolute",
     top: 6,
@@ -114,37 +111,40 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.3)",
   },
 
-  divider: {
-    height: 1,
-    backgroundColor: COLORS.border,
-    marginTop: 8,
-    marginBottom: 6,
-  },
   avatarText: {
     fontSize: 22,
-    fontWeight: "700",
+    fontWeight: FONT_WEIGHT.bold as any,
     color: COLORS.textOnPrimary,
   },
+
   info: {
     flex: 1,
     paddingRight: SPACING.sm,
   },
+
   name: {
     fontSize: FONT.body,
-    fontWeight: "700",
+    fontWeight: FONT_WEIGHT.bold as any,
     color: COLORS.text,
+    letterSpacing: LETTER_SPACING.heading,
   },
+
   email: {
     fontSize: FONT.tiny,
     color: COLORS.subtitle,
     marginTop: 2,
   },
-  badgeRow: {
-    marginTop: 0,
+
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 10,
+    gap: 8,
   },
+
   badgeText: {
     fontSize: FONT.tiny,
     color: COLORS.accentLight,
-    fontWeight: "600",
+    fontWeight: FONT_WEIGHT.semiBold as any,
   },
 });

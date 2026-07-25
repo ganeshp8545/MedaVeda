@@ -17,13 +17,14 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import { registerSchema } from "../../validation/registerSchema";
 
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { auth } from "../../config/firebase";
+import { supabase } from "../../config/supabase";
 import { createUserProfile } from "../../services/usersService";
+import { logDebug, logError } from "../../utils/logger";
 
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { SPACING } from "../../theme/spacing";
 
 export default function RegisterScreen() {
   const [hidePassword, setHidePassword] = useState(true);
@@ -46,27 +47,28 @@ export default function RegisterScreen() {
 
   const onRegister = async (data: any) => {
     try {
-      const userCredential =
-        await createUserWithEmailAndPassword(
-          auth,
-          data.email,
-          data.password
-        );
+      const { data: authData, error } = await supabase.auth.signUp({
+        email: data.email,
+        password: data.password,
+        options: { data: { name: data.fullName } },
+      });
+      if (error) throw error;
 
-      console.log("Registration Success");
-      console.log(userCredential.user.email);
+      logDebug("Registration success");
 
-      // Best-effort: the auth account is already created at this point,
-      // so a Firestore hiccup here shouldn't be reported as a failed
-      // registration - it's logged and can be retried (e.g. profile can
-      // be created lazily on next login) without blocking the user.
+      // The DB trigger (see schema.sql) already creates a profile row on
+      // signup with a blank name - this fills in the name/email the user
+      // just typed. A hiccup here shouldn't be reported as a failed
+      // registration - the auth account already exists at this point.
       try {
-        await createUserProfile(userCredential.user.uid, {
-          name: data.fullName,
-          email: data.email,
-        });
+        if (authData.user) {
+          await createUserProfile(authData.user.id, {
+            name: data.fullName,
+            email: data.email,
+          });
+        }
       } catch (profileError) {
-        console.log("createUserProfile failed:", profileError);
+        logDebug("createUserProfile failed:", profileError);
       }
 
       Alert.alert("Success", "Registration Successful");
@@ -74,15 +76,14 @@ export default function RegisterScreen() {
       navigation.navigate("Login");
 
     } catch (error: any) {
-      console.log(error.code);
-      console.log(error.message);
+      logError("Registration failed", error);
 
       const message =
-        error.code === "auth/email-already-in-use"
+        error.message?.includes("already registered")
           ? "This email is already registered. Please login instead."
-          : error.code === "auth/weak-password"
-          ? "Password is too weak. Please use at least 6 characters."
-          : error.code === "auth/invalid-email"
+          : error.message?.includes("Password should be")
+          ? "Password is too weak. Please use at least 8 characters."
+          : error.message?.includes("valid email")
           ? "Please enter a valid email address."
           : "Registration failed. Please try again.";
 
@@ -94,7 +95,7 @@ export default function RegisterScreen() {
     <View style={styles.container}>
       <Text style={styles.logo}>🌿</Text>
 
-      <Text style={styles.title}>AyurPulse</Text>
+      <Text style={styles.title}>MedVeda</Text>
 
       <Text style={styles.subtitle}>
         Create Your Account
@@ -259,13 +260,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     textAlign: "center",
     color: COLORS.text,
-    marginTop: 10,
+    marginTop: SPACING.sm,
   },
 
   subtitle: {
     textAlign: "center",
     color: COLORS.subtitle,
-    marginTop: 10,
+    marginTop: SPACING.sm,
     marginBottom: 35,
   },
 
@@ -275,8 +276,8 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.md,
     backgroundColor: COLORS.card,
     color: COLORS.text,
-    padding: 15,
-    marginBottom: 10,
+    padding: SPACING.md,
+    marginBottom: SPACING.sm,
   },
 
   passwordContainer: {
@@ -285,14 +286,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: RADIUS.md,
-    paddingHorizontal: 15,
+    paddingHorizontal: SPACING.md,
     backgroundColor: COLORS.card,
-    marginTop: 5,
+    marginTop: SPACING.xs,
   },
 
   passwordInput: {
     flex: 1,
-    paddingVertical: 15,
+    paddingVertical: SPACING.md,
     color: COLORS.text,
   },
 
@@ -300,7 +301,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent,
     padding: 16,
     borderRadius: RADIUS.md,
-    marginTop: 20,
+    marginTop: SPACING.lg,
     ...SHADOW.glow,
   },
 
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
 
   error: {
     color: COLORS.error,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
     marginTop: 3,
   },
 });

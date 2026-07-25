@@ -82,7 +82,7 @@ export default function UnlockOptionsPanel({
 
             <Text
               style={styles.price}
-              onPress={() => buy(product.id, product.title)}
+              onPress={() => buy(product)}
             >
               ₹{product.price}
             </Text>
@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     backgroundColor: COLORS.accent,
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: SPACING.sm,
     borderRadius: 30,
     overflow: "hidden",
   },

@@ -6,6 +6,7 @@ import {
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   title: string;
@@ -36,7 +37,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: SPACING.lg,
   },
 
   text: {

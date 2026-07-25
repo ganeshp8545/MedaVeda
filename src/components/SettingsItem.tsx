@@ -16,12 +16,15 @@ type Props = {
   icon: string;
   title: string;
   onPress: () => void;
+  /** Colors the icon/title/arrow in the error color - for destructive actions like Delete Account. */
+  destructive?: boolean;
 };
 
 export default function SettingsItem({
   icon,
   title,
   onPress,
+  destructive = false,
 }: Props) {
   return (
     <TouchableOpacity
@@ -32,12 +35,12 @@ export default function SettingsItem({
       <View style={styles.left}>
         <Text style={styles.icon}>{icon}</Text>
 
-        <Text style={styles.title}>
+        <Text style={[styles.title, destructive && styles.destructiveText]}>
           {title}
         </Text>
       </View>
 
-      <Text style={styles.arrow}>
+      <Text style={[styles.arrow, destructive && styles.destructiveText]}>
         ›
       </Text>
     </TouchableOpacity>
@@ -77,5 +80,9 @@ const styles = StyleSheet.create({
   arrow: {
     fontSize: 22,
     color: COLORS.accent,
+  },
+
+  destructiveText: {
+    color: COLORS.error,
   },
 });

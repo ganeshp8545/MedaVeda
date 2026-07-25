@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    marginTop: 5,
+    marginTop: SPACING.xs,
     color: COLORS.subtitle,
     fontSize: FONT.small,
   },

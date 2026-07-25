@@ -1,6 +1,5 @@
 import React from "react";
 import {
-  View,
   Text,
   StyleSheet,
   ScrollView,
@@ -19,7 +18,7 @@ export default function AboutScreen() {
       <Text style={styles.logo}>📚</Text>
 
       <Text style={styles.title}>
-        AyurPulse
+        MedVeda
       </Text>
 
       <Text style={styles.version}>
@@ -27,47 +26,67 @@ export default function AboutScreen() {
       </Text>
 
       <Text style={styles.heading}>
-        About
+        About Us
       </Text>
 
       <Text style={styles.description}>
-        AyurPulse is a learning platform designed for
-        BAMS students. It provides organized study
-        notes, video lectures, quizzes, previous year
-        papers, mock tests, and premium learning
-        resources in one place.
+        MedVeda is a modern digital learning platform built to simplify
+        academic education through organized, accessible, and
+        high-quality study resources. Our mission is to help students
+        learn smarter by providing structured educational content in
+        one secure platform.{"\n\n"}
+        The application offers carefully organized study materials
+        including subject-wise notes, video lectures, quizzes,
+        downloadable resources, and progress tracking to support
+        effective self-learning. Designed with a clean, intuitive, and
+        user-friendly interface, MedVeda enables students to access
+        educational content anytime and anywhere.{"\n\n"}
+        Our goal is to continuously improve the learning experience by
+        introducing new educational features, performance enhancements,
+        and updated academic content that aligns with students'
+        evolving needs.
+      </Text>
+
+      <Text style={styles.heading}>
+        Our Mission
+      </Text>
+      <Text style={styles.description}>
+        To make quality education more accessible, organized, and
+        engaging for every learner.
+      </Text>
+
+      <Text style={styles.heading}>
+        Our Vision
+      </Text>
+      <Text style={styles.description}>
+        To become one of the most trusted and innovative digital
+        learning platforms by empowering students with reliable
+        educational resources and modern technology.
       </Text>
 
       <Text style={styles.heading}>
         Features
       </Text>
 
-      <Text style={styles.feature}>
-        • PDF Notes
-      </Text>
+      <Text style={styles.feature}>• PDF Notes</Text>
+      <Text style={styles.feature}>• Video Lectures</Text>
+      <Text style={styles.feature}>• MCQ Quiz</Text>
+      <Text style={styles.feature}>• Premium Learning</Text>
+      <Text style={styles.feature}>• Progress Tracking</Text>
+      <Text style={styles.feature}>• Regular Updates</Text>
 
-      <Text style={styles.feature}>
-        • Video Lectures
+      <Text style={styles.heading}>
+        Contact Us
       </Text>
-
-      <Text style={styles.feature}>
-        • MCQ Quiz
-      </Text>
-
-      <Text style={styles.feature}>
-        • Premium Learning
-      </Text>
-
-      <Text style={styles.feature}>
-        • Progress Tracking
-      </Text>
-
-      <Text style={styles.feature}>
-        • Regular Updates
+      <Text style={styles.description}>
+        App Name: MedVeda{"\n"}
+        Support Email: medvedaforu@gmail.com{"\n"}
+        Developer: MedVeda Team{"\n"}
+        Country: India
       </Text>
 
       <Text style={styles.footer}>
-        © 2026 AyurPulse
+        © 2026 MedVeda
       </Text>
     </ScrollView>
   );
@@ -121,7 +140,7 @@ const styles = StyleSheet.create({
   feature: {
     fontSize: FONT.body,
     color: COLORS.text,
-    marginBottom: 10,
+    marginBottom: SPACING.sm,
   },
 
   footer: {

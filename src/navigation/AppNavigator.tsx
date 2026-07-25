@@ -1,8 +1,14 @@
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "react-native";
+import { useEffect } from "react";
 
 import { COLORS } from "../theme/colors";
+import {
+  setupNotificationChannel,
+  restoreStudyReminderOnLaunch,
+} from "../services/studyReminderService";
+import usePreventScreenshot from "../hooks/usePreventScreenshot";
 
 import SplashScreen from "../screens/auth/SplashScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
@@ -23,12 +29,19 @@ import QuizScreen from "../screens/quiz/QuizScreen";
 
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import EditProfileScreen from "../screens/profile/EditProfileScreen";
+import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
 import MyPurchasesScreen from "../screens/purchases/MyPurchasesScreen";
+import DownloadsScreen from "../screens/downloads/DownloadsScreen";
 
 import PdfViewerScreen from "../screens/pdf/PdfViewerScreen";
 import SearchScreen from "../screens/search/SearchScreen";
 
 import SettingsScreen from "../screens/settings/SettingsScreen";
+import StudyReminderScreen from "../screens/reminder/StudyReminderScreen";
+import NotificationsScreen from "../screens/notifications/NotificationsScreen";
+import PaymentSuccessScreen from "../screens/payment/PaymentSuccessScreen";
+import PaymentFailedScreen from "../screens/payment/PaymentFailedScreen";
+import PaymentCheckoutScreen from "../screens/payment/PaymentCheckoutScreen";
 import AboutScreen from "../screens/about/AboutScreen";
 import ContactScreen from "../screens/contact/ContactScreen";
 
@@ -50,11 +63,44 @@ const navigationTheme = {
   },
 };
 
+// Legacy: PaymentSuccess/PaymentFailed used to be reached via an
+// medveda:// deep link from the external browser after the hosted
+// checkout page finished. That flow is no longer used - payment now
+// happens in-app (PaymentCheckoutScreen's WebView), which reaches these
+// same screens via normal in-app navigation instead. Left in place in
+// case a custom domain is set up later and this reverts to a browser
+// based flow; harmless either way. Still requires app.json / app.config.js
+// to declare "scheme": "medveda" for the deep link itself to work.
+const linking = {
+  prefixes: ["medveda://"],
+  config: {
+    screens: {
+      PaymentSuccess: "payment-success",
+      PaymentFailed: "payment-failed",
+    },
+  },
+};
+
 export default function AppNavigator() {
+  // Runs once per app launch: makes sure the Android notification channel
+  // exists, and re-applies the daily reminder if it was left "on" (mainly
+  // a safety net for Android dropping exact alarms after a device
+  // reboot - the OS otherwise keeps firing the schedule on its own).
+  useEffect(() => {
+    setupNotificationChannel();
+    restoreStudyReminderOnLaunch();
+  }, []);
+
+  // Blocks screenshots/screen recording for the whole app (paid Notes PDF
+  // content is the reason, but it's applied globally, not just on the
+  // PDF viewer - see hooks/usePreventScreenshot.ts for exact platform
+  // behavior/limits).
+  usePreventScreenshot();
+
   return (
     <>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
-      <NavigationContainer theme={navigationTheme}>
+      <NavigationContainer theme={navigationTheme} linking={linking}>
         <Stack.Navigator
           initialRouteName="Splash"
           screenOptions={{ headerShown: false }}
@@ -74,10 +120,17 @@ export default function AppNavigator() {
         <Stack.Screen name="Quiz" component={QuizScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+        <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="MyPurchases" component={MyPurchasesScreen} />
+        <Stack.Screen name="Downloads" component={DownloadsScreen} />
         <Stack.Screen name="PdfViewer" component={PdfViewerScreen} />
         <Stack.Screen name="Search" component={SearchScreen} />
         <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="StudyReminder" component={StudyReminderScreen} />
+        <Stack.Screen name="Notifications" component={NotificationsScreen} />
+        <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+        <Stack.Screen name="PaymentFailed" component={PaymentFailedScreen} />
+        <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="Contact" component={ContactScreen} />
         <Stack.Screen name="Privacy" component={PrivacyScreen} />
@@ -88,18 +141,3 @@ export default function AppNavigator() {
     </>
   );
 }
-
-/*
-  Removed from 2.0 navigation (old Premium flow):
-    - "Premium"  (screens/premium/PremiumScreen.tsx)
-    - "Upgrade"  (screens/premium/UpgradeScreen.tsx)
-
-  These screens sold subscription plans ("Monthly ₹99", "Yearly ₹499", etc.)
-  which is exactly the model 2.0 removes in favour of buying individual
-  Products. You can delete both screen files and usePremium.ts /
-  premiumService.ts once you confirm nothing else references them
-  (search the project for "Premium" and "usePremium" to be sure).
-  If you still want a subscription-style "buy everything" option, model it
-  as a Product with type: "bundle" or "year" instead - the Store screen
-  already supports that, no special-case code needed.
-*/

@@ -1,43 +1,14 @@
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
-
-import { db } from "../config/firebase";
 import { fetchWithCacheFallback } from "../utils/localCache";
+import { getSubjectsByYear as getSubjectsByYearFromRepo } from "../repositories/subjectsRepository";
 
-export interface Subject {
-  id: string;
-  title: string;
-  icon: string;
-  color: string;
-  yearId: string;
-  yearTitle: string;
-  order: number;
-  active: boolean;
-}
+export type { Subject } from "../types/subject";
 
-const subjectsCollection = collection(db, "subjects");
-
-export async function fetchSubjectsByYear(yearId: string): Promise<Subject[]> {
+export async function fetchSubjectsByYear(yearId: string) {
   return fetchWithCacheFallback(`subjects:${yearId}`, async () => {
-    const q = query(
-      subjectsCollection,
-      where("yearId", "==", yearId),
-      where("active", "==", true)
-    );
-
-    const snapshot = await getDocs(q);
-
-    const results = snapshot.docs.map((docSnap) => ({
-      id: docSnap.id,
-      ...docSnap.data(),
-    })) as Subject[];
+    const subjects = await getSubjectsByYearFromRepo(yearId);
 
     // Sorted client-side (instead of Firestore orderBy) so this query
     // never needs a manual composite index to be created in the console.
-    return results.sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+    return subjects.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
   });
 }

@@ -1,13 +1,7 @@
 import { useEffect, useState } from "react";
 
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-} from "firebase/firestore";
-
-import { auth, db } from "../config/firebase";
+import { supabase } from "../config/supabase";
+import { getCurrentUser } from "../services/authState";
 
 export default function useQuizStats() {
   const [loading, setLoading] = useState(true);
@@ -30,60 +24,42 @@ export default function useQuizStats() {
     try {
       setError(null);
 
-      const uid = auth.currentUser?.uid;
+      const uid = getCurrentUser()?.id;
 
       if (!uid) {
         setLoading(false);
         return;
       }
 
-      // Bug fix: this previously included `orderBy("createdAt", "desc")`
-      // alongside `where("userId", "==", uid)`. A where()-on-one-field +
-      // orderBy()-on-a-different-field query always needs a Firestore
-      // composite index - without one deployed, getDocs() throws
-      // "failed-precondition", which the catch block below silently
-      // swallowed (just console.log), leaving Student Progress stuck at
-      // 0/blank with no visible error. Sorting client-side instead avoids
-      // ever needing that index, matching the same pattern already used
-      // in yearsService/subjectsService/chaptersService.
-      const q = query(
-        collection(db, "quizScores"),
-        where("userId", "==", uid)
-      );
+      const { data, error: queryError } = await supabase
+        .from("quiz_scores")
+        .select("*")
+        .eq("user_id", uid)
+        .order("created_at", { ascending: false });
 
-      const snapshot = await getDocs(q);
+      if (queryError) throw queryError;
 
-      const data = snapshot.docs
-        .map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        .sort((a: any, b: any) => {
-          const aTime = a.createdAt?.toMillis ? a.createdAt.toMillis() : a.createdAt ?? 0;
-          const bTime = b.createdAt?.toMillis ? b.createdAt.toMillis() : b.createdAt ?? 0;
-          return bTime - aTime;
-        });
+      const rows = data ?? [];
 
-      setTotalAttempts(data.length);
+      setTotalAttempts(rows.length);
 
-      if (data.length > 0) {
-        const totalPercentage = data.reduce(
-          (sum: number, item: any) =>
-            sum + item.percentage,
+      if (rows.length > 0) {
+        const totalPercentage = rows.reduce(
+          (sum: number, item: any) => sum + item.percentage,
           0
         );
 
         setAveragePercentage(
-          Math.round(totalPercentage / data.length)
+          Math.round(totalPercentage / rows.length)
         );
 
         const highest = Math.max(
-          ...data.map((item: any) => item.percentage)
+          ...rows.map((item: any) => item.percentage)
         );
 
         setBestScore(highest);
 
-        setRecentQuiz(data.slice(0, 5));
+        setRecentQuiz(rows.slice(0, 5));
       }
 
       setLoading(false);

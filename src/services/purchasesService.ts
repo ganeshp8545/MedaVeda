@@ -1,46 +1,16 @@
-import { collection, getDocs, query, where } from "firebase/firestore";
+import { getCurrentUser } from "./authState";
+import { getPurchasesByUser } from "../repositories/purchasesRepository";
+import { ProductScope } from "../types/product";
+import { OwnedScope, MyPurchase } from "../types/purchase";
 
-import { db, auth } from "../config/firebase";
-import { ProductScope } from "./productsService";
-
-// Written ONLY by the verify-payment Firebase Cloud Function (via the
-// Firebase Admin SDK). Each purchase doc carries a copy of the product's
-// scope fields, so the app can check "do I own this?" with simple local
-// comparisons instead of re-fetching the product every time.
-export interface OwnedScope {
-  scope: ProductScope;
-  chapterId?: string;
-  subjectId?: string;
-  yearId?: string;
-  yearIds?: string[];
-}
+export type { OwnedScope, MyPurchase } from "../types/purchase";
 
 export async function fetchOwnedScopes(): Promise<OwnedScope[]> {
-  const uid = auth.currentUser?.uid;
+  const uid = getCurrentUser()?.id;
   if (!uid) return [];
 
-  const q = query(collection(db, "purchases"), where("userId", "==", uid));
-  const snapshot = await getDocs(q);
-
-  return snapshot.docs.map((d) => d.data() as OwnedScope);
-}
-
-// Purchase record with display-friendly fields, for the dashboard's
-// "Purchased Packages" section. Falls back to a generic label per scope
-// if the purchase doc (written by the verify-payment function) doesn't
-// carry a product title.
-export interface MyPurchase {
-  id: string;
-  title: string;
-  scope: ProductScope;
-  purchasedAt?: number;
-
-  // Optional - only present once the verify-payment function starts
-  // writing them (or for older purchase docs that predate these fields).
-  // Screens must not assume these exist.
-  amount?: number;
-  status?: "success" | "pending" | "failed" | string;
-  orderId?: string;
+  const docs = await getPurchasesByUser(uid);
+  return docs as unknown as OwnedScope[];
 }
 
 const SCOPE_FALLBACK_LABEL: Record<ProductScope, string> = {
@@ -50,33 +20,31 @@ const SCOPE_FALLBACK_LABEL: Record<ProductScope, string> = {
   bundle: "Multi-Year Bundle",
 };
 
+// Purchase record with display-friendly fields, for the dashboard's
+// "Purchased Packages" section. Falls back to a generic label per scope
+// if the purchase doc (written by the verify-payment function) doesn't
+// carry a product title.
 export async function fetchMyPurchases(): Promise<MyPurchase[]> {
-  const uid = auth.currentUser?.uid;
+  const uid = getCurrentUser()?.id;
   if (!uid) return [];
 
-  const q = query(collection(db, "purchases"), where("userId", "==", uid));
-  const snapshot = await getDocs(q);
+  const docs = await getPurchasesByUser(uid);
 
-  const results = snapshot.docs.map((docSnap) => {
-    const data = docSnap.data() as any;
-    return {
-      id: docSnap.id,
-      title:
-        data.productTitle ??
-        data.title ??
-        data.subjectTitle ??
-        data.yearTitle ??
-        SCOPE_FALLBACK_LABEL[data.scope as ProductScope] ??
-        "Package",
-      scope: data.scope as ProductScope,
-      purchasedAt: data.createdAt?.toMillis
-        ? data.createdAt.toMillis()
-        : data.createdAt ?? data.purchasedAt,
-      amount: typeof data.amount === "number" ? data.amount : undefined,
-      status: data.status ?? data.paymentStatus ?? undefined,
-      orderId: data.orderId ?? data.razorpayOrderId ?? undefined,
-    };
-  });
+  const results = docs.map((data: any) => ({
+    id: data.id,
+    title:
+      data.productTitle ??
+      data.title ??
+      data.subjectTitle ??
+      data.yearTitle ??
+      SCOPE_FALLBACK_LABEL[data.scope as ProductScope] ??
+      "Package",
+    scope: data.scope as ProductScope,
+    purchasedAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt ?? data.purchasedAt,
+    amount: typeof data.amount === "number" ? data.amount : undefined,
+    status: data.status ?? data.paymentStatus ?? undefined,
+    orderId: data.orderId ?? data.razorpayOrderId ?? undefined,
+  }));
 
   return results.sort((a, b) => (b.purchasedAt ?? 0) - (a.purchasedAt ?? 0));
 }

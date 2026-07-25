@@ -6,25 +6,41 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
+    "scheme": "ayurpulse",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
       "backgroundColor": "#2E7D32"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "android": {
       "package": "com.ayurpulse.app",
-      "versionCode": 1,
+      "versionCode": 3,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2E7D32"
       },
-      "permissions": ["INTERNET"]
+      "permissions": [
+        "INTERNET",
+        "POST_NOTIFICATIONS"
+      ]
     },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      "expo-notifications",
+      "expo-secure-store",
+      "expo-splash-screen",
+      "expo-status-bar",
+      "expo-web-browser",
+      "expo-sqlite"
+    ],
     "extra": {
       "eas": {
-        "projectId": "REPLACE-WITH-YOUR-EAS-PROJECT-ID"
+        "projectId": "2d642c70-8ec1-4d7b-a388-2f2f99e8a8df"
       }
-    }
+    },
+    "owner": "ganeshp0305"
   }
 }

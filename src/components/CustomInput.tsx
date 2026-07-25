@@ -7,6 +7,7 @@ import {
 } from "react-native";
 
 import { COLORS } from "../theme/colors";
+import { SPACING } from "../theme/spacing";
 
 type Props = {
   placeholder: string;
@@ -55,7 +56,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: COLORS.border,
     borderRadius: 12,
-    paddingHorizontal: 15,
+    paddingHorizontal: SPACING.md,
     height: 55,
     backgroundColor: COLORS.card,
     color: COLORS.text,
@@ -64,8 +65,8 @@ const styles = StyleSheet.create({
 
   error: {
     color: COLORS.error,
-    marginTop: 5,
-    marginLeft: 5,
+    marginTop: SPACING.xs,
+    marginLeft: SPACING.xs,
     fontSize: 13,
   },
 });

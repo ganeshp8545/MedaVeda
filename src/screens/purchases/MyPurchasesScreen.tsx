@@ -11,6 +11,7 @@ import { useFocusEffect } from "@react-navigation/native";
 
 import EmptyState from "../../components/EmptyState";
 import ErrorState from "../../components/ErrorState";
+import BottomNav from "../../components/BottomNav";
 
 import { fetchMyPurchases, MyPurchase } from "../../services/purchasesService";
 import { ProductScope } from "../../services/productsService";
@@ -81,66 +82,75 @@ export default function MyPurchasesScreen() {
   );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>My Purchases</Text>
-      <Text style={styles.subtitle}>Your order & payment history</Text>
+    <View style={styles.screen}>
+      <View style={styles.container}>
+        <Text style={styles.title}>My Purchases</Text>
+        <Text style={styles.subtitle}>Your order & payment history</Text>
 
-      {loading ? (
-        <ActivityIndicator
-          size="large"
-          color={COLORS.accent}
-          style={styles.loader}
-        />
-      ) : error ? (
-        <ErrorState message={error} onRetry={load} />
-      ) : (
-        <FlatList
-          data={purchases}
-          keyExtractor={(item) => item.id}
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 30 }}
-          renderItem={({ item }) => {
-            const status = statusFor(item.status);
+        {loading ? (
+          <ActivityIndicator
+            size="large"
+            color={COLORS.accent}
+            style={styles.loader}
+          />
+        ) : error ? (
+          <ErrorState message={error} onRetry={load} />
+        ) : (
+          <FlatList
+            data={purchases}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: SPACING.xl }}
+            renderItem={({ item }) => {
+              const status = statusFor(item.status);
 
-            return (
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <Text style={styles.cardTitle} numberOfLines={2}>
-                    {item.title}
+              return (
+                <View style={styles.card}>
+                  <View style={styles.cardHeader}>
+                    <Text style={styles.cardTitle} numberOfLines={2}>
+                      {item.title}
+                    </Text>
+
+                    {typeof item.amount === "number" && (
+                      <Text style={styles.amount}>₹{item.amount}</Text>
+                    )}
+                  </View>
+
+                  <Text style={styles.cardScope}>
+                    {SCOPE_LABEL[item.scope] ?? item.scope}
                   </Text>
 
-                  {typeof item.amount === "number" && (
-                    <Text style={styles.amount}>₹{item.amount}</Text>
-                  )}
-                </View>
+                  <View style={styles.cardFooter}>
+                    <Text style={styles.orderId} numberOfLines={1}>
+                      Order ID: {item.orderId ?? item.id}
+                    </Text>
+                    <Text style={styles.date}>{formatDate(item.purchasedAt)}</Text>
+                  </View>
 
-                <Text style={styles.cardScope}>
-                  {SCOPE_LABEL[item.scope] ?? item.scope}
-                </Text>
-
-                <View style={styles.cardFooter}>
-                  <Text style={styles.orderId} numberOfLines={1}>
-                    Order ID: {item.orderId ?? item.id}
+                  <Text style={[styles.statusBadge, { color: status.color }]}>
+                    {status.label}
                   </Text>
-                  <Text style={styles.date}>{formatDate(item.purchasedAt)}</Text>
                 </View>
+              );
+            }}
+            ListEmptyComponent={
+              <EmptyState title="🧾 No purchases yet. Buy a chapter, subject, or year pack from the Store to see it here." />
+            }
+          />
+        )}
+      </View>
 
-                <Text style={[styles.statusBadge, { color: status.color }]}>
-                  {status.label}
-                </Text>
-              </View>
-            );
-          }}
-          ListEmptyComponent={
-            <EmptyState title="🧾 No purchases yet. Buy a chapter, subject, or year pack from the Store to see it here." />
-          }
-        />
-      )}
+      <BottomNav active="MyPurchases" />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
   container: {
     flex: 1,
     backgroundColor: COLORS.background,

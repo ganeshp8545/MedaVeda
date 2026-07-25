@@ -4,8 +4,10 @@
     "strict": true,
     "jsx": "react-jsx",
     "moduleResolution": "bundler",
+    "moduleSuffixes": [".native", ".ios", ".android", ""],
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true
-  }
+  },
+  "exclude": ["node_modules", "supabase/functions/**"]
 }

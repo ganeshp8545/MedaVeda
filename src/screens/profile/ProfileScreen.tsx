@@ -5,27 +5,30 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Share,
 } from "react-native";
 
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 
-import { signOut } from "firebase/auth";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
 import ProfileAvatar from "../../components/ProfileAvatar";
 import ProfileMenuCard from "../../components/ProfileMenuCard";
 import StatCard from "../../components/StatCard";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
+import BottomNav from "../../components/BottomNav";
 import useQuizStats from "../../hooks/useQuizStats";
 
-import { auth } from "../../config/firebase";
+import { supabase } from "../../config/supabase";
+import { getCurrentUser } from "../../services/authState";
 import { fetchUserProfile, UserProfile } from "../../services/usersService";
+import { SPACING } from "../../theme/spacing";
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
 
-  const user = auth.currentUser;
+  const user = getCurrentUser();
 
   const stats = useQuizStats();
 
@@ -35,7 +38,7 @@ export default function ProfileScreen() {
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
-      fetchUserProfile(user.uid)
+      fetchUserProfile(user.id)
         .then(setProfile)
         .catch((err) => console.error("Failed to load profile:", err));
     }, [user])
@@ -45,7 +48,7 @@ export default function ProfileScreen() {
     setLogoutDialogVisible(false);
 
     try {
-      await signOut(auth);
+      await supabase.auth.signOut();
       navigation.replace("Login");
     } catch (error) {
       console.error("Logout failed:", error);
@@ -53,109 +56,143 @@ export default function ProfileScreen() {
     }
   };
 
+  // Same message/link as the "Share App" option in Settings, so both
+  // entry points share one identical invite message.
+  const handleShare = async () => {
+    try {
+      await Share.share({
+        message:
+          "Download MedVeda - The Ultimate BAMS Study App.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse",
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
-    <ScrollView
-      style={styles.container}
-      showsVerticalScrollIndicator={false}
-    >
-      <ProfileAvatar
-        name={profile?.name || user?.email || "User"}
-      />
+    <View style={styles.screen}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        <ProfileAvatar
+          name={profile?.name || user?.email || "User"}
+        />
 
-      <Text style={styles.email}>
-        {user?.email}
-      </Text>
+        <Text style={styles.email}>
+          {user?.email}
+        </Text>
 
-      {(profile?.mobile || profile?.college) && (
-        <View style={styles.detailsBlock}>
-          {!!profile?.mobile && (
+        {!!profile?.mobile && (
+          <View style={styles.detailsBlock}>
             <Text style={styles.detailText}>📱 {profile.mobile}</Text>
-          )}
-          {!!profile?.college && (
-            <Text style={styles.detailText}>🎓 {profile.college}</Text>
-          )}
+          </View>
+        )}
+
+        <View style={styles.statsRow}>
+          <StatCard
+          title="Attempts"
+          value={stats.totalAttempts.toString()}
+          />
+
+          <StatCard
+            title="Best Score"
+            value={`${stats.bestScore}%`}
+          />
         </View>
-      )}
 
-      <View style={styles.statsRow}>
-        <StatCard
-        title="Attempts"
-        value={stats.totalAttempts.toString()}
+        <ProfileMenuCard
+          icon="🧾"
+          title="My Purchases"
+          onPress={() => navigation.navigate("MyPurchases")}
         />
 
-        <StatCard
-          title="Best Score"
-          value={`${stats.bestScore}%`}
-        />
-      </View>
-
-      <ProfileMenuCard
-        icon="🧾"
-        title="My Purchases"
-        onPress={() => navigation.navigate("MyPurchases")}
-      />
-
-      <ProfileMenuCard
-        icon="🔐"
-        title="Change Password"
-        onPress={() =>
-          Alert.alert("Coming Soon")
-        }
-      />
-
-      <ProfileMenuCard
-        icon="ℹ️"
-        title="About App"
-        onPress={() =>
-          Alert.alert(
-            "AyurPulse",
-            "Version 1.0"
-          )
-        }
-      />
-
-      <ProfileMenuCard
-        icon="📞"
-        title="Contact Us"
-        onPress={() =>
-          Alert.alert(
-            "Email",
-            "support@ayurpulse.com"
-          )
-        }
-      />
-
-      <ProfileMenuCard
-        icon="✏️"
-        title="Edit Profile"
-        onPress={() => navigation.navigate("EditProfile")}
+        <ProfileMenuCard
+          icon="📥"
+          title="My Downloads"
+          onPress={() => navigation.navigate("Downloads")}
         />
 
-      <ProfileMenuCard
-        icon="🚪"
-        title="Logout"
-        onPress={() => setLogoutDialogVisible(true)}
-      />
+        <ProfileMenuCard
+          icon="🔐"
+          title="Change Password"
+          onPress={() => navigation.navigate("ChangePassword")}
+        />
 
-      <ConfirmationDialog
-        visible={logoutDialogVisible}
-        title="Logout"
-        message="Are you sure you want to logout?"
-        confirmLabel="Logout"
-        destructive
-        onConfirm={confirmLogout}
-        onCancel={() => setLogoutDialogVisible(false)}
-      />
-    </ScrollView>
+        <ProfileMenuCard
+          icon="ℹ️"
+          title="About App"
+          onPress={() => navigation.navigate("About")}
+        />
+
+        <ProfileMenuCard
+          icon="📞"
+          title="Contact Us"
+          onPress={() =>
+            Alert.alert(
+              "Email",
+              "medvedaforu@gmail.com"
+            )
+          }
+        />
+
+        <ProfileMenuCard
+          icon="✏️"
+          title="Edit Profile"
+          onPress={() => navigation.navigate("EditProfile")}
+          />
+
+        <ProfileMenuCard
+          icon="📤"
+          title="Share App"
+          onPress={handleShare}
+        />
+
+        <ProfileMenuCard
+          icon="🚪"
+          title="Logout"
+          onPress={() => setLogoutDialogVisible(true)}
+        />
+
+        <ConfirmationDialog
+          visible={logoutDialogVisible}
+          title="Logout"
+          message="Are you sure you want to logout?"
+          confirmLabel="Logout"
+          destructive
+          onConfirm={confirmLogout}
+          onCancel={() => setLogoutDialogVisible(false)}
+        />
+      </ScrollView>
+
+      <BottomNav active="Profile" />
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
-    padding: 20,
+  },
+
+  // Bug fix: this used to be applied via the ScrollView's `style` prop
+  // instead of `contentContainerStyle`. Padding on `style` doesn't
+  // reliably reserve scrollable space at the bottom - the last item
+  // (Logout) ended up flush against, or clipped by, the screen edge /
+  // device gesture bar, making it invisible or untappable on many
+  // phones. `contentContainerStyle` fixes this and also adds bottom
+  // breathing room so Logout is never hidden.
+  content: {
+    padding: SPACING.lg,
     paddingTop: 60,
+    paddingBottom: 40,
   },
 
   email: {
