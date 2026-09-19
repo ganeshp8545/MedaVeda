@@ -8,3 +8,4 @@ build/
 .expo/
 *.log
 .DS_Store
+mobile-app/
