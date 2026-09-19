@@ -56,15 +56,28 @@ Concrete discrepancies/uncertainties found:
    `20260801150000` migration was written defensively to handle either. Any
    new SQL Phase 2 writes touching these ids must use the same
    `information_schema`-branching pattern, not assume `text`.
-6. No duplicate/conflicting RLS policy names were found across the actual
-   migration files read (`orders_purchases_rls.sql`,
-   `20260721_admin_orders_purchases_access.sql`,
-   `20260801150000_razorpay_webhook_atomic_grant.sql`) — each policy name is
-   defined exactly once. schena.sql's RLS section names match the same
-   convention (`<table>_public_read_active`, `<table>_admin_write`). This
-   *should* mean no known duplicates today, but since schena.sql is
-   unverified, the live DB should be checked with `\d+` / `pg_policies`
-   before Phase 2 lands, in case the real deploy history diverged.
+6. **Correction (found while test-loading the migration in Phase 2):**
+   schena.sql's own RLS section does NOT match the real migrations' policy
+   names on `orders`/`purchases` — it defines `orders_select_own_or_admin`,
+   `orders_insert_own`, `orders_admin_write`, `purchases_select_own_or_admin`,
+   `purchases_admin_write`, while the real, authoritative migrations
+   (`orders_purchases_rls.sql`, `20260721_admin_orders_purchases_access.sql`)
+   define differently-named policies (`"Users can view own orders"`,
+   `"Users can create own orders"`, `"Users can cancel own pending orders"`,
+   `"Admins can view all orders"`, etc.) for the *same* access pattern. This
+   is exactly the "both orders_insert_own and 'Users can create own orders'
+   may exist" scenario the task brief warned about. **Live-DB action
+   required**: run `select tablename, policyname from pg_policies where
+   tablename in ('orders','purchases');` on the real project — if both
+   naming sets are present, they're redundant-but-not-conflicting (Postgres
+   ORs permissive policies together, so this doesn't weaken security), but
+   should be cleaned up to avoid confusion. This migration does not touch
+   orders/purchases SELECT/INSERT/UPDATE policies at all, so it neither
+   fixes nor worsens this — flagging for a separate, deliberate cleanup.
+7. `mobile-app/schena.sql` has a stray literal `cd` as its last line (line
+   557, after the "DONE" comment banner) — harmless leftover artifact, not
+   valid SQL, doesn't affect anything since the file is a human reference
+   doc, not something ever executed as-is. Noted only for completeness.
 7. `quiz_scores.chapter_id` referenced in the OFFLINE_MODE_SETUP.md
    cross-reference note (push_tokens.sql:30-32) — `chapter_id` column may or
    may not exist on `quiz_scores` live; schena.sql's version has no
@@ -371,3 +384,62 @@ composite indexes on content tables.
 
 **Planned migration objects are listed in §7 above.** Awaiting "go" to
 proceed to Phase 2.
+
+---
+
+## 9. Phase 2 completion notes (added after implementation)
+
+Delivered: `supabase/migrations/20260919120000_multi_course_and_referrals.sql`
+(courses table + seed, denormalized `course_id`/`year_id` + backfill,
+consistency/propagation triggers, `has_content_access`/`user_owns_chapter`/
+`set_my_course_year`/`apply_referral_code` functions, RLS overhaul on
+courses/years/subjects/chapters/notes/videos/quiz_tests/products, storage
+policy update, `grant_razorpay_payment` rewrite, and the full referral
+system) and `supabase/tests/multi_course_checks.sql`.
+
+**Validation performed**: no Docker/Supabase CLI was available in this
+environment (checked — neither `docker` nor `supabase` is installed), but a
+local Postgres 17 instance was available. Built a scratch database with
+hand-written stubs for the parts of Supabase this SQL depends on
+(`auth.uid()`, `auth.users`, `storage.buckets`/`storage.objects`, the
+`anon`/`authenticated`/`service_role` roles and their baseline grants),
+loaded `schena.sql` + every real migration in chronological order, then
+applied the new migration twice (idempotency check) and ran all 10
+scenarios from task §11 end to end using `set role authenticated` +
+`set_config('request.jwt.claim.sub', ...)` to simulate `auth.uid()`. This
+is **not** a substitute for running against a real local Supabase stack
+(no GoTrue/PostgREST/Storage API involved), but it did exercise the actual
+SQL, RLS, and trigger logic against a real Postgres engine. Findings:
+
+- **Caught and fixed a real bug before it shipped**: the migration
+  originally set `profiles.course_id` to `NOT NULL`. `handle_new_user()`
+  (the pre-existing `auth.users` → `profiles` trigger, correctly left
+  untouched per the ground rules) inserts a bare profile row with no
+  `course_id` at all — so every new signup would have started failing
+  immediately after this migration landed. Fixed by leaving
+  `profiles.course_id`/`year_id` both nullable (existing users were still
+  backfilled to `'bams'`; new signups start with both null and go through
+  the onboarding gate, exactly as intended for the "new signup" case).
+- All 10 §11 scenarios passed: course/year-scoped visibility for two
+  different courses, admin sees everything, a new course/year appears
+  immediately, a cross-course chapter insert is rejected by the trigger
+  with a clear error, a course change nulls out an incompatible year, a
+  BHMS student gets 0 rows / `false` for BAMS content and
+  `user_owns_chapter`, an existing purchase still unlocks its chapter,
+  referral self/invalid/double-apply are all rejected with distinct status
+  codes and a valid cross-course referral is recorded and case-insensitive,
+  and — the key security case — a tampered order (`scope='year'` on a
+  chapter-priced product) still produces a purchase with `scope='chapter'`
+  pulled from the *product*, not the order.
+- Also verified: a bundle product spanning two courses' years is rejected
+  by `products_derive_course()`'s cross-course check; a same-course bundle
+  is accepted; moving a year to another course while a bundle references
+  it is rejected by `years_before_write()`.
+- Confirmed §1 item 6 above (schena.sql vs real-migration policy name
+  divergence on orders/purchases) by literally loading both into the same
+  database and observing 10 distinct policy names covering what should be
+  4-5 access rules.
+
+No other issues found. The migration is believed correct and safe to
+apply to a real local/staging Supabase project for final confirmation
+before production.
