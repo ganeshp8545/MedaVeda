@@ -1,0 +1,48 @@
+# No config.toml existed in this project before - every function was
+# relying on whatever "Enforce JWT Verification" toggle happened to be
+# set per-function in the dashboard, which isn't version-controlled and
+# is easy to reset by accident on a redeploy. Making it explicit here so
+# `supabase functions deploy` always produces the same behavior.
+#
+# - create-payment-session: keeps JWT verification ON (default). It reads
+#   the real user from the Authorization header itself
+#   (getUserFromAuthHeader in _shared/supabaseAdmin.ts) and is always
+#   called from inside the app, which does send that header.
+# - pay / verify-payment: turned OFF. Both are invoked without a user
+#   session - pay only has the opaque, short-lived payment_sessions id in
+#   its query string, and verify-payment is called right after with the
+#   Razorpay callback fields. Neither carries a Supabase Authorization
+#   header, so requiring one would make every call fail with 401 before
+#   the function's own code (which does its own validation - session
+#   lookup/expiry/used check in pay, signature check in verify-payment)
+#   ever runs.
+# - send-push-notification: turned OFF. This one DOES carry a Supabase
+#   Authorization header (the admin's session JWT), but unlike
+#   create-payment-session it's called from the admin panel's browser,
+#   not the app - so it must also survive a CORS preflight (OPTIONS).
+#   With verify_jwt left on, the platform gateway validates/rejects the
+#   Authorization header before this function's own code runs, which
+#   means before its _shared/cors.ts headers get attached to the
+#   response. A gateway-level 401 has no CORS headers on it, so the
+#   browser reports the whole thing as a CORS failure instead of a 401 -
+#   which is exactly the "Failed to send a request to the Edge Function"
+#   error this was causing. Safe to disable here because the function
+#   already does its own JWT + admin check manually (see index.ts).
+
+[functions.pay]
+verify_jwt = false
+
+[functions.verify-payment]
+verify_jwt = false
+
+# Razorpay cannot attach a Supabase JWT to a webhook. This endpoint instead
+# authenticates every request with its raw-body HMAC signature.
+[functions.razorpay-webhook]
+verify_jwt = false
+
+# Admin panel's Send Notification feature. See the rationale in the
+# header comment above - browser-invoked + CORS preflight is why this
+# needs to be off even though (unlike pay/verify-payment) it does send
+# an Authorization header.
+[functions.send-push-notification]
+verify_jwt = false
