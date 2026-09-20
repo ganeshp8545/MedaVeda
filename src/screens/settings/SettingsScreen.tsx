@@ -29,7 +29,7 @@ export default function SettingsScreen() {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The Ultimate BAMS Study App.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
+          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
       });
     } catch (error) {
       console.error(error);
