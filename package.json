@@ -21,7 +21,6 @@
     "@sentry/react-native": "~7.11.0",
     "@supabase/supabase-js": "^2.47.10",
     "aes-js": "^3.1.2",
-    "eas-cli": "^21.0.0",
     "expo": "~57.0.7",
     "expo-application": "~57.0.2",
     "expo-clipboard": "~57.0.2",
