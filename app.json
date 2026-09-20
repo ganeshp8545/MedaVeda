@@ -35,7 +35,8 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-sqlite",
-      "./plugins/withAndroidQueries.js"
+      "./plugins/withAndroidQueries.js",
+      "expo-font"
     ],
     "extra": {
       "eas": {
