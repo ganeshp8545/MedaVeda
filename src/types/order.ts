@@ -37,6 +37,12 @@ export interface Order {
   yearId?: string;
   yearIds?: string[];
 
+  // Added by 20260919120000_multi_course_and_referrals.sql. A
+  // BEFORE INSERT/UPDATE trigger derives this from productId if left
+  // unset, so createOrderForProduct doesn't strictly need to send it -
+  // but see types/course.ts and services/ordersService.ts.
+  courseId?: string;
+
   amount: number;
   status: OrderStatus;
 

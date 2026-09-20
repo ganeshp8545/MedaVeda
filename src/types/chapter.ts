@@ -12,4 +12,6 @@ export interface Chapter {
   subjectTitle: string;
   yearId: string;
   yearTitle: string;
+  // Added by 20260919120000_multi_course_and_referrals.sql - see types/course.ts.
+  courseId: string;
 }

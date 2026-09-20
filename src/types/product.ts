@@ -31,4 +31,9 @@ export interface Product {
   yearTitle?: string;
 
   yearIds?: string[];
+
+  // Added by 20260919120000_multi_course_and_referrals.sql. Always set
+  // (derived by a DB trigger from whichever of chapterId/subjectId/yearId/
+  // yearIds is populated) regardless of scope - see types/course.ts.
+  courseId: string;
 }

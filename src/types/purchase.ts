@@ -10,6 +10,9 @@ export interface OwnedScope {
   subjectId?: string;
   yearId?: string;
   yearIds?: string[];
+  // Added by 20260919120000_multi_course_and_referrals.sql - always
+  // set, derived server-side from the purchased product. See types/course.ts.
+  courseId: string;
 }
 
 // Purchase record with display-friendly fields, for the "Purchased
