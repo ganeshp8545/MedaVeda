@@ -19,13 +19,14 @@ export {
 export async function fetchBuyOptionsForChapter(
   chapterId: string,
   subjectId: string,
-  yearId: string
+  yearId: string,
+  courseId?: string
 ) {
   const [chapterProducts, subjectProducts, yearProducts, bundleProducts] = await Promise.all([
     getProductsByChapter(chapterId),
     getProductsBySubject(subjectId),
     getProductsByYear(yearId),
-    getBundleProducts(),
+    getBundleProducts(courseId),
   ]);
 
   const relevantBundles = bundleProducts.filter((product) =>

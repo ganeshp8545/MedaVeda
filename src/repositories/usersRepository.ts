@@ -16,10 +16,22 @@ import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 export async function getUserDoc(
   uid: string
 ): Promise<({ uid: string } & Record<string, any>) | null> {
-  const { data, error } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+  // courseTitle/yearTitle aren't columns - joined live, same as the
+  // subjectTitle/yearTitle convention in the content repositories.
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("*, courses ( name ), years ( title )")
+    .eq("id", uid)
+    .maybeSingle();
   if (error) throw error;
   if (!data) return null;
-  return { uid: data.id, ...toCamelCase<Record<string, any>>(data) };
+  const row: any = data;
+  return {
+    uid: row.id,
+    ...toCamelCase<Record<string, any>>(row),
+    courseTitle: row.courses?.name ?? undefined,
+    yearTitle: row.years?.title ?? undefined,
+  };
 }
 
 export async function setUserDoc(uid: string, data: Record<string, any>): Promise<void> {

@@ -28,23 +28,21 @@ export async function getChaptersBySubject(subjectId: string): Promise<Chapter[]
   return (data ?? []).map(mapRow);
 }
 
-export async function getChaptersOrderedByCreatedAt(max: number): Promise<Chapter[]> {
-  const { data, error } = await supabase
-    .from("chapters")
-    .select(SELECT_WITH_TITLES)
-    .eq("active", true)
-    .order("created_at", { ascending: false })
-    .limit(max);
+export async function getChaptersOrderedByCreatedAt(
+  max: number,
+  courseId?: string
+): Promise<Chapter[]> {
+  let query = supabase.from("chapters").select(SELECT_WITH_TITLES).eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data, error } = await query.order("created_at", { ascending: false }).limit(max);
   if (error) throw error;
   return (data ?? []).map(mapRow);
 }
 
-export async function getActiveChapters(max: number): Promise<Chapter[]> {
-  const { data, error } = await supabase
-    .from("chapters")
-    .select(SELECT_WITH_TITLES)
-    .eq("active", true)
-    .limit(max);
+export async function getActiveChapters(max: number, courseId?: string): Promise<Chapter[]> {
+  let query = supabase.from("chapters").select(SELECT_WITH_TITLES).eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data, error } = await query.limit(max);
   if (error) throw error;
   return (data ?? []).map(mapRow);
 }

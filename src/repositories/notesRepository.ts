@@ -17,8 +17,10 @@ export async function getNotesByChapter(chapterId: string): Promise<Note[]> {
 // on the row itself) - searchService joins each note to its chapter from
 // the already-fetched chapters index rather than nesting a second embed
 // here, so this stays a plain single-table read.
-export async function getAllActiveNotes(): Promise<Note[]> {
-  const { data, error } = await supabase.from("notes").select("*").eq("active", true);
+export async function getAllActiveNotes(courseId?: string): Promise<Note[]> {
+  let query = supabase.from("notes").select("*").eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row) => toCamelCase<Note>(row));
 }

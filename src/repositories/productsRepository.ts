@@ -58,12 +58,18 @@ export async function getProductsByYear(yearId: string): Promise<Product[]> {
   );
 }
 
-export async function getBundleProducts(): Promise<Product[]> {
-  return runQuery(
-    supabase.from("products").select(SELECT_WITH_TITLES).eq("scope", "bundle").eq("active", true)
-  );
+export async function getBundleProducts(courseId?: string): Promise<Product[]> {
+  let query = supabase
+    .from("products")
+    .select(SELECT_WITH_TITLES)
+    .eq("scope", "bundle")
+    .eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  return runQuery(query);
 }
 
-export async function getAllActiveProducts(): Promise<Product[]> {
-  return runQuery(supabase.from("products").select(SELECT_WITH_TITLES).eq("active", true));
+export async function getAllActiveProducts(courseId?: string): Promise<Product[]> {
+  let query = supabase.from("products").select(SELECT_WITH_TITLES).eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  return runQuery(query);
 }

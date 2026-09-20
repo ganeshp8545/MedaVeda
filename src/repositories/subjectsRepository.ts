@@ -21,11 +21,10 @@ export async function getSubjectsByYear(yearId: string): Promise<Subject[]> {
 // Global Search System - every active subject across every year, for the
 // search index. Same join as getSubjectsByYear, just without the
 // year_id filter.
-export async function getAllActiveSubjects(): Promise<Subject[]> {
-  const { data, error } = await supabase
-    .from("subjects")
-    .select("*, years ( title )")
-    .eq("active", true);
+export async function getAllActiveSubjects(courseId?: string): Promise<Subject[]> {
+  let query = supabase.from("subjects").select("*, years ( title )").eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row: any) => ({
     ...toCamelCase<Subject>(row),

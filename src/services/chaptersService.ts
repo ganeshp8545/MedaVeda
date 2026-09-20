@@ -21,12 +21,12 @@ export async function fetchChaptersBySubject(subjectId: string) {
 // `createdAt` timestamp if the admin panel writes one; if that field or
 // its required index isn't there yet, falls back to an unordered slice
 // so the section still shows something instead of erroring out.
-export async function fetchLatestChapters(max = 6) {
+export async function fetchLatestChapters(max = 6, courseId?: string) {
   try {
-    return await getChaptersOrderedByCreatedAt(max);
+    return await getChaptersOrderedByCreatedAt(max, courseId);
   } catch (error) {
     console.log("fetchLatestChapters: falling back to unordered query", error);
-    return getActiveChapters(max);
+    return getActiveChapters(max, courseId);
   }
 }
 
@@ -37,9 +37,10 @@ export async function fetchLatestChapters(max = 6) {
 export async function fetchRecommendedChapters(
   ownedChapterIds: Set<string>,
   preferredYearId?: string,
-  max = 6
+  max = 6,
+  courseId?: string
 ) {
-  const all = await getActiveChapters(30);
+  const all = await getActiveChapters(30, courseId);
 
   const notOwned = all.filter((c) => !ownedChapterIds.has(c.id));
 

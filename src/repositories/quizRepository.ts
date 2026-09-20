@@ -25,11 +25,17 @@ export async function getQuizTestsBySubject(subjectId: string): Promise<QuizTest
 // sizeable JSON blob per test) since the index only needs id/title/order
 // plus enough context to navigate - getQuizTestById below fetches the
 // full row (questions included) only once a specific result is tapped.
-export async function getAllActiveQuizTestsLite(): Promise<Omit<QuizTest, "questions">[]> {
-  const { data, error } = await supabase
+export async function getAllActiveQuizTestsLite(
+  courseId?: string
+): Promise<Omit<QuizTest, "questions">[]> {
+  let query = supabase
     .from("quiz_tests")
-    .select("id, title, subject_id, year_id, order, active, subjects ( title ), years ( title )")
+    .select(
+      "id, title, subject_id, year_id, course_id, order, active, subjects ( title ), years ( title )"
+    )
     .eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row: any) => ({
     ...toCamelCase<Omit<QuizTest, "questions">>(row),

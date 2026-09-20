@@ -35,7 +35,24 @@ export async function fetchUserProfile(uid: string): Promise<UserProfile | null>
     mobile: data.phone ?? undefined,
     role: "student",
     createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt,
+    courseId: data.courseId ?? undefined,
+    courseTitle: data.courseTitle ?? undefined,
+    yearId: data.yearId ?? undefined,
+    yearTitle: data.yearTitle ?? undefined,
+    referralCode: data.referralCode ?? "",
   };
+}
+
+// The only allowed way for a student to change their course/year: profiles
+// has a guard trigger that rejects direct writes to course_id/year_id, and
+// set_my_course_year() validates the pair (year must belong to course).
+// Passing a null year clears it.
+export async function setMyCourseYear(courseId: string, yearId: string | null): Promise<void> {
+  const { error } = await supabase.rpc("set_my_course_year", {
+    p_course_id: courseId,
+    p_year_id: yearId,
+  });
+  if (error) throw new Error(error.message || "Could not update your course. Please try again.");
 }
 
 export async function updateUserProfile(

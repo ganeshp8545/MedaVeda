@@ -23,11 +23,13 @@ export async function getVideosBySubject(subjectId: string): Promise<Video[]> {
 // Global Search System - every active video across every subject, for
 // the search index. Same join as getVideosBySubject, just without the
 // subject_id filter.
-export async function getAllActiveVideos(): Promise<Video[]> {
-  const { data, error } = await supabase
+export async function getAllActiveVideos(courseId?: string): Promise<Video[]> {
+  let query = supabase
     .from("videos")
     .select("*, subjects ( title ), years ( title )")
     .eq("active", true);
+  if (courseId) query = query.eq("course_id", courseId);
+  const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row: any) => ({
     ...toCamelCase<Video>(row),
