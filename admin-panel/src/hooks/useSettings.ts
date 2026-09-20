@@ -11,6 +11,8 @@ const emptySettings: AppSettings = {
   termsUrl: "",
   privacyUrl: "",
   razorpayKeyId: "",
+  minAppVersion: "",
+  storeUrl: "",
 };
 
 export default function useSettings() {

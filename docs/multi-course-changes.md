@@ -19,6 +19,7 @@ docs) and `mobile-app/`, which has its own history.
 - `migrations/20260919120000_multi_course_and_referrals.sql` — new
 - `migrations/20260919130000_referral_history_rpc.sql` — new
 - `migrations/20260920120000_null_year_course_fallback.sql` — new (TEMPORARY NULL-year fallback)
+- `migrations/20260920130000_app_config.sql` — new (force-update config table); `tests/app_config_checks.sql` — new
 - `functions/create-payment-session/index.ts`, `functions/pay/index.ts` — edited
 - `tests/multi_course_checks.sql`, `tests/legacy_backfill_seed.sql`,
   `tests/legacy_backfill_verify.sql` — new; `tests/null_year_fallback_checks.sql` — new (TEMPORARY); legacy check D updated
@@ -165,7 +166,7 @@ Admin: settings form and referrals table/actions.
 ## 8. Environment / configuration
 
 - New package: `expo-clipboard@~57.0.2` (no config plugin). `package.json` line is committed; **`package-lock.json` is not** — run `npm install` and commit it with your pending changes.
-- Supabase: apply the migrations (three, including `20260920120000_null_year_course_fallback.sql`); redeploy the `create-payment-session` and `pay` Edge Functions. No new secrets, redirect URLs or dashboard settings. Supabase reloads the PostgREST schema cache after DDL; if an embed like `courses ( name )` errors right after migrating, run `notify pgrst, 'reload schema';`.
+- Supabase: apply the migrations (four, including `20260920120000_null_year_course_fallback.sql` and `20260920130000_app_config.sql`); redeploy the `create-payment-session` and `pay` Edge Functions. No new secrets, redirect URLs or dashboard settings. Supabase reloads the PostgREST schema cache after DDL; if an embed like `courses ( name )` errors right after migrating, run `notify pgrst, 'reload schema';`.
 - Referral program ships **disabled**; enable it in Admin → Referrals.
 - `mobile-app/schena.sql` was not updated (it is a reconstructed reference file).
 
@@ -181,6 +182,7 @@ Admin: settings form and referrals table/actions.
 | `oxlint` admin-panel | 0 errors, **65 warnings vs 35 before this work**: +16 `no-unused-vars` (destructuring `courseTitle` out before writes, same convention as `yearTitle`), +12 `react-hooks/exhaustive-deps` (the list hooks now re-run on `[filters.courseId, filters.yearId]` without listing their `load` function), +2 `set-state-in-effect` (new `CourseFormModal`, `Referrals`). Not cleaned up |
 | SQL: `multi_course_checks.sql` | **13/13 pass** on a local Postgres 17 (rolled back, leaves nothing). Confirmed the suite can fail: disabling the guard trigger and swapping in a grant function that trusts the order each make it fail |
 | SQL: `null_year_fallback_checks.sql` | 6/6 pass; fails (as expected) with the fallback line removed |
+| SQL: `app_config_checks.sql` | 5/5 pass |
 | SQL: legacy backfill | 4/4 pass: counts unchanged, all BAMS, students backfilled, unique referral codes, chapter/subject/year/bundle purchases (and a purchase with no `product_id`) still unlock exactly their PDFs, an unpaid order unlocks nothing |
 | Migration idempotency | second run on a populated database: no errors |
 | SQLite `downloads` migration | statements run against a legacy-shaped table: upgraded, re-runnable, filter correct |
@@ -228,21 +230,27 @@ untouched; the new file re-creates the function with one extra line, marked
 - Tests: `tests/null_year_fallback_checks.sql` (NULL-year BAMS student gets 0 BHMS rows and cannot read the BHMS PDF, and the mirror case; no-course student sees nothing; strict rule returns once a year is set; inactive content stays hidden). `legacy_backfill_verify.sql` check D was changed to the fallback expectation and marked TEMPORARY.
 
 ### Removing the NULL-year fallback
-Do this only when **every supported app version** forces the year picker (i.e. after min app version X, see below) and a query confirms no student is left with a course but no year:
+Do this only when **every supported app version** forces the year picker (i.e. after min app version X: `min_app_version` ≥ the first build containing the onboarding gate and the update gate, see below) and a query confirms no student is left with a course but no year:
 `select count(*) from profiles where course_id is not null and year_id is null;` → 0 (or accept that the remainder will be prompted).
 1. Add a new migration (e.g. `<timestamp>_remove_null_year_fallback.sql`) that `create or replace`s `has_content_access` **exactly as in `20260919120000_multi_course_and_referrals.sql`**, i.e. the profile branch is `pr.course_id = p_course_id and (p_year_id is null or pr.year_id = p_year_id)` — delete the `or pr.year_id is null -- TEMPORARY` line. Do not edit either committed migration.
 2. Delete `supabase/tests/null_year_fallback_checks.sql`.
 3. **Restore test D's strict assertion** in `legacy_backfill_verify.sql` (check D): a student with no year and no purchases must see **0** subjects, and the subject buyer with no year must see **2** (only the year they bought into). Remove its TEMPORARY comment and change the PASS message back. Leaving D as-is will make the suite fail once the fallback is gone.
-4. **Re-run the full SQL suite** (`multi_course_checks.sql`, `legacy_backfill_verify.sql` after `legacy_backfill_seed.sql`, plus any new tests) and confirm every check passes. Then run and `grep -rn "TEMPORARY – remove after min app version X" supabase docs` to confirm nothing is left.
+4. **Re-run the full SQL suite** (`multi_course_checks.sql`, `legacy_backfill_verify.sql` after `legacy_backfill_seed.sql`, plus any new tests) and confirm every check passes. Then run `grep -rn "TEMPORARY – remove after min app version X" supabase docs` to confirm nothing is left.
 
-### Minimum app version / force-update: none exists today
-Searched `mobile-app` (src, App.tsx, app.json, package.json, eas.json) and `supabase/`: no min-version check, no force-update screen, no `app_config` table. `expo-updates` is installed and `updates.url` is set, but nothing calls it, and `runtimeVersion.policy = "appVersion"` means OTA JS updates only reach builds with the same `version` — they cannot fix already-installed older binaries. The only Play Store link is in Settings (rate/share).
+### Minimum app version / force-update gate (implemented)
+Before this there was no minimum-version mechanism (`expo-updates` was installed but never called, and `runtimeVersion.policy = "appVersion"` means OTA updates cannot reach older binaries). Now:
 
-**Proposal (not implemented) — smallest version:**
-1. Migration: `create table app_config (key text primary key, value text not null);` `alter table app_config enable row level security;` policy `for select to anon, authenticated using (true)`; no write policies (admin/service role edits it). Seed `('min_app_version','1.0.0')` and `('store_url','https://play.google.com/store/apps/details?id=com.ayurpulse')`. Only non-secret values may go here, since anon can read it.
-2. App: on launch (before auth/navigation), fetch `min_app_version`, compare with `Constants.expoConfig.version` using a small semver compare, and if the installed version is lower render a full-screen "Update required" with a button opening `store_url`. On network failure, fail **open** (let the user in) so an outage doesn't lock everyone out.
-3. Ship that gate in the next release; raising `min_app_version` to X then lets you remove the fallback above. Old builds that predate the gate can't be forced, so X only takes effect once they are updated voluntarily — decide what "X" means in that light.
-About 1 migration, 1 service + 1 screen, ~60 lines.
+- **Table:** `app_config(key, value, updated_at)` from `20260920130000_app_config.sql`. Readable by `anon` + `authenticated`; insert/update/delete only for admins (`am_i_admin()`). **Publicly readable — non-secret values only.** Check constraints reject a malformed `min_app_version` (`^\d+(\.\d+){0,2}$`) and a non-`https://` `store_url`, so a typo cannot lock everyone out. Seeded with `min_app_version = 1.0.0` (the current `app.json` version, so nobody is blocked on release day) and `store_url = https://play.google.com/store/apps/details?id=com.ayurpulse.app` (`android.package` in `app.json`).
+- **Mobile:** `useForceUpdate` (mounted in `App.tsx`) runs `checkForRequiredUpdate()` on launch and on every return to the foreground. If the installed version is lower than `min_app_version`, `App.tsx` renders the blocking `UpdateRequiredScreen` (button opens `store_url`) instead of the navigator. The installed version comes from `expo-application`'s `nativeApplicationVersion` (the binary's `versionName` / `CFBundleShortVersionString`, per the SDK 57 docs; `Constants.expoConfig.version` can come from an OTA manifest, so it is not used). Versions are compared numerically per part (`1.10.0 > 1.9.0`). **Fails open** on any fetch error, timeout (6 s), web, or missing/malformed value. A successful result is cached for 10 minutes and concurrent calls share one request; failures are not cached, so the next resume retries. The check runs at the app root rather than in `SplashScreen`, so one path covers launch and resume; the app is never held up while it is pending.
+- **Admin:** Settings → "App updates" edits `min_app_version` and `store_url` (validated in the form and again in `settingsService` before any write).
+- **New dependency:** `expo-application@~57.0.2` in `mobile-app/package.json` (already present transitively; run `npm install` and commit the lockfile). It needs a native rebuild only if your build does not already include it (it ships with Expo).
+- **Tests:** `tests/app_config_checks.sql` (anon reads; anon and a student cannot write; an admin can insert/update/delete; malformed values rejected).
+
+**Bumping `min_app_version`:** only after the build with that version is **live on the Play Store for everyone** (staged rollouts included). Then Admin → Settings → App updates → set "Minimum app version" (e.g. `1.1.0`) → Save. Takes effect on each student's next launch/resume. To roll back, set it lower again. Builds released *before* this gate cannot be forced; only builds containing it honour the setting.
+
+**Releasing the gate itself:** the first build containing the gate must have `app.json` `version` ≥ what the seed says (`1.0.0`) — don't raise `min_app_version` above the version you actually shipped.
+
+**Removing the NULL-year fallback:** allowed once `min_app_version` ≥ the first build that contains **both** the year-onboarding gate (Phase 6) and this update gate. From then on every build that can still open the app forces a year to be chosen. Follow "Removing the NULL-year fallback" above, including the `year_id IS NULL` count check, since students who never open the app after the bump keep a NULL year until they do.
 
 ### Deploy order
 1. On the live database, run the policy query and the schema-assumption checks below; take a backup.
