@@ -23,6 +23,7 @@ import useQuizStats from "../../hooks/useQuizStats";
 import { supabase } from "../../config/supabase";
 import { getCurrentUser } from "../../services/authState";
 import { fetchUserProfile, UserProfile } from "../../services/usersService";
+import { fetchReferralSettings } from "../../services/referralsService";
 import { SPACING } from "../../theme/spacing";
 
 export default function ProfileScreen() {
@@ -34,6 +35,8 @@ export default function ProfileScreen() {
 
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
+  // The Refer & Earn entry is hidden unless the program is switched on.
+  const [referralsEnabled, setReferralsEnabled] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -41,6 +44,9 @@ export default function ProfileScreen() {
       fetchUserProfile(user.id)
         .then(setProfile)
         .catch((err) => console.error("Failed to load profile:", err));
+      fetchReferralSettings()
+        .then((s) => setReferralsEnabled(!!s?.enabled))
+        .catch(() => setReferralsEnabled(false));
     }, [user])
   );
 
@@ -116,6 +122,14 @@ export default function ProfileScreen() {
           title="Change Course / Year"
           onPress={() => navigation.navigate("SelectCourseYear", { mode: "change" })}
         />
+
+        {referralsEnabled && (
+          <ProfileMenuCard
+            icon="🎁"
+            title="Refer & Earn"
+            onPress={() => navigation.navigate("Referral")}
+          />
+        )}
 
         <ProfileMenuCard
           icon="🧾"

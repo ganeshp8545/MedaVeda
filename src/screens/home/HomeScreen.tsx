@@ -8,6 +8,7 @@ import {
   StyleSheet,
   FlatList,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -24,6 +25,7 @@ import usePurchases from "../../hooks/usePurchases";
 import usePurchase from "../../hooks/usePurchase";
 import useCourseYear from "../../hooks/useCourseYear";
 import { needsCourseYearSelection } from "../../services/courseState";
+import { applyPendingReferralCode } from "../../services/referralsService";
 import { getCurrentUser, getCurrentUserDisplayName } from "../../services/authState";
 
 import YearCard from "../../components/YearCard";
@@ -188,6 +190,13 @@ export default function HomeScreen() {
     loadPurchases();
     loadNotifications();
     loadUnreadNotificationCount();
+
+    // A referral code typed at sign-up is applied now that there's a session.
+    applyPendingReferralCode().then((result) => {
+      if (result?.status === "success") {
+        Alert.alert("Referral applied", "Your friend's referral code has been applied.");
+      }
+    });
   }, []);
 
   // Course-scoped sections load once the student's course is known and

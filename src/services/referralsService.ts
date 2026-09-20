@@ -1,8 +1,12 @@
+import { getCurrentUser } from "./authState";
+import { clearPendingReferral, getPendingReferral } from "../utils/pendingReferral";
 import {
   applyReferralCode as applyReferralCodeRepo,
   getMyReferrals,
   getReferralSettings,
 } from "../repositories/referralsRepository";
+
+import type { ApplyReferralCodeResult } from "../types/referral";
 
 export type {
   ReferralSettings,
@@ -30,4 +34,24 @@ export function isValidReferralCodeFormat(raw: string): boolean {
 
 export async function applyReferralCode(raw: string) {
   return applyReferralCodeRepo(normalizeReferralCode(raw));
+}
+
+// Applies a code saved at sign-up once a session exists. Only the account
+// that registered with it can claim it. A network/server failure leaves it
+// in place to retry next launch; any definitive answer (applied, or rejected
+// for a reason retrying can't fix) clears it. Never throws - registration and
+// login must not depend on this.
+export async function applyPendingReferralCode(): Promise<ApplyReferralCodeResult | null> {
+  try {
+    const pending = await getPendingReferral();
+    const email = getCurrentUser()?.email?.toLowerCase();
+    if (!pending || !email || pending.email !== email) return null;
+
+    const result = await applyReferralCodeRepo(pending.code);
+    await clearPendingReferral();
+    return result;
+  } catch (error) {
+    console.log("applyPendingReferralCode failed, will retry later:", error);
+    return null;
+  }
 }

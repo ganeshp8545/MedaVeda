@@ -91,6 +91,7 @@ export type RootStackParamList = {
   };
 
   Profile: undefined;
+  Referral: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
   MyPurchases: undefined;
