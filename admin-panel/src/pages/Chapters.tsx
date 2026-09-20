@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
 
 import useChapters from "../hooks/useChapters";
 import useYears from "../hooks/useYears";
@@ -12,6 +14,9 @@ import Button from "../components/Button";
 import type { Chapter, ChapterInput } from "../types/chapter";
 
 export default function Chapters() {
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
   const {
     chapters,
     loading,
@@ -19,7 +24,7 @@ export default function Chapters() {
     createChapter,
     editChapter,
     removeChapter,
-  } = useChapters();
+  } = useChapters({ courseId: courseFilter || undefined });
 
   const { years, loading: yearsLoading } = useYears();
   const { subjects, loading: subjectsLoading } = useSubjects();
@@ -33,9 +38,19 @@ export default function Chapters() {
   const [deleteTarget, setDeleteTarget] = useState<Chapter | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const yearsForFilter = useMemo(
+    () => (courseFilter ? years.filter((y) => y.courseId === courseFilter) : years),
+    [years, courseFilter]
+  );
+
   const subjectsInYearFilter = useMemo(
-    () => (yearFilter ? subjects.filter((s) => s.yearId === yearFilter) : subjects),
-    [subjects, yearFilter]
+    () =>
+      yearFilter
+        ? subjects.filter((s) => s.yearId === yearFilter)
+        : courseFilter
+          ? subjects.filter((s) => s.courseId === courseFilter)
+          : subjects,
+    [subjects, yearFilter, courseFilter]
   );
 
   const filteredChapters = useMemo(() => {
@@ -106,6 +121,20 @@ export default function Chapters() {
       )}
 
       <div className="mb-4 flex gap-3">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={(id) => {
+              setCourseFilter(id);
+              setYearFilter("");
+              setSubjectFilter("");
+            }}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+
         <select
           value={yearFilter}
           onChange={(e) => {
@@ -115,7 +144,7 @@ export default function Chapters() {
           className="rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
         >
           <option value="">All Years</option>
-          {years.map((year) => (
+          {yearsForFilter.map((year) => (
             <option key={year.id} value={year.id}>
               {year.title}
             </option>
@@ -152,6 +181,7 @@ export default function Chapters() {
 
       <ChapterFormModal
         open={formOpen}
+        courses={courses}
         years={years}
         subjects={subjects}
         initialData={editing}

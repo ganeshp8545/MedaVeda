@@ -1,16 +1,36 @@
+import { useState } from "react";
+
 import useAnalytics from "../hooks/useAnalytics";
+import useCourses from "../hooks/useCourses";
 
 import StatCard from "../components/StatCard";
 import TopProductsTable from "../components/TopProductsTable";
+import CoursePicker from "../components/CoursePicker";
 
 export default function Analytics() {
-  const { data, loading, error } = useAnalytics();
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+  const { data, loading, error } = useAnalytics({ courseId: courseFilter || undefined });
+
+  const filterBar = (
+    <div className="mb-6 w-56">
+      <CoursePicker
+        courses={courses}
+        value={courseFilter}
+        onChange={setCourseFilter}
+        label=""
+        placeholder="All Courses"
+      />
+    </div>
+  );
+
 
   if (loading) {
     return (
-      <h2 className="text-xl">
-        Loading...
-      </h2>
+      <div>
+        {filterBar}
+        <h2 className="text-xl">Loading...</h2>
+      </div>
     );
   }
   return (
@@ -21,6 +41,8 @@ export default function Analytics() {
           Revenue and sales overview.
         </p>
       </div>
+
+      {filterBar}
 
       {error && <p className="text-red-500 mb-4">{error}</p>}
 

@@ -23,6 +23,8 @@ import Analytics from "./pages/Analytics";
 import Settings from "./pages/Settings";
 import Products from "./pages/Products";
 import Orders from "./pages/Orders";
+import Courses from "./pages/Courses";
+import Referrals from "./pages/Referrals";
 
 export default function App() {
   return (
@@ -35,10 +37,12 @@ export default function App() {
           <Route element={<ProtectedRoute />}>
             <Route element={<AdminLayout />}>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/courses" element={<Courses />} />
               <Route path="/years" element={<Years />} />
               <Route path="/subjects" element={<Subjects />} />
               <Route path="/chapters" element={<Chapters />} />
               <Route path="/users" element={<Users />} />
+              <Route path="/referrals" element={<Referrals />} />
               <Route path="/notes" element={<Notes />} />
               <Route path="/videos" element={<Videos />} />
               <Route path="/quiz" element={<Quiz />} />

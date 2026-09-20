@@ -21,6 +21,7 @@ export default function YearTable({ years, onEdit, onDelete }: Props) {
         <thead className="bg-gray-50 text-gray-500">
           <tr>
             <th className="px-5 py-3">Order</th>
+            <th className="px-5 py-3">Course</th>
             <th className="px-5 py-3">Year</th>
             <th className="px-5 py-3">Status</th>
             <th className="px-5 py-3 text-right">Actions</th>
@@ -31,6 +32,8 @@ export default function YearTable({ years, onEdit, onDelete }: Props) {
           {years.map((year) => (
             <tr key={year.id} className="border-t last:border-b-0">
               <td className="px-5 py-3 text-gray-500">{year.order}</td>
+
+              <td className="px-5 py-3 text-gray-600">{year.courseTitle || "-"}</td>
 
               <td className="px-5 py-3">
                 <div className="flex items-center gap-3">

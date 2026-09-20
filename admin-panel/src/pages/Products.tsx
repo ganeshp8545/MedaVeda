@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
 
 import useProducts from "../hooks/useProducts";
 import useYears from "../hooks/useYears";
@@ -15,8 +17,11 @@ import SearchBar from "../components/SearchBar";
 import type { Product, ProductInput } from "../types/product";
 
 export default function Products() {
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
   const { products, loading, error, createProduct, editProduct, removeProduct } =
-    useProducts();
+    useProducts({ courseId: courseFilter || undefined });
 
   const { years } = useYears();
   const { subjects } = useSubjects();
@@ -87,6 +92,18 @@ export default function Products() {
       )}
 
       <div className="flex gap-4 mb-6">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={(id) => {
+              setCourseFilter(id);
+            }}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+
         <SearchBar value={search} onChange={setSearch} />
         <ProductFilter value={scope} onChange={setScope} />
       </div>
@@ -101,6 +118,7 @@ export default function Products() {
 
       <ProductFormModal
         open={formOpen}
+        courses={courses}
         years={years}
         subjects={subjects}
         chapters={chapters}

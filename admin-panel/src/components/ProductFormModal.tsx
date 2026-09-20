@@ -3,14 +3,17 @@ import { useEffect, useMemo, useState } from "react";
 import Modal from "./Modal";
 import Input from "./Input";
 import Button from "./Button";
+import CoursePicker from "./CoursePicker";
 
 import type { Product, ProductInput, ProductScope } from "../types/product";
 import type { Year } from "../types/year";
+import type { Course } from "../types/course";
 import type { Subject } from "../types/subject";
 import type { Chapter } from "../types/chapter";
 
 type Props = {
   open: boolean;
+  courses: Course[];
   years: Year[];
   subjects: Subject[];
   chapters: Chapter[];
@@ -31,6 +34,7 @@ function buildEmptyForm(): ProductInput {
     title: "",
     description: "",
     scope: "chapter",
+    courseId: "",
     price: 0,
     originalPrice: undefined,
     thumbnail: "",
@@ -48,9 +52,10 @@ function buildEmptyForm(): ProductInput {
 
 export default function ProductFormModal({
   open,
-  years,
-  subjects,
-  chapters,
+  courses,
+  years: allYears,
+  subjects: allSubjects,
+  chapters: allChapters,
   initialData,
   onClose,
   onSubmit,
@@ -58,6 +63,22 @@ export default function ProductFormModal({
   const [form, setForm] = useState<ProductInput>(buildEmptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Everything below the course picker is limited to the chosen course, so a
+  // product can never point at another course's year/subject/chapter (the DB
+  // trigger enforces the same rule).
+  const years = useMemo(
+    () => allYears.filter((y) => y.courseId === form.courseId),
+    [allYears, form.courseId]
+  );
+  const subjects = useMemo(
+    () => allSubjects.filter((s) => s.courseId === form.courseId),
+    [allSubjects, form.courseId]
+  );
+  const chapters = useMemo(
+    () => allChapters.filter((c) => c.courseId === form.courseId),
+    [allChapters, form.courseId]
+  );
 
   useEffect(() => {
     if (open) {
@@ -67,6 +88,7 @@ export default function ProductFormModal({
               title: initialData.title,
               description: initialData.description,
               scope: initialData.scope,
+              courseId: initialData.courseId,
               price: initialData.price,
               originalPrice: initialData.originalPrice ?? undefined,
               thumbnail: initialData.thumbnail,
@@ -114,7 +136,25 @@ export default function ProductFormModal({
       originalPrice: form.originalPrice,
       thumbnail: form.thumbnail,
       active: form.active,
+      courseId: form.courseId,
       scope,
+    });
+    setPickerYearId("");
+  }
+
+  // Changing the course clears every selection below it (scope-specific
+  // targets), keeping only the basic product details.
+  function handleCourseChange(courseId: string) {
+    setForm({
+      ...buildEmptyForm(),
+      title: form.title,
+      description: form.description,
+      price: form.price,
+      originalPrice: form.originalPrice,
+      thumbnail: form.thumbnail,
+      active: form.active,
+      scope: form.scope,
+      courseId,
     });
     setPickerYearId("");
   }
@@ -176,6 +216,7 @@ export default function ProductFormModal({
   function validate() {
     const newErrors: Record<string, string> = {};
 
+    if (!form.courseId) newErrors.courseId = "Please select a Course";
     if (!form.title.trim()) newErrors.title = "Title is required";
     if (form.price < 0) newErrors.price = "Price cannot be negative";
     if (
@@ -230,11 +271,20 @@ export default function ProductFormModal({
       onClose={onClose}
       title={initialData ? "Edit Product" : "Create New Product"}
     >
-      {years.length === 0 && (
+      {allYears.length === 0 && (
         <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
           Create at least one Year first before adding a Product.
         </p>
       )}
+
+      <div className="mb-4">
+        <CoursePicker
+          courses={courses}
+          value={form.courseId}
+          onChange={handleCourseChange}
+          error={errors.courseId}
+        />
+      </div>
 
       <div className="mb-4">
         <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -435,7 +485,7 @@ export default function ProductFormModal({
         <Button
           onClick={handleSubmit}
           loading={saving}
-          disabled={years.length === 0}
+          disabled={!form.courseId || years.length === 0}
         >
           Save
         </Button>

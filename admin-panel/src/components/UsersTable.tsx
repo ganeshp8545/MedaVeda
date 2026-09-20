@@ -32,6 +32,8 @@ export default function UsersTable({ users, onToggleBlock }: Props) {
             <th className="p-4 text-left">Name</th>
             <th className="p-4 text-left">Email</th>
             <th className="p-4 text-left">Phone</th>
+            <th className="p-4 text-left">Course / Year</th>
+            <th className="p-4 text-left">Referral code</th>
             <th className="p-4 text-left">Joined</th>
             <th className="p-4 text-left">Status</th>
             <th className="p-4 text-right">Actions</th>
@@ -46,6 +48,14 @@ export default function UsersTable({ users, onToggleBlock }: Props) {
               <td className="p-4">{user.email || "-"}</td>
 
               <td className="p-4">{user.phone || "-"}</td>
+
+              <td className="p-4 text-gray-600">
+                {user.courseTitle
+                  ? `${user.courseTitle}${user.yearTitle ? ` · ${user.yearTitle}` : " · year not set"}`
+                  : "Not selected"}
+              </td>
+
+              <td className="p-4 font-mono text-xs text-gray-600">{user.referralCode || "-"}</td>
 
               <td className="p-4 text-gray-500">{formatDate(user.createdAt)}</td>
 

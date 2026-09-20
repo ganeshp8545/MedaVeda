@@ -7,10 +7,12 @@ import SubjectPicker from "./SubjectPicker";
 
 import type { QuizTest, QuizTestInput, QuizTestQuestion } from "../types/quiz";
 import type { Year } from "../types/year";
+import type { Course } from "../types/course";
 import type { Subject } from "../types/subject";
 
 type Props = {
   open: boolean;
+  courses: Course[];
   years: Year[];
   subjects: Subject[];
   initialData?: QuizTest | null;
@@ -29,6 +31,7 @@ function buildEmptyForm(): QuizTestInput {
     title: "",
     subjectId: "",
     subjectTitle: "",
+    courseId: "",
     yearId: "",
     yearTitle: "",
     order: 1,
@@ -39,6 +42,7 @@ function buildEmptyForm(): QuizTestInput {
 
 export default function QuizFormModal({
   open,
+  courses,
   years,
   subjects,
   initialData,
@@ -58,6 +62,7 @@ export default function QuizFormModal({
               title: initialData.title,
               subjectId: initialData.subjectId,
               subjectTitle: initialData.subjectTitle,
+              courseId: initialData.courseId,
               yearId: initialData.yearId,
               yearTitle: initialData.yearTitle,
               order: initialData.order,
@@ -175,11 +180,12 @@ export default function QuizFormModal({
       )}
 
       <SubjectPicker
+        courses={courses}
         years={years}
         subjects={subjects}
         subjectId={form.subjectId}
-        onChange={(subjectId, subjectTitle, yearId, yearTitle) =>
-          setForm({ ...form, subjectId, subjectTitle, yearId, yearTitle })
+        onChange={(subjectId, subjectTitle, yearId, yearTitle, courseId) =>
+          setForm({ ...form, subjectId, subjectTitle, yearId, yearTitle, courseId })
         }
         error={errors.subjectId}
       />
@@ -313,7 +319,7 @@ export default function QuizFormModal({
         <Button
           onClick={handleSubmit}
           loading={saving}
-          disabled={subjects.length === 0}
+          disabled={subjects.length === 0 || !form.subjectId}
         >
           Save
         </Button>

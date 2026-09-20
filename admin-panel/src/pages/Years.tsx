@@ -1,5 +1,8 @@
 import { useState } from "react";
 
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
+
 import useYears from "../hooks/useYears";
 
 import YearTable from "../components/YearTable";
@@ -10,8 +13,11 @@ import Button from "../components/Button";
 import type { Year, YearInput } from "../types/year";
 
 export default function Years() {
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
   const { years, loading, error, createYear, editYear, removeYear } =
-    useYears();
+    useYears({ courseId: courseFilter || undefined });
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Year | null>(null);
@@ -63,6 +69,18 @@ export default function Years() {
         <Button onClick={openCreate}>+ New Year</Button>
       </div>
 
+      <div className="mb-4 flex gap-3">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={setCourseFilter}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+      </div>
+
       {loading && <p className="text-gray-400">Loading...</p>}
 
       {error && <p className="text-red-500">{error}</p>}
@@ -77,6 +95,7 @@ export default function Years() {
 
       <YearFormModal
         open={formOpen}
+        courses={courses}
         initialData={editing}
         onClose={() => setFormOpen(false)}
         onSubmit={handleSubmit}

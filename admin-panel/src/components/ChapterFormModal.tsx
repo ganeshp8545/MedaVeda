@@ -3,13 +3,16 @@ import { useEffect, useMemo, useState } from "react";
 import Modal from "./Modal";
 import Input from "./Input";
 import Button from "./Button";
+import CoursePicker from "./CoursePicker";
 
 import type { Chapter, ChapterInput } from "../types/chapter";
 import type { Year } from "../types/year";
+import type { Course } from "../types/course";
 import type { Subject } from "../types/subject";
 
 type Props = {
   open: boolean;
+  courses: Course[];
   years: Year[];
   subjects: Subject[];
   initialData?: Chapter | null;
@@ -17,11 +20,12 @@ type Props = {
   onSubmit: (data: ChapterInput) => Promise<void>;
 };
 
-function buildEmptyForm(years: Year[]): ChapterInput {
+function buildEmptyForm(): ChapterInput {
   return {
     title: "",
-    yearId: years[0]?.id ?? "",
-    yearTitle: years[0]?.title ?? "",
+    courseId: "",
+    yearId: "",
+    yearTitle: "",
     subjectId: "",
     subjectTitle: "",
     order: 1,
@@ -31,15 +35,21 @@ function buildEmptyForm(years: Year[]): ChapterInput {
 
 export default function ChapterFormModal({
   open,
-  years,
+  courses,
+  years: allYears,
   subjects,
   initialData,
   onClose,
   onSubmit,
 }: Props) {
-  const [form, setForm] = useState<ChapterInput>(buildEmptyForm(years));
+  const [form, setForm] = useState<ChapterInput>(buildEmptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  const years = useMemo(
+    () => allYears.filter((y) => y.courseId === form.courseId),
+    [allYears, form.courseId]
+  );
 
   useEffect(() => {
     if (open) {
@@ -47,6 +57,7 @@ export default function ChapterFormModal({
         initialData
           ? {
               title: initialData.title,
+              courseId: initialData.courseId,
               yearId: initialData.yearId,
               yearTitle: initialData.yearTitle,
               subjectId: initialData.subjectId,
@@ -54,16 +65,27 @@ export default function ChapterFormModal({
               order: initialData.order,
               active: initialData.active,
             }
-          : buildEmptyForm(years)
+          : buildEmptyForm()
       );
       setErrors({});
     }
-  }, [open, initialData, years]);
+  }, [open, initialData]);
 
   const subjectsInYear = useMemo(
     () => subjects.filter((s) => s.yearId === form.yearId),
     [subjects, form.yearId]
   );
+
+  function handleCourseChange(courseId: string) {
+    setForm({
+      ...form,
+      courseId,
+      yearId: "",
+      yearTitle: "",
+      subjectId: "",
+      subjectTitle: "",
+    });
+  }
 
   function handleYearChange(yearId: string) {
     const selectedYear = years.find((y) => y.id === yearId);
@@ -89,6 +111,7 @@ export default function ChapterFormModal({
     const newErrors: Record<string, string> = {};
 
     if (!form.title.trim()) newErrors.title = "Title is required";
+    if (!form.courseId) newErrors.courseId = "Please select a Course";
     if (!form.yearId) newErrors.yearId = "Please select a Year";
     if (!form.subjectId) newErrors.subjectId = "Please select a Subject";
     if (form.order < 1) newErrors.order = "Order must be 1 or higher";
@@ -123,11 +146,25 @@ export default function ChapterFormModal({
       onClose={onClose}
       title={initialData ? "Edit Chapter" : "Create New Chapter"}
     >
-      {years.length === 0 && (
+      {allYears.length === 0 && (
         <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
           Create at least one Year first.
         </p>
       )}
+
+      <div className="mb-4">
+        <CoursePicker
+          courses={courses}
+          value={form.courseId}
+          onChange={handleCourseChange}
+          error={errors.courseId}
+        />
+        {courses.length === 0 && (
+          <p className="mt-1 text-xs text-amber-600">
+            Create a Course first in Courses.
+          </p>
+        )}
+      </div>
 
       <div className="mb-4">
         <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -136,7 +173,8 @@ export default function ChapterFormModal({
         <select
           value={form.yearId}
           onChange={(e) => handleYearChange(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
+          disabled={!form.courseId}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600 disabled:bg-gray-100"
         >
           <option value="">-- Select --</option>
           {years.map((year) => (
@@ -216,7 +254,7 @@ export default function ChapterFormModal({
         <Button
           onClick={handleSubmit}
           loading={saving}
-          disabled={years.length === 0}
+          disabled={!form.courseId || !form.yearId || !form.subjectId}
         >
           Save
         </Button>

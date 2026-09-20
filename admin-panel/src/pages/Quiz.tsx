@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
 
 import useQuiz from "../hooks/useQuiz";
 import useYears from "../hooks/useYears";
@@ -13,7 +15,10 @@ import SearchBar from "../components/SearchBar";
 import type { QuizTest, QuizTestInput } from "../types/quiz";
 
 export default function Quiz() {
-  const { tests, loading, error, createTest, editTest, removeTest } = useQuiz();
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
+  const { tests, loading, error, createTest, editTest, removeTest } = useQuiz({ courseId: courseFilter || undefined });
 
   const { years } = useYears();
   const { subjects } = useSubjects();
@@ -26,6 +31,11 @@ export default function Quiz() {
 
   const [deleteTarget, setDeleteTarget] = useState<QuizTest | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const subjectsForFilter = useMemo(
+    () => (courseFilter ? subjects.filter((s) => s.courseId === courseFilter) : subjects),
+    [subjects, courseFilter]
+  );
 
   const filteredTests = useMemo(() => {
     return tests.filter((t) => {
@@ -87,6 +97,19 @@ export default function Quiz() {
       )}
 
       <div className="flex flex-wrap gap-4 mb-6">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={(id) => {
+              setCourseFilter(id);
+              setSubjectId("");
+            }}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+
         <SearchBar value={search} onChange={setSearch} />
 
         <select
@@ -95,7 +118,7 @@ export default function Quiz() {
           className="border rounded-lg px-3 py-2"
         >
           <option value="">All Subjects</option>
-          {subjects.map((subject) => (
+          {subjectsForFilter.map((subject) => (
             <option key={subject.id} value={subject.id}>
               {subject.title}
             </option>
@@ -127,6 +150,7 @@ export default function Quiz() {
 
       <QuizFormModal
         open={formOpen}
+        courses={courses}
         years={years}
         subjects={subjects}
         initialData={editing}

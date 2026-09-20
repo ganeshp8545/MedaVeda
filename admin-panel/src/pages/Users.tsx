@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
 
 import useUsers from "../hooks/useUsers";
 
@@ -9,7 +11,10 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import type { AppUser } from "../types/user";
 
 export default function Users() {
-  const { users, loading, error, toggleBlocked } = useUsers();
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
+  const { users, loading, error, toggleBlocked } = useUsers({ courseId: courseFilter || undefined });
 
   const [search, setSearch] = useState("");
 
@@ -56,6 +61,18 @@ export default function Users() {
       </div>
 
       <div className="flex flex-wrap gap-4 mb-6">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={(id) => {
+              setCourseFilter(id);
+            }}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+
         <SearchBar value={search} onChange={setSearch} />
       </div>
 

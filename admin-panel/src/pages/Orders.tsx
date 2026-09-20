@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
 
 import useOrders from "../hooks/useOrders";
 
@@ -10,7 +12,10 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import type { Order, OrderStatus } from "../types/order";
 
 export default function Orders() {
-  const { orders, loading, error, changeStatus } = useOrders();
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
+  const { orders, loading, error, changeStatus } = useOrders({ courseId: courseFilter || undefined });
 
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("");
@@ -68,6 +73,18 @@ export default function Orders() {
       </div>
 
       <div className="flex flex-wrap gap-4 mb-6">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={(id) => {
+              setCourseFilter(id);
+            }}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+
         <SearchBar value={search} onChange={setSearch} />
         <OrderFilter value={status} onChange={setStatus} />
       </div>

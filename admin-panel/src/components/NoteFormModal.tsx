@@ -9,11 +9,13 @@ import { uploadFile } from "../services/storageService";
 
 import type { Note, NoteInput } from "../types/note";
 import type { Year } from "../types/year";
+import type { Course } from "../types/course";
 import type { Subject } from "../types/subject";
 import type { Chapter } from "../types/chapter";
 
 type Props = {
   open: boolean;
+  courses: Course[];
   years: Year[];
   subjects: Subject[];
   chapters: Chapter[];
@@ -28,6 +30,8 @@ function buildEmptyForm(): NoteInput {
     pdfUrl: "",
     chapterId: "",
     chapterTitle: "",
+    yearId: "",
+    courseId: "",
     order: 1,
     active: true,
   };
@@ -35,6 +39,7 @@ function buildEmptyForm(): NoteInput {
 
 export default function NoteFormModal({
   open,
+  courses,
   years,
   subjects,
   chapters,
@@ -63,6 +68,8 @@ export default function NoteFormModal({
               pdfUrl: initialData.pdfUrl,
               chapterId: initialData.chapterId,
               chapterTitle: initialData.chapterTitle,
+              yearId: initialData.yearId,
+              courseId: initialData.courseId,
               order: initialData.order,
               active: initialData.active,
             }
@@ -147,12 +154,13 @@ export default function NoteFormModal({
       )}
 
       <ChapterPicker
+        courses={courses}
         years={years}
         subjects={subjects}
         chapters={chapters}
         chapterId={form.chapterId}
-        onChange={(chapterId, chapterTitle) =>
-          setForm({ ...form, chapterId, chapterTitle })
+        onChange={(chapterId, chapterTitle, yearId, courseId) =>
+          setForm({ ...form, chapterId, chapterTitle, yearId, courseId })
         }
         error={errors.chapterId}
       />
@@ -243,7 +251,7 @@ export default function NoteFormModal({
         <Button
           onClick={handleSubmit}
           loading={saving}
-          disabled={chapters.length === 0}
+          disabled={chapters.length === 0 || !form.chapterId}
         >
           Save
         </Button>

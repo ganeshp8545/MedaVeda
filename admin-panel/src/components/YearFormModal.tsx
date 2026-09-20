@@ -3,11 +3,14 @@ import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import Input from "./Input";
 import Button from "./Button";
+import CoursePicker from "./CoursePicker";
 
 import type { Year, YearInput } from "../types/year";
+import type { Course } from "../types/course";
 
 type Props = {
   open: boolean;
+  courses: Course[];
   initialData?: Year | null;
   onClose: () => void;
   onSubmit: (data: YearInput) => Promise<void>;
@@ -19,10 +22,12 @@ const emptyForm: YearInput = {
   color: "#4CAF50",
   order: 1,
   active: true,
+  courseId: "",
 };
 
 export default function YearFormModal({
   open,
+  courses,
   initialData,
   onClose,
   onSubmit,
@@ -41,6 +46,7 @@ export default function YearFormModal({
               color: initialData.color,
               order: initialData.order,
               active: initialData.active,
+              courseId: initialData.courseId,
             }
           : emptyForm
       );
@@ -48,9 +54,14 @@ export default function YearFormModal({
     }
   }, [open, initialData]);
 
+  function handleCourseChange(courseId: string) {
+    setForm({ ...form, courseId });
+  }
+
   function validate() {
     const newErrors: Record<string, string> = {};
 
+    if (!form.courseId) newErrors.courseId = "Please select a Course";
     if (!form.title.trim()) newErrors.title = "Title is required";
     if (!form.icon.trim()) newErrors.icon = "Icon is required";
     if (form.order < 1) newErrors.order = "Order must be 1 or greater";
@@ -85,6 +96,20 @@ export default function YearFormModal({
       onClose={onClose}
       title={initialData ? "Edit Year" : "Create New Year"}
     >
+      <div className="mb-4">
+        <CoursePicker
+          courses={courses}
+          value={form.courseId}
+          onChange={handleCourseChange}
+          error={errors.courseId}
+        />
+        {courses.length === 0 && (
+          <p className="mt-1 text-xs text-amber-600">
+            Create a Course first in Courses.
+          </p>
+        )}
+      </div>
+
       <Input
         label="Title"
         placeholder="e.g. 1st Professional"
@@ -141,7 +166,7 @@ export default function YearFormModal({
         <Button variant="secondary" onClick={onClose} disabled={saving}>
           Cancel
         </Button>
-        <Button onClick={handleSubmit} loading={saving}>
+        <Button onClick={handleSubmit} loading={saving} disabled={!form.courseId}>
           Save
         </Button>
       </div>

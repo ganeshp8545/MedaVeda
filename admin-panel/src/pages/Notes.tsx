@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
 
 import useNotes from "../hooks/useNotes";
 import useYears from "../hooks/useYears";
@@ -14,8 +16,11 @@ import SearchBar from "../components/SearchBar";
 import type { Note, NoteInput } from "../types/note";
 
 export default function Notes() {
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
   const { notes, loading, error, createNote, editNote, removeNote } =
-    useNotes();
+    useNotes({ courseId: courseFilter || undefined });
 
   const { years } = useYears();
   const { subjects } = useSubjects();
@@ -29,6 +34,11 @@ export default function Notes() {
 
   const [deleteTarget, setDeleteTarget] = useState<Note | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const chaptersForFilter = useMemo(
+    () => (courseFilter ? chapters.filter((c) => c.courseId === courseFilter) : chapters),
+    [chapters, courseFilter]
+  );
 
   const filteredNotes = useMemo(() => {
     return notes.filter((note) => {
@@ -90,6 +100,19 @@ export default function Notes() {
       )}
 
       <div className="flex flex-wrap gap-4 mb-6">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={(id) => {
+              setCourseFilter(id);
+              setChapterId("");
+            }}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+
         <SearchBar value={search} onChange={setSearch} />
 
         <select
@@ -98,7 +121,7 @@ export default function Notes() {
           className="border rounded-lg px-3 py-2"
         >
           <option value="">All Chapters</option>
-          {chapters.map((chapter) => (
+          {chaptersForFilter.map((chapter) => (
             <option key={chapter.id} value={chapter.id}>
               {chapter.title}
             </option>
@@ -129,6 +152,7 @@ export default function Notes() {
 
       <NoteFormModal
         open={formOpen}
+        courses={courses}
         years={years}
         subjects={subjects}
         chapters={chapters}

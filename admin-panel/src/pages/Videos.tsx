@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import useCourses from "../hooks/useCourses";
+import CoursePicker from "../components/CoursePicker";
 
 import useVideos from "../hooks/useVideos";
 import useYears from "../hooks/useYears";
@@ -13,8 +15,11 @@ import SearchBar from "../components/SearchBar";
 import type { Video, VideoInput } from "../types/video";
 
 export default function Videos() {
+  const { courses } = useCourses();
+  const [courseFilter, setCourseFilter] = useState("");
+
   const { videos, loading, error, createVideo, editVideo, removeVideo } =
-    useVideos();
+    useVideos({ courseId: courseFilter || undefined });
 
   const { years } = useYears();
   const { subjects } = useSubjects();
@@ -27,6 +32,11 @@ export default function Videos() {
 
   const [deleteTarget, setDeleteTarget] = useState<Video | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const subjectsForFilter = useMemo(
+    () => (courseFilter ? subjects.filter((s) => s.courseId === courseFilter) : subjects),
+    [subjects, courseFilter]
+  );
 
   const filteredVideos = useMemo(() => {
     return videos.filter((video) => {
@@ -88,6 +98,19 @@ export default function Videos() {
       )}
 
       <div className="flex flex-wrap gap-4 mb-6">
+        <div className="w-48">
+          <CoursePicker
+            courses={courses}
+            value={courseFilter}
+            onChange={(id) => {
+              setCourseFilter(id);
+              setSubjectId("");
+            }}
+            label=""
+            placeholder="All Courses"
+          />
+        </div>
+
         <SearchBar value={search} onChange={setSearch} />
 
         <select
@@ -96,7 +119,7 @@ export default function Videos() {
           className="border rounded-lg px-3 py-2"
         >
           <option value="">All Subjects</option>
-          {subjects.map((subject) => (
+          {subjectsForFilter.map((subject) => (
             <option key={subject.id} value={subject.id}>
               {subject.title}
             </option>
@@ -127,6 +150,7 @@ export default function Videos() {
 
       <VideoFormModal
         open={formOpen}
+        courses={courses}
         years={years}
         subjects={subjects}
         initialData={editing}

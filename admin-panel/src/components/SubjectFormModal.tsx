@@ -1,27 +1,31 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import Modal from "./Modal";
 import Input from "./Input";
 import Button from "./Button";
+import CoursePicker from "./CoursePicker";
 
 import type { Subject, SubjectInput } from "../types/subject";
 import type { Year } from "../types/year";
+import type { Course } from "../types/course";
 
 type Props = {
   open: boolean;
+  courses: Course[];
   years: Year[];
   initialData?: Subject | null;
   onClose: () => void;
   onSubmit: (data: SubjectInput) => Promise<void>;
 };
 
-function buildEmptyForm(years: Year[]): SubjectInput {
+function buildEmptyForm(): SubjectInput {
   return {
     title: "",
     icon: "📖",
     color: "#2196F3",
-    yearId: years[0]?.id ?? "",
-    yearTitle: years[0]?.title ?? "",
+    courseId: "",
+    yearId: "",
+    yearTitle: "",
     order: 1,
     active: true,
   };
@@ -29,14 +33,21 @@ function buildEmptyForm(years: Year[]): SubjectInput {
 
 export default function SubjectFormModal({
   open,
-  years,
+  courses,
+  years: allYears,
   initialData,
   onClose,
   onSubmit,
 }: Props) {
-  const [form, setForm] = useState<SubjectInput>(buildEmptyForm(years));
+  const [form, setForm] = useState<SubjectInput>(buildEmptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+
+  // Only the chosen course's years can be picked.
+  const years = useMemo(
+    () => allYears.filter((y) => y.courseId === form.courseId),
+    [allYears, form.courseId]
+  );
 
   useEffect(() => {
     if (open) {
@@ -46,16 +57,22 @@ export default function SubjectFormModal({
               title: initialData.title,
               icon: initialData.icon,
               color: initialData.color,
+              courseId: initialData.courseId,
               yearId: initialData.yearId,
               yearTitle: initialData.yearTitle,
               order: initialData.order,
               active: initialData.active,
             }
-          : buildEmptyForm(years)
+          : buildEmptyForm()
       );
       setErrors({});
     }
-  }, [open, initialData, years]);
+  }, [open, initialData]);
+
+  // Changing the course clears everything below it.
+  function handleCourseChange(courseId: string) {
+    setForm({ ...form, courseId, yearId: "", yearTitle: "" });
+  }
 
   function handleYearChange(yearId: string) {
     const selectedYear = years.find((y) => y.id === yearId);
@@ -70,6 +87,7 @@ export default function SubjectFormModal({
     const newErrors: Record<string, string> = {};
 
     if (!form.title.trim()) newErrors.title = "Title is required";
+    if (!form.courseId) newErrors.courseId = "Please select a Course";
     if (!form.yearId) newErrors.yearId = "Please select a Year";
     if (form.order < 1) newErrors.order = "Order must be 1 or higher";
 
@@ -103,11 +121,25 @@ export default function SubjectFormModal({
       onClose={onClose}
       title={initialData ? "Edit Subject" : "Create New Subject"}
     >
-      {years.length === 0 && (
+      {allYears.length === 0 && (
         <p className="mb-4 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-700">
           Create at least one Year first before adding a Subject.
         </p>
       )}
+
+      <div className="mb-4">
+        <CoursePicker
+          courses={courses}
+          value={form.courseId}
+          onChange={handleCourseChange}
+          error={errors.courseId}
+        />
+        {courses.length === 0 && (
+          <p className="mt-1 text-xs text-amber-600">
+            Create a Course first in Courses.
+          </p>
+        )}
+      </div>
 
       <div className="mb-4">
         <label className="mb-1.5 block text-sm font-medium text-gray-700">
@@ -116,7 +148,8 @@ export default function SubjectFormModal({
         <select
           value={form.yearId}
           onChange={(e) => handleYearChange(e.target.value)}
-          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
+          disabled={!form.courseId}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600 disabled:bg-gray-100"
         >
           <option value="">-- Select --</option>
           {years.map((year) => (
@@ -188,7 +221,7 @@ export default function SubjectFormModal({
         <Button
           onClick={handleSubmit}
           loading={saving}
-          disabled={years.length === 0}
+          disabled={!form.courseId || !form.yearId}
         >
           Save
         </Button>

@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 
 const menus = [
   { name: "Dashboard", path: "/" },
+  { name: "Courses", path: "/courses" },
   { name: "Academic Years", path: "/years" },
   { name: "Subjects", path: "/subjects" },
   { name: "Chapters", path: "/chapters" },
@@ -11,6 +12,7 @@ const menus = [
   { name: "Quiz", path: "/quiz" },
   { name: "Orders", path: "/orders" },
   { name: "Users", path: "/users" },
+  { name: "Referrals", path: "/referrals" },
   { name: "Notifications", path: "/notifications" },
   { name: "Analytics", path: "/analytics" },
   { name: "Settings", path: "/settings" },
