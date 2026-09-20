@@ -28,6 +28,9 @@ import * as ScreenCapture from "expo-screen-capture";
 // ask rather than only guarding the Notes/PdfViewer screens.
 export default function usePreventScreenshot() {
   useEffect(() => {
+    // expo-screen-capture has no web implementation.
+    if (Platform.OS === "web") return;
+
     ScreenCapture.preventScreenCaptureAsync().catch((err) => {
       console.log(`preventScreenCaptureAsync failed (${Platform.OS}):`, err);
     });
