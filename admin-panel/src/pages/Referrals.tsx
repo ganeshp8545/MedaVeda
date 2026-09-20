@@ -30,8 +30,6 @@ function formatDate(value: any) {
 
 const defaultSettings: ReferralSettingsInput = {
   enabled: false,
-  rewardType: "none",
-  qualifyOn: "first_purchase",
   friendDiscountPercent: 10,
   friendDiscountMax: 100,
   referrerCreditAmount: 50,

@@ -5,15 +5,16 @@ export type ReferralQualifyOn = "signup" | "first_purchase";
 
 export interface ReferralSettings {
   enabled: boolean;
-  rewardType: ReferralRewardType;
+  rewardType?: ReferralRewardType;
   referrerRewardValue?: number;
   refereeRewardValue?: number;
-  qualifyOn: ReferralQualifyOn;
+  qualifyOn?: ReferralQualifyOn;
   maxReferralsPerUser?: number;
 
   // Phase 2 reward config. Legacy fields above (rewardType, referrerRewardValue,
   // refereeRewardValue, qualifyOn) are kept for old app builds and are no
-  // longer read by any reward logic.
+  // longer read by any reward logic. They are optional here and never written
+  // back by the admin (see ReferralSettingsInput / saveReferralSettings).
   friendDiscountPercent: number;
   friendDiscountMax?: number | null; // blank = no cap
   referrerCreditAmount: number;
@@ -25,7 +26,11 @@ export interface ReferralSettings {
   termsUrl?: string | null;
 }
 
-export type ReferralSettingsInput = ReferralSettings;
+// What the admin form may save: everything except the legacy Phase 1 columns.
+export type ReferralSettingsInput = Omit<
+  ReferralSettings,
+  "rewardType" | "referrerRewardValue" | "refereeRewardValue" | "qualifyOn"
+>;
 
 export type ReferralStatus = "pending" | "qualified" | "rewarded" | "rejected";
 

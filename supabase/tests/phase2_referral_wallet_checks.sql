@@ -425,6 +425,114 @@ select pg_temp.chk('E20 settle_razorpay_payment is server-only',
   and has_function_privilege('service_role', 'public.settle_razorpay_payment(text,text,text,bigint,timestamptz)', 'execute')
   and not has_function_privilege('authenticated', 'public.grant_razorpay_payment(text,text,text,bigint)', 'execute'));
 
+-- ---- 9d. friend discount is usable at most once (settlement guard) ------------
+-- H: two discounted checkouts (the first is cancelled by the second); both get paid.
+-- I: same, but the CANCELLED checkout is paid first. J: control, only the live one is paid.
+-- K: second use that also asked for wallet credit. A second use is GRANTED (real money was
+-- paid for what checkout showed) but flagged, with no wallet debit and no referrer credit.
+insert into auth.users(id, email) values
+  ('b2000000-0000-0000-0000-0000000000b1', 'p2_h@example.com'),
+  ('b2000000-0000-0000-0000-0000000000b2', 'p2_i@example.com'),
+  ('b2000000-0000-0000-0000-0000000000b3', 'p2_j@example.com');
+insert into public.referrals(referrer_id, referred_id, code_used, status) values
+  (:A, 'b2000000-0000-0000-0000-0000000000b1', 'X', 'pending'),
+  (:A, 'b2000000-0000-0000-0000-0000000000b2', 'X', 'pending'),
+  (:A, 'b2000000-0000-0000-0000-0000000000b3', 'X', 'pending');
+update public.referral_settings set enabled = true where id = true;
+\set H '''b2000000-0000-0000-0000-0000000000b1'''
+\set I '''b2000000-0000-0000-0000-0000000000b2'''
+\set J '''b2000000-0000-0000-0000-0000000000b3'''
+
+select pg_temp.mkorder(:H::uuid, 'p2_notes500') as h1 \gset
+select pg_temp.mkorder(:H::uuid, 'p2_notes500') as h2 \gset
+select pg_temp.chk('U1 both open checkouts are priced with the discount (pricing alone cannot stop a second use)',
+  (:'h1'::jsonb->>'referral_discount')::numeric = 50 and (:'h2'::jsonb->>'referral_discount')::numeric = 50, :'h1' || :'h2');
+select pg_temp.chk('U2 the newer checkout cancelled the older one',
+  (select status from public.orders where id = (:'h1'::jsonb->>'order_id')) = 'cancelled');
+select pg_temp.pay(:'h2'::jsonb->>'order_id');
+select pg_temp.chk('U3 first discounted order to settle claims the discount and is granted',
+  (select count(*) from public.purchases where order_id = (:'h2'::jsonb->>'order_id')) = 1
+  and (select discount_order_id from public.referrals where referred_id = :H::uuid) = (:'h2'::jsonb->>'order_id'));
+select pg_temp.pay(:'h1'::jsonb->>'order_id');
+select pg_temp.chk('U4 the second discounted order is paid and access IS granted (real money was paid)',
+  (select count(*) from public.purchases where order_id = (:'h1'::jsonb->>'order_id')) = 1
+  and (select count(*) from public.payments where order_id = (:'h1'::jsonb->>'order_id') and status = 'success') = 1
+  and (select status from public.orders where id = (:'h1'::jsonb->>'order_id')) = 'paid');
+select pg_temp.chk('U5 ... and is flagged discount_reused for a manual refund',
+  (select count(*) from public.order_review_flags
+    where order_id = (:'h1'::jsonb->>'order_id') and reason = 'discount_reused'
+      and referral_discount = 50 and resolved_at is null) = 1);
+select pg_temp.chk('U6 the discount stays claimed by the first order; the referrer is credited exactly once',
+  (select discount_order_id from public.referrals where referred_id = :H::uuid) = (:'h2'::jsonb->>'order_id')
+  and (select first_order_id from public.referrals where referred_id = :H::uuid) = (:'h2'::jsonb->>'order_id')
+  and (select count(*) from public.wallet_ledger where referral_id = (select id from public.referrals where referred_id = :H::uuid)
+        and entry_type = 'credit' and source = 'referral_reward') = 1);
+select pg_temp.pay(:'h1'::jsonb->>'order_id');
+select pg_temp.pay(:'h2'::jsonb->>'order_id');
+-- h1 was also a cancelled checkout, so it carries one flag per reason (stale_order_paid + discount_reused)
+select pg_temp.chk('U7 replays: still one flag per reason, one payment, one purchase for the reuse; the winner keeps access and is never flagged',
+  (select count(*) from public.order_review_flags where order_id = (:'h1'::jsonb->>'order_id')) = 2
+  and (select count(*) from public.order_review_flags where order_id = (:'h1'::jsonb->>'order_id') and reason = 'discount_reused') = 1
+  and (select count(*) from public.payments where order_id = (:'h1'::jsonb->>'order_id')) = 1
+  and (select count(*) from public.purchases where order_id = (:'h1'::jsonb->>'order_id')) = 1
+  and (select count(*) from public.purchases where order_id = (:'h2'::jsonb->>'order_id')) = 1
+  and not exists (select 1 from public.order_review_flags where order_id = (:'h2'::jsonb->>'order_id')));
+select public.handle_payment_refund('pay_' || (:'h1'::jsonb->>'order_id'), true) as r \gset
+select pg_temp.chk('U8 the reused-discount payment can be refunded; the winner and the referrer credit are untouched',
+  (:'r'::jsonb->>'status') = 'no_referral_credit'
+  and (select status from public.orders where id = (:'h1'::jsonb->>'order_id')) = 'refunded'
+  and (select status from public.orders where id = (:'h2'::jsonb->>'order_id')) = 'paid'
+  and (select status from public.wallet_ledger where referral_id = (select id from public.referrals where referred_id = :H::uuid)
+        and source = 'referral_reward') = 'pending', :'r');
+select pg_temp.q('authenticated', :ADM::uuid, format($$select count(*)::text from public.order_review_flags where order_id = %L and reason = 'discount_reused'$$, :'h1'::jsonb->>'order_id')) as r \gset
+select pg_temp.chk('U9 an admin can see the discount_reused flag', :'r' = '1', :'r');
+select pg_temp.q('authenticated', :H::uuid, format($$select count(*)::text from public.order_review_flags where order_id = %L$$, :'h1'::jsonb->>'order_id')) as r \gset
+select pg_temp.chk('U10 the student cannot', :'r' = '0', :'r');
+
+select pg_temp.mkorder(:I::uuid, 'p2_notes500') as i1 \gset
+select pg_temp.mkorder(:I::uuid, 'p2_notes500') as i2 \gset
+select pg_temp.pay(:'i1'::jsonb->>'order_id');
+select pg_temp.chk('U11 a CANCELLED discounted checkout paid first wins the discount (granted; stale flag only)',
+  (select count(*) from public.purchases where order_id = (:'i1'::jsonb->>'order_id')) = 1
+  and (select discount_order_id from public.referrals where referred_id = :I::uuid) = (:'i1'::jsonb->>'order_id')
+  and not exists (select 1 from public.order_review_flags where order_id = (:'i1'::jsonb->>'order_id') and reason = 'discount_reused'));
+select pg_temp.pay(:'i2'::jsonb->>'order_id');
+select pg_temp.chk('U12 the live checkout paid afterwards is the second use: access granted, flagged',
+  (select count(*) from public.purchases where order_id = (:'i2'::jsonb->>'order_id')) = 1
+  and (select count(*) from public.order_review_flags where order_id = (:'i2'::jsonb->>'order_id') and reason = 'discount_reused') = 1);
+
+select pg_temp.mkorder(:J::uuid, 'p2_notes500') as j1 \gset
+select pg_temp.mkorder(:J::uuid, 'p2_notes500') as j2 \gset
+select pg_temp.pay(:'j2'::jsonb->>'order_id');
+select pg_temp.chk('U13 control: only one of two checkouts paid -> granted, nothing flagged',
+  (select count(*) from public.purchases where order_id = (:'j2'::jsonb->>'order_id')) = 1
+  and not exists (select 1 from public.order_review_flags where order_id in (:'j1'::jsonb->>'order_id', :'j2'::jsonb->>'order_id')));
+insert into auth.users(id, email) values ('b2000000-0000-0000-0000-0000000000b4', 'p2_k@example.com');
+insert into public.referrals(referrer_id, referred_id, code_used, status)
+  values (:A, 'b2000000-0000-0000-0000-0000000000b4', 'X', 'pending');
+\set K '''b2000000-0000-0000-0000-0000000000b4'''
+insert into public.wallet_ledger(user_id, entry_type, status, amount, source, note)
+  values (:K, 'credit', 'available', 400, 'admin_adjustment', 'p2 test top-up');
+select pg_temp.mkorder(:K::uuid, 'p2_notes500', false) as k1 \gset
+select pg_temp.mkorder(:K::uuid, 'p2_notes500', true) as k2 \gset
+select pg_temp.pay(:'k1'::jsonb->>'order_id');
+select pg_temp.pay(:'k2'::jsonb->>'order_id');
+select pg_temp.chk('U15 second use that asked for wallet: access granted, but NO wallet debit, balance untouched',
+  (:'k2'::jsonb->>'wallet_amount')::numeric > 0
+  and (select count(*) from public.purchases where order_id = (:'k2'::jsonb->>'order_id')) = 1
+  and not exists (select 1 from public.wallet_ledger where order_id = (:'k2'::jsonb->>'order_id') and entry_type = 'debit')
+  and (select available from public.wallet_balance_of(:K::uuid)) = 400, :'k2');
+select pg_temp.chk('U16 ... flagged with the wallet amount and discount it tried to use; winner (k1) not flagged',
+  (select count(*) from public.order_review_flags where order_id = (:'k2'::jsonb->>'order_id') and reason = 'discount_reused'
+     and wallet_amount = (:'k2'::jsonb->>'wallet_amount')::numeric and referral_discount = 50) = 1
+  and not exists (select 1 from public.order_review_flags where order_id = (:'k1'::jsonb->>'order_id') and reason = 'discount_reused'));
+select pg_temp.chk('U17 ... and the referrer is credited once only (for the winner)',
+  (select count(*) from public.wallet_ledger where referral_id = (select id from public.referrals where referred_id = :K::uuid)
+     and entry_type = 'credit' and source = 'referral_reward') = 1
+  and (select first_order_id from public.referrals where referred_id = :K::uuid) = (:'k1'::jsonb->>'order_id'));
+select pg_temp.chk('U14 an order without a discount never touches the claim (no referral_id, no flag)',
+  (select count(*) from public.orders where referral_discount = 0 and referral_id is not null) = 0);
+
 -- ---- 10. program off: no discount, no reward --------------------------------
 update public.referral_settings set enabled = false where id = true;
 insert into auth.users(id, email) values ('b2000000-0000-0000-0000-0000000000f3', 'p2_z@example.com');

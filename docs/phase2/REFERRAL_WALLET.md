@@ -6,21 +6,23 @@ Status: **implemented, tested on a scratch Postgres, NOT deployed.** Nothing her
 
 | Layer | Change |
 |---|---|
-| DB | 3 new migrations (below). No old migration edited. |
+| DB | 4 new migrations (below). No old migration edited. |
 | Edge Functions | `create-order` (prices server-side, `useWallet` flag), `_shared/settle.ts` + `razorpay-webhook` (refund handling), `_shared/razorpay.ts` (types). `verify-payment` unchanged (it calls the same settle path). |
 | Mobile | Redesigned `ReferralScreen`, new `OrderSummaryScreen` (checkout breakdown + wallet toggle), new `ReferralTermsScreen`. |
-| Admin | Referral settings form (all reward values), product type dropdown + column, reject action. |
+| Admin | Referral settings form (all reward values), product type dropdown + column, reject action. Saving never writes the legacy Phase 1 columns (`reward_type`, `referrer_reward_value`, `referee_reward_value`, `qualify_on`); they stay in the table for old builds and rollback and nothing reads them. |
 
 ### Migrations (apply in this order)
 1. `20260925100000_phase2_referral_config_and_product_type.sql` — `products.product_type` (existing rows → `other`), reward config columns on `referral_settings`, `referrals.first_order_id`.
 2. `20260925110000_phase2_wallet_ledger.sql` — append-only `wallet_ledger`, `get_my_wallet()`, `get_my_referral_list()`, release job (+ optional pg_cron), admin reversal.
 3. `20260925120000_phase2_orders_pricing_and_settlement.sql` — order price breakdown columns, `create_priced_order()`, `quote_my_order()`, new `grant_razorpay_payment()` (wallet debit + referrer credit), `handle_payment_refund()`, stricter `apply_referral_code()`, `admin_reject_referral()`.
+4. `20260925140000_phase2_single_use_friend_discount.sql` — `referrals.discount_order_id`, `discount_reused` flag reason, and the single-use guard inside `settle_razorpay_payment()` (below).
 
 ### Rules → where they are enforced
 | Rule | Enforced in |
 |---|---|
 | All values editable, none hardcoded | `referral_settings` columns; app + server read them |
 | Friend: 10% off first purchase, max ₹100, on selling price | `create_priced_order` (uses `products.price`, never `original_price`); first purchase = no successful purchase + `referrals.first_order_id is null` |
+| Friend discount usable **at most once** | `settle_razorpay_payment`: the first discounted order to settle claims `referrals.discount_order_id`; a second discounted order is a reuse (see decision 9). Pricing alone can't stop it: several open checkouts can all be priced with the discount, and a cancelled one can still be paid. |
 | Referrer ₹50 after friend's first **paid** purchase | `grant_razorpay_payment` (runs only after Razorpay capture is verified) |
 | 7-day pending → available | credit inserted `pending`, `available_at = now + credit_hold_days`; released lazily on every balance/pricing read + optional 15-min cron |
 | Refund inside hold cancels credit | `handle_payment_refund` ← webhook `refund.processed` (re-fetches payment from Razorpay, full refunds only) |
@@ -46,16 +48,18 @@ Status: **implemented, tested on a scratch Postgres, NOT deployed.** Nothing her
    - Flags are readable by admins only; resolve with `admin_resolve_order_flag(id, note)`.
 7. `orders.amount` = final payable; breakdown columns beside it. Old orders: `list_price NULL`.
 8. Program off (`enabled=false`) stops discounts, code entry and new credits; existing wallet balances stay visible and spendable.
+9. **Friend discount is single-use, enforced at settlement.** `friend_discount_percent` is the only column that prices the friend's discount; the legacy `referee_reward_value` / `reward_type` are read by nothing. If two discounted orders of the same friend are both paid (two checkouts, or a cancelled one paid late), the first to settle wins the discount. The second is a **reuse**: the customer paid real money for what checkout showed, so **access is granted**, but there is **no wallet debit, no referrer credit**, and a `discount_reused` row is written to `order_review_flags` (one per order, replay-safe, admin-only, resolve with `admin_resolve_order_flag`). A reuse that was also a cancelled checkout carries both flags (`stale_order_paid` and `discount_reused`). Recovering the discount (or not) is an admin decision; nothing is refunded automatically. Settlements for one friend are serialised by the per-user advisory lock, so two payments can't both claim it.
 
 ## Known limits
 - A flagged (stale) order that carried a **friend discount** keeps the discount and still counts as the friend's first purchase (real money was paid); it is only flagged for review. Wallet is what is withheld.
 - Friend deleting their account inside the hold does not cancel the referrer's credit.
 - No admin screen for `order_review_flags` / ledger yet (query them in the Supabase table editor, or use the two admin RPCs).
-- Edge Function TypeScript was not compiled (no Deno here); mobile and admin `tsc` are clean.
+- A reused discount is not clawed back automatically: the flag is the whole mechanism, and an admin decides whether to bill or refund the difference.
+- Edge Function TypeScript is checked with `deno check` (all three functions); mobile and admin `tsc` are clean.
 
 ## Test evidence
-Scratch Postgres 17 restored from `docs/live-schema/live_schema.sql`, all migrations `20260919…` → `20260925120000` applied in order, then:
-`psql -f supabase/tests/phase2_referral_wallet_checks.sql` → **0 FAIL, 106 PASS**, on a database rebuilt from scratch through the full migration chain; re-applying the three Phase 2 migrations on top: no errors (idempotent). Disabling the stale-order logic makes the suite fail, so the item 5 checks are not vacuous. I also confirmed the wallet rule is data-driven (adding `video` to `wallet_product_types` flips the video check). Account erasure of referrer/friend with ledger rows works (rows anonymised, kept).
+Scratch Postgres 17 restored from `docs/live-schema/live_schema.sql`, all migrations `20260919…` → `20260925140000` applied in order, then:
+`psql -f supabase/tests/phase2_referral_wallet_checks.sql` → **0 FAIL, 123 PASS** (106 original checks + 17 single-use-discount checks U1–U17), on a database rebuilt from scratch through the full migration chain; re-applying the Phase 2 migrations on top: no errors (idempotent). Disabling the stale-order logic makes the suite fail, so the item 5 checks are not vacuous; running the suite against the pre-hardening `settle_razorpay_payment` fails 8 of the U checks, so those are not vacuous either. I also confirmed the wallet rule is data-driven (adding `video` to `wallet_product_types` flips the video check). Account erasure of referrer/friend with ledger rows works (rows anonymised, kept).
 Pre-existing suites `critical_fixes_checks`, `multi_course_checks`, `account_deletion_checks` fail identically on a baseline DB without Phase 2 and on the Phase 2 DB (scratch-environment gaps: no storage buckets / seed data), so no regression detected, but they did not exercise Phase 2 either.
 
 ## Test checklist
@@ -90,6 +94,16 @@ Automated = covered by `phase2_referral_wallet_checks.sql` (ID in brackets). **M
 - [ ] Flagged order refund restores nothing [E13]; admin-only flags [E15–E19]
 - [ ] Manual: open checkout, wait >30 min (or set `checkout_expiry_minutes` to 5 on staging), confirm Razorpay Checkout closes; start a second checkout and confirm the first order shows `cancelled`
 
+### Single-use friend discount
+- [ ] Both open checkouts are priced with the discount (pricing can't stop it) [U1]; newer checkout cancels the older [U2]
+- [ ] First discounted order to settle claims it and is granted [U3]; second is granted too but flagged `discount_reused` [U4, U5]; referrer credited once [U6, U17]
+- [ ] Replays: one flag per reason, one payment, one purchase [U7]; refunding the reuse leaves the winner and the credit alone [U8]
+- [ ] Flag visible to admins only [U9, U10]
+- [ ] A cancelled checkout paid first wins; the live one paid after is the reuse [U11, U12]
+- [ ] Only one of two checkouts paid: granted, nothing flagged [U13]
+- [ ] Reuse that asked for wallet: access granted, no wallet debit, flagged with the wallet amount [U15, U16]
+- [ ] Manual: as a new friend, open checkout twice, pay both with Razorpay test cards; confirm both purchases exist, one `discount_reused` flag, one referrer credit
+
 ### Wallet rules
 - [ ] Wallet refused on video product [W1] and untagged product [W2]; toggle hidden in app [W4]
 - [ ] Wallet works on notes and notes bundle [W5, W9]
@@ -113,8 +127,8 @@ Automated = covered by `phase2_referral_wallet_checks.sql` (ID in brackets). **M
 Order matters: **DB → functions → admin → data → app → switch on.** (`create-order` and `verify-payment` / `razorpay-webhook` now call `create_priced_order` / `settle_razorpay_payment`, so the DB must be first.)
 
 1. **Backup** (`docs/phase0/BACKUP_GUIDE.md`). Migrations are additive but touch `orders`, `grant_razorpay_payment`, `apply_referral_code`.
-2. **Staging first:** apply the 3 migrations, run `supabase/tests/phase2_referral_wallet_checks.sql` (expect `0 FAIL`).
-3. **Production DB:** `supabase db push` (or run the 3 files in order). Safe for currently released apps and the currently deployed `create-order`: it only adds columns and functions, and the immutability trigger still accepts an order inserted with a Razorpay id.
+2. **Staging first:** apply the 4 migrations, run `supabase/tests/phase2_referral_wallet_checks.sql` (expect `0 FAIL`).
+3. **Production DB:** `supabase db push` (or run the 4 files in order). Safe for currently released apps and the currently deployed `create-order`: it only adds columns and functions, and the immutability trigger still accepts an order inserted with a Razorpay id.
 4. **Edge Functions** (only after step 3):
    `supabase functions deploy create-order razorpay-webhook verify-payment`
    (verify-payment is redeployed because it bundles `_shared/settle.ts`.)

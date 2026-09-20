@@ -18,10 +18,17 @@ export async function getReferralSettings(): Promise<ReferralSettings> {
   return toCamelCase<ReferralSettings>(data);
 }
 
+// The form state is the whole row read by getReferralSettings(), so the legacy
+// Phase 1 columns are stripped here: they are kept in the table for old builds
+// and rollback, and nothing may write them back.
+const LEGACY_SETTINGS_KEYS = ["rewardType", "referrerRewardValue", "refereeRewardValue", "qualifyOn"];
+
 export async function saveReferralSettings(data: ReferralSettingsInput) {
+  const payload: Record<string, unknown> = { ...data };
+  for (const key of LEGACY_SETTINGS_KEYS) delete payload[key];
   const { error } = await supabase
     .from("referral_settings")
-    .update(toSnakeCase(data))
+    .update(toSnakeCase(payload))
     .eq("id", true);
   if (error) throw error;
 }
