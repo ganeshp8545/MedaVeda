@@ -46,3 +46,10 @@ verify_jwt = false
 # an Authorization header.
 [functions.send-push-notification]
 verify_jwt = false
+
+# Student-initiated account deletion. JWT verification stays ON: the function
+# only ever acts on the user identified by the verified token (never the body),
+# and the app always sends the Authorization header. Explicit so a redeploy
+# cannot silently change it.
+[functions.delete-account]
+verify_jwt = true

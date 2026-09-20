@@ -1,0 +1,20 @@
+import { execFileSync } from "node:child_process";
+let handler; globalThis.Deno = { serve: (h) => { handler = h; } };
+await import("./delete-account/index.ts");
+const q = (s) => execFileSync("psql", ["-d", "ap_del_test", "-Atc", s]).toString().trim();
+const A = "aaaaaaaa-0000-4000-8000-0000000000a1", B = "bbbbbbbb-0000-4000-8000-0000000000b2";
+const call = async (tok, method = "POST", body) => { const r = await handler(new Request("http://x/delete-account", { method, headers: tok ? { Authorization: `Bearer ${tok}` } : {}, body })); return [r.status, await r.json().catch(() => null), r.headers.get("access-control-allow-origin")]; };
+const ok = (c, m) => console.log(c ? "PASS" : "FAIL", m);
+let r;
+r = await call(null, "OPTIONS"); ok(r[0] === 200, "OPTIONS preflight 200 (CORS)");
+r = await call(null); ok(r[0] === 401, "no token -> 401");
+r = await call("bad"); ok(r[0] === 401, "bad token -> 401");
+r = await call("tokA", "GET"); ok(r[0] === 405, "GET -> 405");
+// A tries to delete B by putting B's id in the body: only A goes
+r = await call("tokA", "POST", JSON.stringify({ user_id: B, uid: B, id: B }));
+ok(r[0] === 200 && r[1].status === "deleted" && r[2] === "*", "A deleted (200, CORS header)"); console.log("   ", r[1].message);
+ok(q(`select count(*) from auth.users where id='${A}'`) === "0" && q(`select count(*) from public.profiles where id='${A}'`) === "0", "A auth user + profile gone");
+ok(q(`select count(*) from auth.users where id='${B}'`) === "1" && q(`select count(*) from public.quiz_scores where user_id='${B}'`) === "1", "B untouched despite id in body");
+ok(q(`select count(*) from public.orders where razorpay_order_id='fn_o_a' and user_id is null`) === "1" && q(`select count(*) from public.payments where razorpay_payment_id='fn_p_a' and user_id is null`) === "1", "A order/payment kept, anonymous");
+r = await call("tokA"); ok(r[0] === 200 && r[1].status === "already_deleted", "retry after deletion -> already_deleted");
+r = await call("tokAdmin"); ok(r[0] === 403 && q(`select count(*) from public.profiles where id='dddddddd-0000-4000-8000-0000000000d4'`) === "1", "admin refused (403), data intact");
