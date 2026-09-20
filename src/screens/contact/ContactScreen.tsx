@@ -18,6 +18,8 @@ import { FontAwesome } from "@expo/vector-icons";
 
 import CustomInput from "../../components/CustomInput";
 import CustomButton from "../../components/CustomButton";
+import WebLink from "../../components/WebLink";
+import { LEGAL, WEB } from "../../constants/legal";
 
 import { contactSchema, ContactFormValues } from "../../validation/contactSchema";
 import { logError } from "../../utils/logger";
@@ -27,7 +29,7 @@ import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 import { RADIUS } from "../../theme/radius";
 
-const SUPPORT_EMAIL = "medvedaforu@gmail.com";
+const SUPPORT_EMAIL = LEGAL.email;
 
 // Same accounts/links as SideDrawer's "Follow us" row - keep both in sync.
 // null = not live yet, tapping shows "Coming Soon" instead of a dead link.
@@ -36,7 +38,7 @@ const SOCIAL_LINKS: Record<string, string | null> = {
   facebook: null,
   youtube: "https://youtube.com/@thedisturbingmedico?si=ZKSurB8bCVvLK42U",
   telegram: "https://t.me/medveda_26",
-  whatsapp: "https://wa.me/917620616068",
+  whatsapp: LEGAL.whatsappUrl,
 };
 
 // This app has no backend mail sender yet (no Resend/SendGrid Edge
@@ -183,6 +185,30 @@ export default function ContactScreen() {
 
         <View style={styles.divider} />
 
+        <Text style={styles.followLabel}>Support</Text>
+        <Text style={styles.infoText}>
+          Email: {LEGAL.email}{"\n"}
+          Phone / WhatsApp: {LEGAL.phoneDisplay}{"\n"}
+          Hours: {LEGAL.supportHours}{"\n"}
+          Address: {LEGAL.address}
+        </Text>
+
+        <Text style={styles.followLabel}>Grievance Officer</Text>
+        <Text style={styles.infoText}>
+          Name: {LEGAL.grievanceOfficer}{"\n"}
+          Email: {LEGAL.email}{"\n"}
+          Phone: {LEGAL.phoneDisplay}{"\n"}
+          Address: {LEGAL.address}{"\n\n"}
+          We acknowledge complaints {LEGAL.grievanceAck} and resolve them{" "}
+          {LEGAL.grievanceResolution}.
+        </Text>
+
+        <WebLink label="Account & data deletion help" url={WEB.deleteAccount} />
+        <WebLink label="Disclaimer" url={WEB.disclaimer} />
+        <WebLink label="Refund & cancellation policy" url={WEB.refund} />
+
+        <View style={styles.divider} />
+
         <Text style={styles.followLabel}>Follow us</Text>
         <View style={styles.socialRow}>
           <SocialButton
@@ -288,6 +314,13 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: COLORS.border,
     marginTop: SPACING.xl,
+    marginBottom: SPACING.lg,
+  },
+
+  infoText: {
+    fontSize: FONT.body,
+    color: COLORS.text,
+    lineHeight: 24,
     marginBottom: SPACING.lg,
   },
 

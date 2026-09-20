@@ -5,6 +5,8 @@ import {
   StyleSheet,
 } from "react-native";
 
+import WebLink from "../../components/WebLink";
+import { LEGAL, WEB } from "../../constants/legal";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
@@ -21,120 +23,123 @@ export default function TermsScreen() {
       </Text>
 
       <Text style={styles.intro}>
-        Welcome to MedVeda, an educational platform designed to help
-        students access academic notes, video lectures, quizzes, and
-        study materials. By downloading, installing, or using the
-        MedVeda application, you agree to the following Terms &
-        Conditions. If you do not agree with these terms, please do not
-        use the application.
+        Welcome to MedVeda, an educational platform for AYUSH students
+        offering notes, video lectures and practice tests. By creating
+        an account or using the app you agree to these Terms & Conditions
+        and our Privacy Policy. This is a summary; the full terms are
+        on our website.
       </Text>
+      <WebLink label="Read full terms" url={WEB.terms} />
 
       <Text style={styles.heading}>
-        1. Acceptance of Terms
+        1. Eligibility and Account
       </Text>
       <Text style={styles.body}>
-        By creating an account or using MedVeda, you confirm that you
-        have read, understood, and agreed to these Terms & Conditions.
+        You must be able to enter a contract in India, or use the app
+        with the consent and supervision of a parent or guardian.
+        You are responsible for your login details and all activity
+        on your account. One person, one account.
       </Text>
-
       <Text style={styles.heading}>
         2. Educational Purpose
       </Text>
       <Text style={styles.body}>
-        MedVeda is developed exclusively for educational and learning
-        purposes. The content provided is intended to assist students
-        in their academic preparation and should not be considered
-        professional medical advice, diagnosis, or treatment.
+        Content is for study only and is not medical advice, diagnosis
+        or treatment. MedVeda is an independent educational platform
+        and is not affiliated with the Ministry of AYUSH, NCISM, NCH,
+        any university, college or government body.
       </Text>
-
       <Text style={styles.heading}>
-        3. User Account
+        3. Purchases
       </Text>
       <Text style={styles.body}>
-        Users are responsible for maintaining the confidentiality of
-        their login credentials. You are responsible for all activities
-        performed through your account.
+        Video lectures and MCQ tests are free. PDF notes are sold as
+        paid packages. All prices are in Indian Rupees (INR) and are
+        inclusive of applicable taxes, if any. Payments are processed
+        by Razorpay.{"\n\n"}
+        Purchased content has no fixed expiry. Access continues for as
+        long as your account is active and the content is offered on
+        the platform.
       </Text>
-
       <Text style={styles.heading}>
-        4. Purchases
+        4. Refunds and Cancellation
       </Text>
       <Text style={styles.body}>
-        Digital products purchased within the application provide
-        access only to the purchased educational content.{"\n\n"}
-        Unless required by applicable law, all purchases are generally
-        non-refundable after successful delivery and activation of
-        digital content.
+        Because content is digital and unlocked instantly, purchases
+        are generally non-refundable once unlocked, except:{"\n"}
+        (a) payment deducted but content not unlocked within 24 hours;{"\n"}
+        (b) duplicate or multiple payments for the same purchase;{"\n"}
+        (c) a technical fault on our side that prevents access and
+        that we cannot fix within 7 days.{"\n\n"}
+        Raise refund requests within 7 days of the payment. We reply
+        within 48 hours, and approved refunds reach your original
+        payment method in 5–7 working days. You can cancel before
+        completing payment, but not after a successful payment except
+        in the cases above.
       </Text>
-
+      <WebLink label="Read refund policy" url={WEB.refund} />
       <Text style={styles.heading}>
         5. Intellectual Property
       </Text>
       <Text style={styles.body}>
-        All notes, PDFs, videos, quizzes, graphics, logos, designs, and
-        application content belong to MedVeda or their respective
-        owners.{"\n\n"}
-        Users may not copy, redistribute, modify, resell, upload, or
-        share any content without written permission.
+        All notes, videos, tests and app content belong to MedVeda or
+        its licensors. You may not copy, share, resell, upload or
+        redistribute content, or screenshot or record paid notes.
       </Text>
-
       <Text style={styles.heading}>
         6. Acceptable Use
       </Text>
       <Text style={styles.body}>
-        Users agree not to:{"\n"}
-        • Attempt unauthorized access{"\n"}
-        • Reverse engineer the application{"\n"}
-        • Share purchased content illegally{"\n"}
-        • Upload harmful or malicious content{"\n"}
-        • Violate applicable laws
+        Do not attempt unauthorised access, reverse engineer or scrape
+        the app, share paid content, upload harmful content, misuse
+        the referral or payment systems, or break the law.
       </Text>
-
       <Text style={styles.heading}>
-        7. Account Suspension
+        7. Suspension
       </Text>
       <Text style={styles.body}>
-        MedVeda reserves the right to suspend or permanently terminate
-        any account involved in fraudulent activity, misuse, piracy,
-        payment fraud, or violation of these Terms.
+        We may suspend or terminate accounts involved in fraud, misuse,
+        piracy or breach of these Terms. You may delete your account
+        at any time from Settings → Delete Account.
       </Text>
-
       <Text style={styles.heading}>
-        8. Disclaimer
+        8. Disclaimer and Liability
       </Text>
       <Text style={styles.body}>
-        Although every effort is made to maintain accurate educational
-        content, MedVeda does not guarantee that all information is
-        complete, error-free, or continuously updated.
+        The app is provided "as is". We do not guarantee that content
+        is complete or error-free, or any exam result. To the extent
+        permitted by law, our liability for a paid purchase is limited
+        to the amount you paid for it.
       </Text>
-
+      <WebLink label="Read disclaimer" url={WEB.disclaimer} />
       <Text style={styles.heading}>
-        9. Limitation of Liability
+        9. Governing Law
       </Text>
       <Text style={styles.body}>
-        MedVeda shall not be liable for any indirect, incidental, or
-        consequential damages arising from the use or inability to use
-        the application.
+        These Terms are governed by the laws of India. Courts at
+        {LEGAL.jurisdiction} have exclusive jurisdiction, subject to
+        any mandatory consumer rights.
       </Text>
-
       <Text style={styles.heading}>
         10. Updates
       </Text>
       <Text style={styles.body}>
-        We may modify these Terms & Conditions at any time. Continued
-        use of the application constitutes acceptance of the updated
-        Terms.
+        We may update these Terms. Continued use means you accept the
+        updated version.
       </Text>
-
       <Text style={styles.heading}>
-        Contact
+        Contact and Grievance Officer
       </Text>
       <Text style={styles.body}>
-        Email: medvedaforu@gmail.com
+        {LEGAL.companyName}, {LEGAL.address}{"\n"}
+        Email: {LEGAL.email}{"\n"}
+        Phone / WhatsApp: {LEGAL.phoneDisplay}{"\n"}
+        Grievance Officer: {LEGAL.grievanceOfficer}{"\n\n"}
+        We acknowledge complaints {LEGAL.grievanceAck} and resolve
+        them {LEGAL.grievanceResolution}.
       </Text>
-
       <Text style={styles.footer}>
-        Last Updated: July 2026
+        Effective date: {LEGAL.effectiveDate}
       </Text>
     </ScrollView>
   );

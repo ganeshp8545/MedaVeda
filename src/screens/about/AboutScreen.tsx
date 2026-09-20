@@ -5,6 +5,8 @@ import {
   ScrollView,
 } from "react-native";
 
+import WebLink from "../../components/WebLink";
+import { LEGAL, WEB } from "../../constants/legal";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
@@ -30,6 +32,12 @@ export default function AboutScreen() {
       </Text>
 
       <Text style={styles.description}>
+        MedVeda is built by a small team from Maharashtra that
+        understands the needs of AYUSH students – organised notes,
+        clear video lectures and regular practice tests, arranged by
+        course and year. It is an independent educational platform,
+        not affiliated with the Ministry of AYUSH, NCISM, NCH, or any
+        university, college or government body.{"\n\n"}
         MedVeda is a modern digital learning platform built to simplify
         academic education through organized, accessible, and
         high-quality study resources. Our mission is to help students
@@ -79,11 +87,31 @@ export default function AboutScreen() {
         Contact Us
       </Text>
       <Text style={styles.description}>
-        App Name: MedVeda{"\n"}
-        Support Email: medvedaforu@gmail.com{"\n"}
-        Developer: MedVeda Team{"\n"}
-        Country: India
+        {LEGAL.companyName}{"\n"}
+        {LEGAL.address}{"\n"}
+        Email: {LEGAL.email}{"\n"}
+        Phone / WhatsApp: {LEGAL.phoneDisplay}{"\n"}
+        Hours: {LEGAL.supportHours}
       </Text>
+
+      <Text style={styles.heading}>
+        Grievance Officer
+      </Text>
+      <Text style={styles.description}>
+        Name: {LEGAL.grievanceOfficer}{"\n"}
+        Email: {LEGAL.email}{"\n"}
+        Phone: {LEGAL.phoneDisplay}{"\n"}
+        Address: {LEGAL.address}{"\n\n"}
+        We acknowledge complaints {LEGAL.grievanceAck} and resolve them{" "}
+        {LEGAL.grievanceResolution}.
+      </Text>
+
+      <Text style={styles.heading}>
+        Legal
+      </Text>
+      <WebLink label="Disclaimer" url={WEB.disclaimer} />
+      <WebLink label="Account & data deletion" url={WEB.deleteAccount} />
+      <WebLink label="Refund & cancellation policy" url={WEB.refund} />
 
       <Text style={styles.footer}>
         © 2026 MedVeda
