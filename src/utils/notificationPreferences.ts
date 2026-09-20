@@ -7,7 +7,7 @@
 // Center at all.
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { NotificationType } from "../services/notificationsService";
+import type { NotificationType } from "../services/notificationsService";
 
 const STORAGE_KEY = "medveda:notifications:preferences";
 
