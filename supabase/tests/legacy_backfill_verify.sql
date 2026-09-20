@@ -80,17 +80,21 @@ begin
 end $$;
 
 -- Content visibility for students who have not picked a year yet.
+-- TEMPORARY – remove after min app version X: 20260920120000_null_year_course_fallback.sql
+-- lets a course-only student see all active content of their own course. When
+-- that fallback is removed, restore the strict expectations noted below
+-- (0 subjects for the no-purchase student, 2 for the subject buyer).
 do $$
 declare n int;
 begin
   perform pg_temp.act_as('55555555-5555-4555-8555-555555555555');
   select count(*) into n from public.subjects;
-  if n <> 0 then raise exception 'a student with no year sees % subjects', n; end if;
+  if n <> 3 then raise exception 'a BAMS student with no year sees % subjects, expected all 3 of BAMS (fallback)', n; end if;
   perform pg_temp.act_as('22222222-2222-4222-8222-222222222222');   -- bought subject s1 (year y1)
   select count(*) into n from public.subjects;
-  if n <> 2 then raise exception 'subject buyer with no year sees % subjects, expected 2 (the year they bought into)', n; end if;
+  if n <> 3 then raise exception 'subject buyer with no year sees % subjects, expected 3 (fallback)', n; end if;
   perform pg_temp.back();
-  raise notice 'PASS D: until a year is chosen a student sees no free content, only what they bought (so the year picker must run first)';
+  raise notice 'PASS D: (TEMPORARY fallback) a student with no year yet sees all active content of their own course';
 end $$;
 
 rollback;

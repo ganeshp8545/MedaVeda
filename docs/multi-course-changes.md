@@ -18,9 +18,10 @@ docs) and `mobile-app/`, which has its own history.
 ### supabase/ (outer repo)
 - `migrations/20260919120000_multi_course_and_referrals.sql` — new
 - `migrations/20260919130000_referral_history_rpc.sql` — new
+- `migrations/20260920120000_null_year_course_fallback.sql` — new (TEMPORARY NULL-year fallback)
 - `functions/create-payment-session/index.ts`, `functions/pay/index.ts` — edited
 - `tests/multi_course_checks.sql`, `tests/legacy_backfill_seed.sql`,
-  `tests/legacy_backfill_verify.sql` — new
+  `tests/legacy_backfill_verify.sql` — new; `tests/null_year_fallback_checks.sql` — new (TEMPORARY); legacy check D updated
 
 ### admin-panel/ (outer repo)
 - Types: `course.ts`, `referral.ts`, `filters.ts` new; `year/subject/chapter/note/video/quiz/product/order/user.ts` gain `courseId` (+ `yearId` on notes, `courseTitle`, user course/year/referral fields)
@@ -164,7 +165,7 @@ Admin: settings form and referrals table/actions.
 ## 8. Environment / configuration
 
 - New package: `expo-clipboard@~57.0.2` (no config plugin). `package.json` line is committed; **`package-lock.json` is not** — run `npm install` and commit it with your pending changes.
-- Supabase: apply both migrations; redeploy the `create-payment-session` and `pay` Edge Functions. No new secrets, redirect URLs or dashboard settings. Supabase reloads the PostgREST schema cache after DDL; if an embed like `courses ( name )` errors right after migrating, run `notify pgrst, 'reload schema';`.
+- Supabase: apply the migrations (three, including `20260920120000_null_year_course_fallback.sql`); redeploy the `create-payment-session` and `pay` Edge Functions. No new secrets, redirect URLs or dashboard settings. Supabase reloads the PostgREST schema cache after DDL; if an embed like `courses ( name )` errors right after migrating, run `notify pgrst, 'reload schema';`.
 - Referral program ships **disabled**; enable it in Admin → Referrals.
 - `mobile-app/schena.sql` was not updated (it is a reconstructed reference file).
 
@@ -179,6 +180,7 @@ Admin: settings form and referrals table/actions.
 | `npm run build` admin-panel | passes |
 | `oxlint` admin-panel | 0 errors, **65 warnings vs 35 before this work**: +16 `no-unused-vars` (destructuring `courseTitle` out before writes, same convention as `yearTitle`), +12 `react-hooks/exhaustive-deps` (the list hooks now re-run on `[filters.courseId, filters.yearId]` without listing their `load` function), +2 `set-state-in-effect` (new `CourseFormModal`, `Referrals`). Not cleaned up |
 | SQL: `multi_course_checks.sql` | **13/13 pass** on a local Postgres 17 (rolled back, leaves nothing). Confirmed the suite can fail: disabling the guard trigger and swapping in a grant function that trusts the order each make it fail |
+| SQL: `null_year_fallback_checks.sql` | 6/6 pass; fails (as expected) with the fallback line removed |
 | SQL: legacy backfill | 4/4 pass: counts unchanged, all BAMS, students backfilled, unique referral codes, chapter/subject/year/bundle purchases (and a purchase with no `product_id`) still unlock exactly their PDFs, an unpaid order unlocks nothing |
 | Migration idempotency | second run on a populated database: no errors |
 | SQLite `downloads` migration | statements run against a legacy-shaped table: upgraded, re-runnable, filter correct |
@@ -210,17 +212,37 @@ the fabricated-paid-order gap above; and the original SQL test file used
 
 ## 10. Remaining issues, assumptions and deploy order
 
-### Decision needed — existing students on old app versions
-Backfilled students have a course but **no year**, and `has_content_access`
-requires the year to match. Until they update the app and pick a year they see
-**no free content** — only what they've purchased (verified by the legacy test).
-New signups on an old app are in the same position. To avoid an empty app during
-rollout, either (a) ship the mobile build first and wait for adoption before
-applying the RLS part, or (b) relax the rule so a student with no year yet sees
-their whole course (a one-line change to `has_content_access`) and tighten it
-once the gate is universal. I did not choose (b) because it contradicts the
-"selected Course + Year" rule; say the word and I'll make it.
-Separately, anonymous content access is gone for old versions (none used it).
+### Existing students on old app versions — decided: temporary NULL-year fallback
+Backfilled students have a course but **no year**, and the strict rule in
+`has_content_access` would show them no free content until they update the app
+and pick a year. Decision: a student whose profile has `course_id` set and
+`year_id` NULL may see all **active** content of **their own course** (never
+another course). Implemented only in `has_content_access()` by the new migration
+`20260920120000_null_year_course_fallback.sql` (the committed migration is
+untouched; the new file re-creates the function with one extra line, marked
+`TEMPORARY – remove after min app version X`).
+
+- Course isolation is unchanged: `profiles.course_id` must equal the row's course; a NULL course matches nothing.
+- Once `year_id` is set the strict course+year rule applies again.
+- Storage is untouched: PDFs remain purchase-gated (`user_owns_chapter`), same as for a student who has picked a year. The fallback only affects row visibility (subjects/chapters/notes/videos/quiz_tests/products).
+- Tests: `tests/null_year_fallback_checks.sql` (NULL-year BAMS student gets 0 BHMS rows and cannot read the BHMS PDF, and the mirror case; no-course student sees nothing; strict rule returns once a year is set; inactive content stays hidden). `legacy_backfill_verify.sql` check D was changed to the fallback expectation and marked TEMPORARY.
+
+### Removing the NULL-year fallback
+Do this only when **every supported app version** forces the year picker (i.e. after min app version X, see below) and a query confirms no student is left with a course but no year:
+`select count(*) from profiles where course_id is not null and year_id is null;` → 0 (or accept that the remainder will be prompted).
+1. Add a new migration (e.g. `<timestamp>_remove_null_year_fallback.sql`) that `create or replace`s `has_content_access` **exactly as in `20260919120000_multi_course_and_referrals.sql`**, i.e. the profile branch is `pr.course_id = p_course_id and (p_year_id is null or pr.year_id = p_year_id)` — delete the `or pr.year_id is null -- TEMPORARY` line. Do not edit either committed migration.
+2. Delete `supabase/tests/null_year_fallback_checks.sql`.
+3. **Restore test D's strict assertion** in `legacy_backfill_verify.sql` (check D): a student with no year and no purchases must see **0** subjects, and the subject buyer with no year must see **2** (only the year they bought into). Remove its TEMPORARY comment and change the PASS message back. Leaving D as-is will make the suite fail once the fallback is gone.
+4. **Re-run the full SQL suite** (`multi_course_checks.sql`, `legacy_backfill_verify.sql` after `legacy_backfill_seed.sql`, plus any new tests) and confirm every check passes. Then run and `grep -rn "TEMPORARY – remove after min app version X" supabase docs` to confirm nothing is left.
+
+### Minimum app version / force-update: none exists today
+Searched `mobile-app` (src, App.tsx, app.json, package.json, eas.json) and `supabase/`: no min-version check, no force-update screen, no `app_config` table. `expo-updates` is installed and `updates.url` is set, but nothing calls it, and `runtimeVersion.policy = "appVersion"` means OTA JS updates only reach builds with the same `version` — they cannot fix already-installed older binaries. The only Play Store link is in Settings (rate/share).
+
+**Proposal (not implemented) — smallest version:**
+1. Migration: `create table app_config (key text primary key, value text not null);` `alter table app_config enable row level security;` policy `for select to anon, authenticated using (true)`; no write policies (admin/service role edits it). Seed `('min_app_version','1.0.0')` and `('store_url','https://play.google.com/store/apps/details?id=com.ayurpulse')`. Only non-secret values may go here, since anon can read it.
+2. App: on launch (before auth/navigation), fetch `min_app_version`, compare with `Constants.expoConfig.version` using a small semver compare, and if the installed version is lower render a full-screen "Update required" with a button opening `store_url`. On network failure, fail **open** (let the user in) so an outage doesn't lock everyone out.
+3. Ship that gate in the next release; raising `min_app_version` to X then lets you remove the fallback above. Old builds that predate the gate can't be forced, so X only takes effect once they are updated voluntarily — decide what "X" means in that light.
+About 1 migration, 1 service + 1 screen, ~60 lines.
 
 ### Deploy order
 1. On the live database, run the policy query and the schema-assumption checks below; take a backup.
