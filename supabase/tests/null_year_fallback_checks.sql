@@ -153,4 +153,32 @@ begin
   raise notice 'PASS N6: inactive content is still hidden under the fallback';
 end $$;
 
+-- N7. TEMPORARY default (20260920140000): a profile inserted without a course
+-- becomes 'bams'; one inserted with 'bhms' keeps 'bhms'; updates are not touched.
+do $$
+declare c text;
+begin
+  insert into auth.users (id, email, aud, role) values
+    ('eeeeeeee-1111-0000-0000-00000000000e', '_test_ny_new@example.test', 'authenticated', 'authenticated');
+  delete from public.profiles where id = 'eeeeeeee-1111-0000-0000-00000000000e';   -- drop the trigger-made row
+  insert into public.profiles (id, email) values ('eeeeeeee-1111-0000-0000-00000000000e', '_test_ny_new@example.test');
+  select course_id into c from public.profiles where id = 'eeeeeeee-1111-0000-0000-00000000000e';
+  if c is distinct from 'bams' then raise exception 'new profile without a course got %, want bams', c; end if;
+
+  insert into auth.users (id, email, aud, role) values
+    ('ffffffff-1111-0000-0000-00000000000f', '_test_ny_bhms_new@example.test', 'authenticated', 'authenticated');
+  delete from public.profiles where id = 'ffffffff-1111-0000-0000-00000000000f';
+  insert into public.profiles (id, email, course_id) values ('ffffffff-1111-0000-0000-00000000000f', '_test_ny_bhms_new@example.test', 'bhms');
+  select course_id into c from public.profiles where id = 'ffffffff-1111-0000-0000-00000000000f';
+  if c is distinct from 'bhms' then raise exception 'profile inserted with bhms got %', c; end if;
+
+  -- a later UPDATE to NULL course is not re-defaulted (only INSERT is affected)
+  perform set_config('app.allow_profile_admin_fields', 'true', true);
+  update public.profiles set course_id = null where id = 'ffffffff-1111-0000-0000-00000000000f';
+  perform set_config('app.allow_profile_admin_fields', 'false', true);
+  select course_id into c from public.profiles where id = 'ffffffff-1111-0000-0000-00000000000f';
+  if c is not null then raise exception 'update was re-defaulted to %', c; end if;
+  raise notice 'PASS N7: new profile without a course gets bams; one inserted with bhms keeps bhms; updates untouched';
+end $$;
+
 rollback;

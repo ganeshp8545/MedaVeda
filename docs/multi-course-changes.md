@@ -19,6 +19,7 @@ docs) and `mobile-app/`, which has its own history.
 - `migrations/20260919120000_multi_course_and_referrals.sql` — new
 - `migrations/20260919130000_referral_history_rpc.sql` — new
 - `migrations/20260920120000_null_year_course_fallback.sql` — new (TEMPORARY NULL-year fallback)
+- `migrations/20260920140000_default_new_profile_course.sql` — new (TEMPORARY: new profiles with no course default to `bams`; test N7 in `null_year_fallback_checks.sql`)
 - `migrations/20260920130000_app_config.sql` — new (force-update config table); `tests/app_config_checks.sql` — new
 - `functions/create-payment-session/index.ts`, `functions/pay/index.ts` — edited
 - `tests/multi_course_checks.sql`, `tests/legacy_backfill_seed.sql`,
@@ -166,7 +167,7 @@ Admin: settings form and referrals table/actions.
 ## 8. Environment / configuration
 
 - New package: `expo-clipboard@~57.0.2` (no config plugin). `package.json` line is committed; **`package-lock.json` is not** — run `npm install` and commit it with your pending changes.
-- Supabase: apply the migrations (four, including `20260920120000_null_year_course_fallback.sql` and `20260920130000_app_config.sql`); redeploy the `create-payment-session` and `pay` Edge Functions. No new secrets, redirect URLs or dashboard settings. Supabase reloads the PostgREST schema cache after DDL; if an embed like `courses ( name )` errors right after migrating, run `notify pgrst, 'reload schema';`.
+- Supabase: apply the migrations (five, in the order listed in the pre-release checklist); redeploy the `create-payment-session` and `pay` Edge Functions. No new secrets, redirect URLs or dashboard settings. Supabase reloads the PostgREST schema cache after DDL; if an embed like `courses ( name )` errors right after migrating, run `notify pgrst, 'reload schema';`.
 - Referral program ships **disabled**; enable it in Admin → Referrals.
 - `mobile-app/schena.sql` was not updated (it is a reconstructed reference file).
 
@@ -181,7 +182,7 @@ Admin: settings form and referrals table/actions.
 | `npm run build` admin-panel | passes |
 | `oxlint` admin-panel | 0 errors, **65 warnings vs 35 before this work**: +16 `no-unused-vars` (destructuring `courseTitle` out before writes, same convention as `yearTitle`), +12 `react-hooks/exhaustive-deps` (the list hooks now re-run on `[filters.courseId, filters.yearId]` without listing their `load` function), +2 `set-state-in-effect` (new `CourseFormModal`, `Referrals`). Not cleaned up |
 | SQL: `multi_course_checks.sql` | **13/13 pass** on a local Postgres 17 (rolled back, leaves nothing). Confirmed the suite can fail: disabling the guard trigger and swapping in a grant function that trusts the order each make it fail |
-| SQL: `null_year_fallback_checks.sql` | 6/6 pass; fails (as expected) with the fallback line removed |
+| SQL: `null_year_fallback_checks.sql` | 7/7 pass (N7 = new-profile default); fails (as expected) with the fallback line removed |
 | SQL: `app_config_checks.sql` | 5/5 pass |
 | SQL: legacy backfill | 4/4 pass: counts unchanged, all BAMS, students backfilled, unique referral codes, chapter/subject/year/bundle purchases (and a purchase with no `product_id`) still unlock exactly their PDFs, an unpaid order unlocks nothing |
 | Migration idempotency | second run on a populated database: no errors |
@@ -233,9 +234,10 @@ untouched; the new file re-creates the function with one extra line, marked
 Do this only when **every supported app version** forces the year picker (i.e. after min app version X: `min_app_version` ≥ the first build containing the onboarding gate and the update gate, see below) and a query confirms no student is left with a course but no year:
 `select count(*) from profiles where course_id is not null and year_id is null;` → 0 (or accept that the remainder will be prompted).
 1. Add a new migration (e.g. `<timestamp>_remove_null_year_fallback.sql`) that `create or replace`s `has_content_access` **exactly as in `20260919120000_multi_course_and_referrals.sql`**, i.e. the profile branch is `pr.course_id = p_course_id and (p_year_id is null or pr.year_id = p_year_id)` — delete the `or pr.year_id is null -- TEMPORARY` line. Do not edit either committed migration.
-2. Delete `supabase/tests/null_year_fallback_checks.sql`.
-3. **Restore test D's strict assertion** in `legacy_backfill_verify.sql` (check D): a student with no year and no purchases must see **0** subjects, and the subject buyer with no year must see **2** (only the year they bought into). Remove its TEMPORARY comment and change the PASS message back. Leaving D as-is will make the suite fail once the fallback is gone.
-4. **Re-run the full SQL suite** (`multi_course_checks.sql`, `legacy_backfill_verify.sql` after `legacy_backfill_seed.sql`, plus any new tests) and confirm every check passes. Then run `grep -rn "TEMPORARY – remove after min app version X" supabase docs` to confirm nothing is left.
+2. **Remove the new-profile course default** in the same migration: `drop trigger if exists profiles_temp_default_course on public.profiles; drop function if exists public.profiles_temp_default_course();` (from `20260920140000_default_new_profile_course.sql`, marked `TEMPORARY – remove with the NULL-year fallback`). Rows it already defaulted to `bams` stay `bams`; that is correct.
+3. Delete `supabase/tests/null_year_fallback_checks.sql`, or at least its check N7 (the new-profile default) — N1–N6 test the fallback itself.
+4. **Restore test D's strict assertion** in `legacy_backfill_verify.sql` (check D): a student with no year and no purchases must see **0** subjects, and the subject buyer with no year must see **2** (only the year they bought into). Remove its TEMPORARY comment and change the PASS message back. Leaving D as-is will make the suite fail once the fallback is gone.
+5. **Re-run the full SQL suite** (`multi_course_checks.sql`, `legacy_backfill_verify.sql` after `legacy_backfill_seed.sql`, plus any new tests) and confirm every check passes. Then run `grep -rn "TEMPORARY – remove after min app version X" supabase docs` to confirm nothing is left.
 
 ### Minimum app version / force-update gate (implemented)
 Before this there was no minimum-version mechanism (`expo-updates` was installed but never called, and `runtimeVersion.policy = "appVersion"` means OTA updates cannot reach older binaries). Now:
@@ -265,6 +267,7 @@ Before this there was no minimum-version mechanism (`expo-updates` was installed
 2. `20260919130000_referral_history_rpc.sql` — `get_my_referrals()`.
 3. `20260920120000_null_year_course_fallback.sql` — TEMPORARY NULL-year fallback (must come after 1; it replaces `has_content_access`).
 4. `20260920130000_app_config.sql` — `app_config` + seed (`min_app_version = 1.0.0`, store URL).
+5. `20260920140000_default_new_profile_course.sql` — TEMPORARY: new profiles with no course default to `bams` (so signups from old app builds see content). Independent of 3 and 4; must come after 1. Effect on the new app: a fresh signup reaches the picker with BAMS preselected and still must pick a year.
 Then run `notify pgrst, 'reload schema';` and the verification queries in section D.
 
 **C. Deploy (in this order)**
@@ -272,7 +275,7 @@ Then run `notify pgrst, 'reload schema';` and the verification queries in sectio
 2. **Admin panel, promptly after step B:** the old admin creates years without a course (rejected by the new `NOT NULL`), and the new Settings page reads `app_config` (migration 4 must already be applied).
 3. **Mobile build:** `npm install` (commit the lockfile: adds `expo-application`, and check `@sentry/react-native` / `expo-updates` are in it), bump `app.json` per A3, `eas build --platform android --profile production`, then `eas submit` / Play Console upload; use a staged rollout.
 4. In the admin: Referrals stays **disabled** until you turn it on.
-5. Only after the new build is live for everyone: raise `min_app_version` to the new version (Admin → Settings → App updates). Then consider removing the NULL-year fallback (see its section).
+5. Only after the new build is live for everyone: raise `min_app_version` to the new version (Admin → Settings → App updates). Then remove the NULL-year fallback **and** the new-profile course default (see "Removing the NULL-year fallback").
 
 **D. Verification queries on live, after B** (expected result in comments)
 ```sql
@@ -294,6 +297,9 @@ union all select 'null course: products',  count(*) from products  where course_
 union all select 'null course: purchases', count(*) from purchases where course_id is null
 union all select 'notes year <> chapter year', count(*) from notes n join chapters c on c.id = n.chapter_id where n.year_id is distinct from c.year_id
 union all select 'profiles without referral code', count(*) from profiles where referral_code is null;
+
+-- 2b. TEMPORARY default trigger present (expect true)
+select exists (select 1 from pg_trigger where tgname = 'profiles_temp_default_course') as new_profile_default;
 
 -- 3. Row counts equal the pre-migration counts you recorded (section 3 query)
 
