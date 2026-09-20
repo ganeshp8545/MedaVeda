@@ -252,12 +252,74 @@ Before this there was no minimum-version mechanism (`expo-updates` was installed
 
 **Removing the NULL-year fallback:** allowed once `min_app_version` ≥ the first build that contains **both** the year-onboarding gate (Phase 6) and this update gate. From then on every build that can still open the app forces a year to be chosen. Follow "Removing the NULL-year fallback" above, including the `year_id IS NULL` count check, since students who never open the app after the bump keep a NULL year until they do.
 
-### Deploy order
-1. On the live database, run the policy query and the schema-assumption checks below; take a backup.
-2. Apply both migrations (staging first). Run the section 3 queries.
-3. Deploy Edge Functions `create-payment-session` and `pay` (they select `products.course_id`, so **after** the migration).
-4. Deploy the admin panel **promptly after step 2**: the old admin creates years without a course, which the new `NOT NULL` rejects.
-5. Release the mobile build; enable referrals in the admin when ready.
+### Final pre-release checklist
+
+**A. Before anything (do once)**
+1. Take a database backup / point-in-time-recovery marker.
+2. Run the policy query (section 7) and the "Schema assumptions" checks below on the **live** DB; fix surprises first.
+3. Confirm the live Play Store `versionName` / `versionCode`, then set `mobile-app/app.json` above them (current file: `version 1.0.0`, `android.versionCode 3`; proposed `1.1.0` / `4`, or higher if the store is already past 3). `appVersionSource` is `local`, so `app.json` is the source. Do this **before** building.
+4. Run everything below on **staging first**, then live.
+
+**B. Database — apply in this exact order** (all already-committed earlier migrations are assumed applied; Supabase SQL editor or `supabase db push`)
+1. `20260919120000_multi_course_and_referrals.sql` — courses, columns, backfill, RLS, referrals, `grant_razorpay_payment`. Aborts with an exception if the backfill leaves gaps.
+2. `20260919130000_referral_history_rpc.sql` — `get_my_referrals()`.
+3. `20260920120000_null_year_course_fallback.sql` — TEMPORARY NULL-year fallback (must come after 1; it replaces `has_content_access`).
+4. `20260920130000_app_config.sql` — `app_config` + seed (`min_app_version = 1.0.0`, store URL).
+Then run `notify pgrst, 'reload schema';` and the verification queries in section D.
+
+**C. Deploy (in this order)**
+1. **Edge Functions, right after the migrations:** `supabase functions deploy create-payment-session` and `supabase functions deploy pay` (they read `products.course_id`, so never before migration 1). No other function changed: `razorpay-webhook`, `verify-payment`, `send-push-notification` need no redeploy (the webhook just calls `grant_razorpay_payment`, whose new body is in migration 1). No new secrets.
+2. **Admin panel, promptly after step B:** the old admin creates years without a course (rejected by the new `NOT NULL`), and the new Settings page reads `app_config` (migration 4 must already be applied).
+3. **Mobile build:** `npm install` (commit the lockfile: adds `expo-application`, and check `@sentry/react-native` / `expo-updates` are in it), bump `app.json` per A3, `eas build --platform android --profile production`, then `eas submit` / Play Console upload; use a staged rollout.
+4. In the admin: Referrals stays **disabled** until you turn it on.
+5. Only after the new build is live for everyone: raise `min_app_version` to the new version (Admin → Settings → App updates). Then consider removing the NULL-year fallback (see its section).
+
+**D. Verification queries on live, after B** (expected result in comments)
+```sql
+-- 1. All four migrations took effect
+select to_regclass('public.courses') is not null            as courses,
+       to_regclass('public.referrals') is not null           as referrals,
+       to_regclass('public.app_config') is not null          as app_config,
+       to_regprocedure('public.get_my_referrals()') is not null as referral_rpc,
+       pg_get_functiondef('public.has_content_access(text,text)'::regprocedure) like '%TEMPORARY%' as null_year_fallback;
+-- all true
+
+-- 2. Backfill is complete (expect 0 on every line)
+select 'null course: subjects',  count(*) from subjects  where course_id is null
+union all select 'null course: chapters',  count(*) from chapters  where course_id is null
+union all select 'null course: notes',     count(*) from notes     where course_id is null
+union all select 'null course: videos',    count(*) from videos    where course_id is null
+union all select 'null course: quizzes',   count(*) from quiz_tests where course_id is null
+union all select 'null course: products',  count(*) from products  where course_id is null
+union all select 'null course: purchases', count(*) from purchases where course_id is null
+union all select 'notes year <> chapter year', count(*) from notes n join chapters c on c.id = n.chapter_id where n.year_id is distinct from c.year_id
+union all select 'profiles without referral code', count(*) from profiles where referral_code is null;
+
+-- 3. Row counts equal the pre-migration counts you recorded (section 3 query)
+
+-- 4. Students: everyone is BAMS; the NULL-year list is who still needs to pick a year
+select course_id, year_id is null as no_year, count(*) from profiles group by 1, 2;
+
+-- 5. RLS is on, and content is not anonymously readable
+select relname, relrowsecurity from pg_class
+ where relname in ('courses','years','subjects','chapters','notes','videos','quiz_tests','products',
+                   'app_config','referrals','referral_settings') and relnamespace = 'public'::regnamespace;   -- all true
+select tablename, policyname, roles from pg_policies
+ where tablename in ('subjects','chapters','notes','videos','quiz_tests') and 'anon' = any(roles);   -- 0 rows
+
+-- 6. app_config seed
+select key, value from app_config;   -- min_app_version = current live version, store_url = https://play.google.com/...
+
+-- 7. Referral program ships off
+select enabled from referral_settings;   -- false
+
+-- 8. Duplicate policy sets on orders/purchases (section 7) — review, don't drop blindly
+select tablename, policyname, cmd from pg_policies where tablename in ('orders','purchases') order by 1, 2;
+```
+Then from outside the DB (anon key, no login):
+`curl -s "$SUPABASE_URL/rest/v1/app_config?select=key,value" -H "apikey: $ANON_KEY"` → returns the two rows;
+`curl -s "$SUPABASE_URL/rest/v1/subjects?select=id&limit=1" -H "apikey: $ANON_KEY"` → `[]`.
+Smoke test with real accounts: one backfilled student (sees own course content, prompted for a year on the new build), one new signup (course + year picker), a BHMS test student (sees 0 BAMS rows and cannot open a BAMS PDF), a small real Razorpay payment (purchase row has correct `scope`/`course_id`), and an old build (still shows BAMS content; not blocked while `min_app_version` is at or below its version).
 
 ### Schema assumptions to verify on the live DB (`schena.sql` is reconstructed)
 - All content ids are `text`; `purchases.id`/`payments.id` may be `uuid` or `text` (the migration doesn't depend on it).
