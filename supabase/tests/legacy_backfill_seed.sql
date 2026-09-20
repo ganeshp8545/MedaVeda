@@ -5,6 +5,8 @@
 -- then run legacy_backfill_verify.sql. It uses only pre-migration columns and
 -- imitates a BAMS-only production database: 1 year hierarchy, one product per
 -- scope (chapter/subject/year/bundle), paid orders/purchases, and students.
+-- Fixture matches the LIVE schema (chapters.year_id / videos.year_id are NOT
+-- NULL there) and creates the 'notes' bucket the storage rows reference.
 -- ============================================================================
 insert into auth.users (id, email, aud, role) values
   ('11111111-1111-4111-8111-111111111111', 'legacy.ch@example.test', 'authenticated', 'authenticated'),
@@ -16,13 +18,13 @@ insert into auth.users (id, email, aud, role) values
 insert into public.years (id, title) values ('y1', '1st Year'), ('y2', '2nd Year');
 insert into public.subjects (id, title, year_id) values ('s1', 'Anatomy', 'y1'), ('s2', 'Physiology', 'y1'), ('s3', 'Pathology', 'y2');
 insert into public.chapters (id, title, subject_id, year_id) values
-  ('c1', 'Ch 1', 's1', 'y1'), ('c2', 'Ch 2', 's1', 'y1'), ('c3', 'Ch 3', 's2', null), ('c4', 'Ch 4', 's3', 'y2');
+  ('c1', 'Ch 1', 's1', 'y1'), ('c2', 'Ch 2', 's1', 'y1'), ('c3', 'Ch 3', 's2', 'y1'), ('c4', 'Ch 4', 's3', 'y2');
 insert into public.notes (id, title, pdf_url, chapter_id) values
   ('n1', 'N1', 'https://x/storage/v1/object/public/notes/n1.pdf', 'c1'),
   ('n2', 'N2', 'https://x/storage/v1/object/public/notes/n2.pdf', 'c2'),
   ('n3', 'N3', 'https://x/storage/v1/object/public/notes/n3.pdf', 'c3'),
   ('n4', 'N4', 'https://x/storage/v1/object/public/notes/n4.pdf', 'c4');
-insert into public.videos (id, title, youtube_url, subject_id) values ('v1', 'V1', 'u', 's1');
+insert into public.videos (id, title, youtube_url, subject_id, year_id) values ('v1', 'V1', 'u', 's1', 'y1');
 insert into public.quiz_tests (id, title, subject_id, year_id) values ('q1', 'Q1', 's1', 'y1');
 insert into public.products (id, title, scope, price, chapter_id, subject_id, year_id, year_ids) values
   ('p-ch',  'Chapter pack', 'chapter', 50,  'c1', null, null, null),
@@ -46,5 +48,6 @@ insert into public.purchases (id, user_id, order_id, product_id, scope, chapter_
 insert into public.purchases (id, user_id, order_id, scope, year_id, amount, status)
   values ('pu5', '33333333-3333-4333-8333-333333333333', null, 'year', 'y2', 500, 'success');
 
+insert into storage.buckets (id, name) values ('notes', 'notes') on conflict do nothing;
 insert into storage.objects (bucket_id, name) values
   ('notes','n1.pdf'),('notes','n2.pdf'),('notes','n3.pdf'),('notes','n4.pdf');
