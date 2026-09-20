@@ -12,6 +12,43 @@ const YEAR = new Date().getFullYear();
 const PLAY = "https://play.google.com/store/apps/details?id=com.ayurpulse.app";
 const EMAIL = "medvedaforu@gmail.com";
 const WHATSAPP = "https://wa.me/917620616068";
+
+// Single place for owner-supplied business details. Pages use {{KEY}} tokens; the build fails on unknown tokens.
+const EFFECTIVE_DATE = "20 September 2026"; // change on launch day, then re-run the build
+const V = {
+  EFFECTIVE_DATE,
+  COMPANY_LEGAL_NAME: "MedVeda",
+  BUSINESS_ADDRESS: "Dhule, Maharashtra, India",
+  SUPPORT_PHONE: "+91 76206 16068 (also WhatsApp)",
+  SUPPORT_HOURS: "Monday to Saturday, 10:00 AM \u2013 6:00 PM IST (excluding public holidays)",
+  GRIEVANCE_OFFICER_NAME: "Ashwini",
+  GRIEVANCE_OFFICER_EMAIL: EMAIL,
+  GRIEVANCE_ACK_TIME: "within 48 hours",
+  GRIEVANCE_RESOLUTION_TIME: "within 15 working days (and in any case within one month)",
+  JURISDICTION_CITY: "Dhule, Maharashtra",
+  DATA_RETENTION_PERIOD: "Account data is kept while the account is active. After account deletion, personal data is erased within 30 days, except records we must keep by law (payment, invoice and tax records, kept for up to 8 years under Indian tax and accounting laws).",
+  ANALYTICS_RETENTION_PERIOD: "up to 12 months, after which it is deleted or kept only in anonymised, aggregated form",
+  RIGHTS_RESPONSE_TIME: "within 30 days",
+  TEAM_INTRO: "MedVeda is built by a small team from Maharashtra that understands the needs of AYUSH students \u2013 organised notes, clear video lectures and regular practice tests, arranged by course and year.",
+  IOS_STATUS: "MedVeda is currently available on Android. An iOS version is not available yet.",
+  PRICING_AND_TAX_NOTE: "All prices are shown in Indian Rupees (INR) and are inclusive of applicable taxes, if any.",
+  TAX_NOTE: "Any applicable taxes are included in the displayed price.",
+  ACCESS_PERIOD: "Purchased content has no fixed expiry. Access continues for as long as your account is active and the content is offered on the platform, subject to these Terms.",
+  AFFILIATION_STATEMENT: "MedVeda is an independent educational platform. It is not affiliated with, endorsed by, or connected to the Ministry of AYUSH, NCISM, NCH, any university, college or government body.",
+  DIGITAL_PURCHASES_REFUNDABLE: "Because content is digital and unlocked instantly, purchases are generally non-refundable once the content has been unlocked, except in the cases listed below.",
+  REFUND_WINDOW: "Refund requests for the cases below must be raised within 7 days of the payment.",
+  REFUND_CONDITIONS: "(a) payment deducted but content not unlocked within 24 hours; (b) duplicate or multiple payments for the same purchase; (c) technical fault on our side that prevents access and that we cannot fix within 7 days.",
+  CANCELLATION_RULES: "You can cancel before completing payment. After a successful payment the purchase cannot be cancelled, except as covered in the refund cases above.",
+  FAILED_PAYMENT_REVERSAL_DAYS: "5\u20137 working days (as per your bank / RBI timelines)",
+  DUPLICATE_PAYMENT_RULES: "Any duplicate amount is refunded in full to the original payment method.",
+  REFUND_TIMELINE: "Approved refunds are credited to the original payment method within 5\u20137 working days.",
+  REFUND_RESPONSE_TIME: "within 48 hours",
+  DELIVERY_WAIT_TIME: "Access is usually instant. If it doesn't appear within 30 minutes, restart the app; if it still doesn't appear within 24 hours, contact support with your payment ID.",
+  DELETION_TIMELINE: "within 30 days of the request",
+  DELETION_RETENTION_CONFIRM: "Payment, order and invoice records are retained for up to 8 years as required by Indian tax and accounting laws. Backups are overwritten within 90 days. Everything else linked to your account is deleted.",
+};
+V.GRIEVANCE_BLOCK = `<p>Name: ${V.GRIEVANCE_OFFICER_NAME}<br>Email: <a href="mailto:${V.GRIEVANCE_OFFICER_EMAIL}">${V.GRIEVANCE_OFFICER_EMAIL}</a><br>Phone: ${V.SUPPORT_PHONE}<br>Address: ${V.BUSINESS_ADDRESS}<br>Support hours: ${V.SUPPORT_HOURS}</p><p class="meta">We acknowledge complaints ${V.GRIEVANCE_ACK_TIME} and resolve them ${V.GRIEVANCE_RESOLUTION_TIME}, as required by the Information Technology Act, 2000 and rules, the Consumer Protection (E-Commerce) Rules, 2020 and the Digital Personal Data Protection Act, 2023.</p>`;
+
 const SB_VERSION = "2.110.3";
 const SB_SRI = "sha384-sihuiVHG7vyEIuePVbLI4QpHu1dbhCZe4Zqp0FuqnFeEnyIhF3koyXoBZyfbFsYs";
 
@@ -59,7 +96,7 @@ function footer() {
 <div class="foot-brand"><a class="brand" href="/"><img src="/assets/img/logo-64.png" width="40" height="40" alt="" loading="lazy">MedVeda</a>
 <p>Notes, video lectures and MCQ tests for AYUSH degree students, in one app.</p>${playBadge()}<p style="margin-top:14px"><a href="mailto:${EMAIL}">${EMAIL}</a></p></div>
 ${cols}</div>
-<div class="foot-bottom"><span>© ${YEAR} {{COMPANY_LEGAL_NAME}}. All rights reserved.</span><span>MedVeda is an educational app, not medical advice. <a href="/disclaimer">Read the disclaimer</a>.</span></div></div></footer>`;
+<div class="foot-bottom"><span>© ${YEAR} ${V.COMPANY_LEGAL_NAME}. All rights reserved.</span><span>MedVeda is an educational app, not medical advice. <a href="/disclaimer">Read the disclaimer</a>.</span></div></div></footer>`;
 }
 
 function head(m) {
@@ -128,8 +165,7 @@ ${tail.join("\n")}
     .replace(/\{\{PLAY_URL\}\}/g, PLAY)
     .replace(/\{\{SUPPORT_EMAIL\}\}/g, EMAIL)
     .replace(/\{\{WHATSAPP_URL\}\}/g, WHATSAPP)
-    // Visible highlight for owner-supplied placeholders (text nodes only, never inside tags).
-    .replace(/\{\{([A-Z_]+)\}\}(?![^<]*>)/g, '<mark class="ph">{{$1}}</mark>');
+    .replace(/\{\{([A-Z_]+)\}\}/g, (m, k) => { if (!(k in V)) throw new Error(`Unknown placeholder ${m}`); return V[k]; });
   return html;
 }
 
