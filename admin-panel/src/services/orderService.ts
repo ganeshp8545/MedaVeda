@@ -54,6 +54,8 @@ export async function getOrders(filters: ContentFilters = {}): Promise<Order[]> 
 }
 
 export async function updateOrderStatus(id: string, status: OrderStatus) {
-  const { error } = await supabase.from(TABLE).update({ status }).eq("id", id);
+  // Direct UPDATEs on orders are no longer allowed for any client. Admins can
+  // only cancel/fail an unpaid order, through this RPC (never mark it paid).
+  const { error } = await supabase.rpc("admin_set_order_status", { p_order_id: id, p_status: status });
   if (error) throw error;
 }

@@ -62,8 +62,14 @@ export default function NotesScreen() {
 
   // Computed from the full, order-sorted list (not the filtered/searched
   // one) so which PDFs are "free" never shifts while the user searches.
+  // The server flag (notes.is_free_preview) decides; the first-N fallback only
+  // applies to a database that predates the flag. Display hint only - the
+  // get-note-url Edge Function is what actually enforces access.
+  const hasPreviewFlag = notes.some((note) => note.isFreePreview !== undefined);
   const freeNoteIds = new Set(
-    notes.slice(0, FREE_PDF_COUNT).map((note) => note.id)
+    hasPreviewFlag
+      ? notes.filter((note) => note.isFreePreview).map((note) => note.id)
+      : notes.slice(0, FREE_PDF_COUNT).map((note) => note.id)
   );
 
   useEffect(() => {
@@ -117,7 +123,7 @@ export default function NotesScreen() {
     // the "notes" bucket was public - see secureNotesService.ts).
     setResolvingNoteId(item.id);
     try {
-      const signedUrl = await getSecureNoteUrl(item.pdfUrl);
+      const signedUrl = await getSecureNoteUrl(item.id);
       navigation.navigate("PdfViewer", { pdfUrl: signedUrl });
     } catch (err) {
       console.error("Failed to resolve note URL:", err);
@@ -133,7 +139,7 @@ export default function NotesScreen() {
   async function handleDownloadPress(item: Note) {
     setResolvingNoteId(item.id);
     try {
-      const signedUrl = await getSecureNoteUrl(item.pdfUrl);
+      const signedUrl = await getSecureNoteUrl(item.id);
       await start({
         id: item.id,
         contentType: "note",

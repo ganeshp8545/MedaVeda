@@ -29,9 +29,21 @@
 #   error this was causing. Safe to disable here because the function
 #   already does its own JWT + admin check manually (see index.ts).
 
-[functions.pay]
-verify_jwt = false
+# The `pay` and `create-payment-session` functions were retired by
+# 20260924110000_critical2_orders_server_only.sql: `create-order` replaces both.
+# It, get-note-url and get-video-url keep JWT verification ON (and also call
+# getUserFromAuthHeader themselves).
+[functions.create-order]
+verify_jwt = true
 
+[functions.get-note-url]
+verify_jwt = true
+
+[functions.get-video-url]
+verify_jwt = true
+
+# verify-payment carries no Supabase JWT: it authenticates the Razorpay
+# callback by HMAC signature and re-confirms with Razorpay's API.
 [functions.verify-payment]
 verify_jwt = false
 

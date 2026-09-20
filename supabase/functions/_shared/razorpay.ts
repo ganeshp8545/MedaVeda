@@ -118,8 +118,48 @@ export async function fetchCapturedPaymentForOrder(
 }
 
 
-// signature = HMAC_SHA256(order_id + "|" + payment_id, key_secret)
-// Must match exactly what the client (Checkout.js) sends back.
+export type RazorpayPayment = {
+  id: string;
+  order_id: string | null;
+  status: string;
+  amount: number;
+  currency: string;
+  captured?: boolean;
+};
+
+async function razorpayGet<T>(path: string): Promise<T> {
+  const { keyId, keySecret } = getKeys();
+  const res = await fetch(`https://api.razorpay.com/v1/${path}`, {
+    headers: { Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) },
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Razorpay GET ${path.split("/")[0]} failed (${res.status}): ${body}`);
+  }
+  return (await res.json()) as T;
+}
+
+// Authoritative, server-to-server fetch of a single payment.
+export function fetchPayment(paymentId: string): Promise<RazorpayPayment> {
+  return razorpayGet<RazorpayPayment>(`payments/${encodeURIComponent(paymentId)}`);
+}
+
+export function fetchRazorpayOrder(
+  razorpayOrderId: string
+): Promise<{ id: string; amount: number; currency: string; status: string }> {
+  return razorpayGet(`orders/${encodeURIComponent(razorpayOrderId)}`);
+}
+
+function hexToBytes(hex: string): Uint8Array | null {
+  if (!/^[0-9a-f]{64}$/i.test(hex)) return null;
+  const out = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) out[i] = Number.parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
+
+// signature = HMAC_SHA256(razorpay_order_id + "|" + razorpay_payment_id, KEY_SECRET)
+// Must match exactly what Checkout.js sends back. Compared in constant time
+// over the decoded 32-byte digests (no early exit on the first differing byte).
 export async function verifyPaymentSignature(params: {
   razorpayOrderId: string;
   razorpayPaymentId: string;
@@ -135,27 +175,13 @@ export async function verifyPaymentSignature(params: {
     false,
     ["sign"]
   );
-
-  const signatureBuf = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    enc.encode(`${params.razorpayOrderId}|${params.razorpayPaymentId}`)
+  const expected = new Uint8Array(
+    await crypto.subtle.sign("HMAC", key, enc.encode(`${params.razorpayOrderId}|${params.razorpayPaymentId}`))
   );
+  const actual = hexToBytes(params.razorpaySignature);
+  if (!actual) return false;
 
-  const expected = Array.from(new Uint8Array(signatureBuf))
-    .map((b) => b.toString(16).padStart(2, "0"))
-    .join("");
-
-  // Constant-time-ish comparison. Both strings are fixed-length hex from
-  // our own HMAC output vs. the caller's string, so a straightforward
-  // length + char loop is enough here (Deno's std has no built-in
-  // timingSafeEqual for strings).
-  const actual = params.razorpaySignature;
-  if (expected.length !== actual.length) return false;
-
-  let mismatch = 0;
-  for (let i = 0; i < expected.length; i++) {
-    mismatch |= expected.charCodeAt(i) ^ actual.charCodeAt(i);
-  }
-  return mismatch === 0;
+  let diff = 0;
+  for (let i = 0; i < expected.length; i++) diff |= expected[i] ^ actual[i];
+  return diff === 0;
 }

@@ -4,8 +4,7 @@ import { supabase } from "../config/supabase";
 // supabase-migration/functions/{pay,verify-payment,create-payment-session}).
 // Deployed with e.g. `supabase functions deploy pay`.
 const projectUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
-const PAY_BASE_URL = `${projectUrl}/functions/v1/pay`;
-const CREATE_SESSION_URL = `${projectUrl}/functions/v1/create-payment-session`;
+const CREATE_ORDER_URL = `${projectUrl}/functions/v1/create-order`;
 
 export interface CheckoutData {
   keyId: string;
@@ -58,10 +57,7 @@ export interface VerifyResult {
  * same as price) as part of CheckoutData, so it doesn't need to be
  * passed in here.
  */
-export async function purchaseProduct(
-  orderId: string,
-  productId: string
-): Promise<CheckoutData> {
+export async function purchaseProduct(productId: string): Promise<CheckoutData> {
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
 
@@ -69,31 +65,23 @@ export async function purchaseProduct(
     throw new Error("Please log in before purchasing.");
   }
 
-  const sessionRes = await fetch(CREATE_SESSION_URL, {
+  // Only the product id is sent. The server reads the price from the products
+  // table, creates the order and the Razorpay order together, and returns the
+  // checkout data. The client cannot write to `orders` at all.
+  const res = await fetch(CREATE_ORDER_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`, // token travels in a header, never in the URL
+      Authorization: `Bearer ${accessToken}`, // header, never the URL
     },
-    body: JSON.stringify({ orderId, productId }),
+    body: JSON.stringify({ productId }),
   });
 
-  if (!sessionRes.ok) {
-    const body = await sessionRes.json().catch(() => ({}));
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
     throw new Error(body.error || "Could not start payment. Please try again.");
   }
-
-  const { paymentSession } = (await sessionRes.json()) as { paymentSession: string };
-
-  const payRes = await fetch(`${PAY_BASE_URL}?session=${encodeURIComponent(paymentSession)}`);
-
-  const payBody = await payRes.json().catch(() => ({}));
-
-  if (!payRes.ok) {
-    throw new Error(payBody.error || "Could not open the payment page.");
-  }
-
-  return payBody as CheckoutData;
+  return body as CheckoutData;
 }
 
 /**

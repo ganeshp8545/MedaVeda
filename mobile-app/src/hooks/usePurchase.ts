@@ -3,7 +3,6 @@ import { Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
 import { purchaseProduct } from "../services/paymentService";
-import { createOrderForProduct, markOrderStatus } from "../services/ordersService";
 import { Product } from "../services/productsService";
 
 /**
@@ -29,26 +28,15 @@ export default function usePurchase() {
   const navigation = useNavigation<any>();
 
   async function buy(product: Product) {
-    let orderId: string | undefined;
-
     try {
       setPurchasing(true);
 
-      const order = await createOrderForProduct(product);
-      orderId = order.id;
-
-      const checkoutData = await purchaseProduct(order.id, product.id);
+      // The create-order Edge Function creates the order + Razorpay order from
+      // the server-side price; only the product id is sent.
+      const checkoutData = await purchaseProduct(product.id);
 
       navigation.navigate("PaymentCheckout", checkoutData);
     } catch (err: any) {
-      // The order was written but checkout never opened (no session/
-      // network issue, product no longer available, etc.) - mark it
-      // failed so it doesn't sit as "created" forever and confuse
-      // order-history/audit views.
-      if (orderId) {
-        markOrderStatus(orderId, "failed").catch(() => {});
-      }
-
       Alert.alert("Could Not Start Payment", err?.message || "Please try again.");
     } finally {
       setPurchasing(false);

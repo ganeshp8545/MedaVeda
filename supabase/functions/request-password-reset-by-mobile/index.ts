@@ -7,10 +7,17 @@
 // caller always gets the same { ok: true } whether or not a number matched, so
 // it cannot be used to discover registered numbers, and the email address is
 // never returned.
+//
+// Abuse / enumeration controls: rate limited per IP (10/hour) and per number
+// (3/hour), counted before any lookup; over-limit calls get the SAME generic
+// { ok: true } (a distinct 429 would let an attacker tell "known" from "unknown"
+// once the per-number budget runs out). The email is sent in the background so
+// response time does not differ between a known and an unknown number.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { normalizePhoneNumber } from "../_shared/phone.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
+import { clientIp, withinLimit } from "../_shared/rateLimit.ts";
 
 // Must also be in Supabase Auth -> URL Configuration -> Redirect URLs.
 const PASSWORD_RESET_REDIRECT_URL = "https://medveda.in/reset-password";
@@ -29,6 +36,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return generic();
   }
   if (!phone) return generic();
+
+  if (!(await withinLimit(`reset-ip:${clientIp(req)}`, 10, 3600))
+      || !(await withinLimit(`reset-phone:${phone}`, 3, 3600))) {
+    return generic();
+  }
 
   const url = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
@@ -49,10 +61,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
   if (!profile?.email || profile.blocked) return generic();
 
   const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { error } = await authClient.auth.resetPasswordForEmail(profile.email, {
-    redirectTo: PASSWORD_RESET_REDIRECT_URL,
-  });
-  if (error) console.error("request-password-reset-by-mobile: send failed", error.status);
+  const send = authClient.auth
+    .resetPasswordForEmail(profile.email, { redirectTo: PASSWORD_RESET_REDIRECT_URL })
+    .then(({ error }) => {
+      if (error) console.error("request-password-reset-by-mobile: send failed", error.status);
+    })
+    .catch(() => {});
+  // deno-lint-ignore no-explicit-any
+  const runtime = (globalThis as any).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(send);
+  else await send;
 
   return generic();
 });

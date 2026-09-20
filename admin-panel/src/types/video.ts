@@ -13,6 +13,8 @@ export interface Video {
 
   order: number;
   active: boolean;
+  // Server-enforced free preview (is_free_preview, 20260924150000).
+  isFreePreview?: boolean;
   createdAt?: any;
 
   // Added by 20260919120000_multi_course_and_referrals.sql - see types/course.ts.

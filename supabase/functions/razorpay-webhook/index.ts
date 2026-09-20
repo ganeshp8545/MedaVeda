@@ -1,4 +1,4 @@
-import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
+import { settleCapturedPayment } from "../_shared/settle.ts";
 
 const encoder = new TextEncoder();
 const HEX_SIGNATURE = /^[0-9a-f]{64}$/i;
@@ -109,23 +109,28 @@ Deno.serve(async (request: Request) => {
     return response(400, { error: "Invalid payment event" });
   }
 
-  // The database RPC locks the order and atomically records the payment,
-  // purchase, and event receipt. It is safe for Razorpay retries and for a
-  // concurrent app-side verify-payment request.
-  const { error } = await supabaseAdmin.rpc("grant_razorpay_payment", {
-    p_event_id: eventId,
-    p_razorpay_order_id: payment.order_id,
-    p_razorpay_payment_id: payment.id,
-    p_amount_paise: payment.amount,
-  });
-
-  if (error) {
-    console.error("razorpay-webhook: grant failed", {
+  // Same settlement path as verify-payment: re-fetch the payment from Razorpay,
+  // check captured / order / currency / amount against our order row, then the
+  // atomic idempotent grant. Safe for Razorpay retries and for a concurrent
+  // app-side verify-payment request.
+  let result;
+  try {
+    result = await settleCapturedPayment({
       eventId,
-      code: error.code,
-      message: error.message,
+      razorpayOrderId: payment.order_id,
+      razorpayPaymentId: payment.id,
     });
-    // Non-2xx makes Razorpay retry. Never acknowledge a failed grant.
+  } catch (error) {
+    console.error("razorpay-webhook: settlement error", { eventId, error: String(error) });
+    return response(500, { error: "Unable to process webhook" }); // Razorpay retries
+  }
+
+  if (!result.ok) {
+    console.error("razorpay-webhook: not settled", { eventId, paymentId: payment.id, reason: result.reason });
+    // Permanent rejections (unknown order, mismatch) are acknowledged so Razorpay
+    // stops retrying; they are logged for manual review. Transient failures
+    // (5xx-class, not-yet-captured) return non-2xx so Razorpay retries.
+    if (result.status === 404 || result.status === 400) return response(204);
     return response(500, { error: "Unable to process webhook" });
   }
 

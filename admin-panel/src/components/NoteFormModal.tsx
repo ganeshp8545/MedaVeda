@@ -34,6 +34,7 @@ function buildEmptyForm(): NoteInput {
     courseId: "",
     order: 1,
     active: true,
+    isFreePreview: false,
   };
 }
 
@@ -72,6 +73,7 @@ export default function NoteFormModal({
               courseId: initialData.courseId,
               order: initialData.order,
               active: initialData.active,
+              isFreePreview: initialData.isFreePreview ?? false,
             }
           : buildEmptyForm()
       );
@@ -268,6 +270,15 @@ export default function NoteFormModal({
           onChange={(e) => setForm({ ...form, active: e.target.checked })}
         />
         Active (visible to students)
+      </label>
+
+      <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
+        <input
+          type="checkbox"
+          checked={form.isFreePreview}
+          onChange={(e) => setForm({ ...form, isFreePreview: e.target.checked })}
+        />
+        Free preview (any signed-in student can open this without buying)
       </label>
 
       {errors.form && (

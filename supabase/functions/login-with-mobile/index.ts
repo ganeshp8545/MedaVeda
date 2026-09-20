@@ -10,11 +10,19 @@
 // - Every failure - bad input, unknown number, wrong password, unconfirmed
 //   email, blocked account - returns the same 401 "Invalid credentials", so the
 //   endpoint cannot be used to find out which numbers are registered.
+// - Rate limited per IP (20/10 min) and per mobile number (5/10 min), counted
+//   BEFORE any lookup and whether or not the number exists, so the limiter
+//   itself reveals nothing. Exceeding it returns the same generic 429 for
+//   every input.
+// - Unknown / blocked numbers still perform a (failing) password sign-in
+//   against a decoy address so response time does not reveal whether a number
+//   is registered.
 // - Nothing about the request (number, password) is logged.
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { normalizePhoneNumber } from "../_shared/phone.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
+import { clientIp, sha256Hex, withinLimit } from "../_shared/rateLimit.ts";
 
 const invalid = () => jsonResponse({ error: "Invalid credentials" }, 401);
 
@@ -35,6 +43,11 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return invalid();
   }
 
+  if (!(await withinLimit(`login-ip:${clientIp(req)}`, 20, 600))
+      || !(await withinLimit(`login-phone:${phone}`, 5, 600))) {
+    return jsonResponse({ error: "Too many attempts. Please try again later." }, 429);
+  }
+
   const url = Deno.env.get("SUPABASE_URL");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   if (!url || !anonKey) {
@@ -51,11 +64,13 @@ Deno.serve(async (req: Request): Promise<Response> => {
     console.error("login-with-mobile: lookup failed", lookupError.code);
     return jsonResponse({ error: "Sign-in is temporarily unavailable." }, 503);
   }
-  if (!profile?.email || profile.blocked) return invalid();
-
   const authClient = createClient(url, anonKey, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await authClient.auth.signInWithPassword({ email: profile.email, password });
-  if (error || !data.session) return invalid();
+  const known = Boolean(profile?.email) && !profile?.blocked;
+  const email = known
+    ? (profile!.email as string)
+    : `nobody-${(await sha256Hex(phone)).slice(0, 16)}@decoy.invalid`;
+  const { data, error } = await authClient.auth.signInWithPassword({ email, password });
+  if (!known || error || !data.session) return invalid();
 
   // Session only - never the email or profile.
   return jsonResponse({ session: data.session });

@@ -10,4 +10,7 @@ export interface Note {
   // yearId/courseId. See types/course.ts.
   yearId: string;
   courseId: string;
+  // Server-enforced free preview (notes.is_free_preview, 20260924150000). The
+  // get-note-url Edge Function is what actually allows/denies the file.
+  isFreePreview?: boolean;
 }
