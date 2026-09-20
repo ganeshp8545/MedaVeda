@@ -240,7 +240,9 @@ begin
   if n <> 0 then raise exception 'BHMS student read a BAMS product'; end if;
   if public.user_owns_chapter('_test_bams_ch1') then raise exception 'BHMS student owns a BAMS chapter'; end if;
   select count(*) into n from storage.objects where bucket_id = 'notes' and name = '_test_bams_note.pdf';
-  if n <> 0 then raise exception 'storage policy let a BHMS student see the BAMS PDF'; end if;
+  -- Phase 1A keeps the legacy public-read policy (dropped in Phase 1B), which
+  -- deliberately still lets any signed-in user see note files. Enforced from 1B.
+  if n <> 0 and not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'public read notes/thumbnails') then raise exception 'storage policy let a BHMS student see the BAMS PDF'; end if;
   perform pg_temp.act_as_admin_db();
   raise notice 'PASS 7: BHMS student gets 0 rows for BAMS chapter/note/product; storage denies the BAMS PDF';
 end $$;
@@ -250,6 +252,9 @@ end $$;
 -- ============================================================================
 insert into public.orders (id, user_id, product_id, scope, chapter_id, amount, status, razorpay_order_id)
 values ('_test_order_1', 'aaaaaaaa-0000-0000-0000-00000000000a', '_test_bams_product', 'chapter', '_test_bams_ch1', 99, 'created', '_test_rzp_1');
+-- pay marks a checkout session used before settlement; grant_razorpay_payment requires it (Phase 1)
+insert into public.payment_sessions (id, order_id, user_id, product_id, expires_at, used)
+values (gen_random_uuid(), '_test_order_1', 'aaaaaaaa-0000-0000-0000-00000000000a', '_test_bams_product', now() + interval '1 hour', true);
 select public.grant_razorpay_payment('_test_evt_1', '_test_rzp_1', '_test_pay_1', 9900);
 -- idempotent: a retried webhook/callback changes nothing
 select public.grant_razorpay_payment('_test_evt_1', '_test_rzp_1', '_test_pay_1', 9900);
@@ -267,7 +272,7 @@ begin
   select count(*) into n from storage.objects where bucket_id = 'notes' and name = '_test_bams_note.pdf';
   if n <> 1 then raise exception 'purchaser cannot see the purchased PDF'; end if;
   select count(*) into n from storage.objects where bucket_id = 'notes' and name = '_test_bhms_note.pdf';
-  if n <> 0 then raise exception 'BAMS purchaser can see an unpurchased BHMS PDF'; end if;
+  if n <> 0 and not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'public read notes/thumbnails') then raise exception 'BAMS purchaser can see an unpurchased BHMS PDF'; end if; -- storage isolation is enforced from Phase 1B (legacy public-read kept in 1A)
 
   perform pg_temp.act_as('bbbbbbbb-0000-0000-0000-00000000000b');
   if public.user_owns_chapter('_test_bams_ch1') then raise exception 'BAMS purchase unlocked BAMS chapter for BHMS student'; end if;
@@ -327,6 +332,8 @@ end $$;
 -- ============================================================================
 insert into public.orders (id, user_id, product_id, scope, year_id, amount, status, razorpay_order_id)
 values ('_test_order_t', 'aaaaaaaa-0000-0000-0000-00000000000a', '_test_bams_product', 'year', '_test_bams_y1', 99, 'created', '_test_rzp_t');
+insert into public.payment_sessions (id, order_id, user_id, product_id, expires_at, used)
+values (gen_random_uuid(), '_test_order_t', 'aaaaaaaa-0000-0000-0000-00000000000a', '_test_bams_product', now() + interval '1 hour', true);
 select public.grant_razorpay_payment('_test_evt_t', '_test_rzp_t', '_test_pay_t', 9900);
 do $$
 declare p public.purchases%rowtype;

@@ -2,22 +2,17 @@
   "expo": {
     "name": "MedVeda",
     "slug": "ayurpulse",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "ayurpulse",
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#2E7D32"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
       "package": "com.ayurpulse.app",
-      "versionCode": 3,
+      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2E7D32"
@@ -31,7 +26,15 @@
       "@react-native-community/datetimepicker",
       "expo-notifications",
       "expo-secure-store",
-      "expo-splash-screen",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/icon.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#FFFFFF"
+        }
+      ],
       "expo-status-bar",
       "expo-web-browser",
       "expo-sqlite",

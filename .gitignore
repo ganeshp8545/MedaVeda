@@ -41,3 +41,6 @@ Thumbs.db
 .idea/
 .vscode/
 *.swp
+
+# Play Console service account key (never commit)
+google-play-service-account.json

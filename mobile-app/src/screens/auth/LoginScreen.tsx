@@ -44,6 +44,9 @@ export default function LoginScreen() {
   const [hidePassword, setHidePassword] = useState(true);
   const [loading, setLoading] = useState(false);
   const [lockStatus, setLockStatus] = useState<LockStatus>(NOT_LOCKED);
+  // Set on EVERY failed sign-in attempt (any cause, email or mobile) so the
+  // neutral hint below never reveals whether an account exists.
+  const [loginFailed, setLoginFailed] = useState(false);
 
   const {
     control,
@@ -102,10 +105,12 @@ export default function LoginScreen() {
     // Guard against double-submits (double-tap, slow network + repeat
     // tap) in addition to the button's own `disabled` state.
     if (loading) return;
+    setLoginFailed(false);
 
     const identifier = data.identifier.trim();
     const parsedIdentifier = parseAuthIdentifier(identifier);
     if (!parsedIdentifier) {
+      setLoginFailed(true);
       Alert.alert("Login Failed", "Enter a valid email or mobile number");
       return;
     }
@@ -117,6 +122,7 @@ export default function LoginScreen() {
     const freshLock = await getLockStatus(lockKey);
     if (freshLock.locked) {
       setLockStatus(freshLock);
+      setLoginFailed(true);
       Alert.alert(
         "Account Temporarily Locked",
         `Too many failed attempts. Please try again in ${formatRemainingTime(freshLock.remainingMs)}.`
@@ -133,6 +139,7 @@ export default function LoginScreen() {
         const status = await recordFailedAttempt(lockKey);
         setLockStatus(status);
         logDebug("Login rejected");
+        setLoginFailed(true);
         if (status.locked) {
           Alert.alert(
             "Account Temporarily Locked",
@@ -171,6 +178,7 @@ export default function LoginScreen() {
       // don't count them against the lockout counter, and don't imply
       // anything about whether the identifier or password was correct.
       logDebug("Login error", error);
+      setLoginFailed(true);
       Alert.alert("Something Went Wrong", "Please check your connection and try again.");
     } finally {
       setLoading(false);
@@ -251,6 +259,12 @@ export default function LoginScreen() {
       {errors.password && (
         <Text style={styles.error}>
           {errors.password.message}
+        </Text>
+      )}
+
+      {loginFailed && (
+        <Text style={styles.loginHint}>
+          Phone number not linked yet? Log in with your email.
         </Text>
       )}
 
@@ -359,6 +373,12 @@ const styles = StyleSheet.create({
 
   error: {
     color: COLORS.error,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
+  },
+
+  loginHint: {
+    color: COLORS.subtitle,
     marginTop: SPACING.xs,
     marginBottom: SPACING.sm,
   },

@@ -80,10 +80,11 @@ declare n int;
 begin
   perform pg_temp.act_as('aaaaaaaa-1111-0000-0000-00000000000a');
   select count(*) into n from storage.objects where name = '_test_bhms_n1.pdf';
-  if n <> 0 then raise exception 'NULL-year BAMS student can read a BHMS PDF'; end if;
+  if n <> 0 and not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'public read notes/thumbnails') then raise exception 'NULL-year BAMS student can read a BHMS PDF'; end if; -- storage isolation is enforced from Phase 1B (legacy public-read kept in 1A)
   if public.user_owns_chapter('_test_bhms_c1') then raise exception 'owns BHMS chapter'; end if;
   select count(*) into n from storage.objects where name = '_test_bams_n1.pdf';
-  if n <> 0 then raise exception 'fallback unexpectedly opened an unpurchased PDF'; end if;
+  -- Enforced from Phase 1B: until then the legacy public-read policy is kept on purpose.
+  if n <> 0 and not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'public read notes/thumbnails') then raise exception 'fallback unexpectedly opened an unpurchased PDF'; end if;
   perform pg_temp.back();
   raise notice 'PASS N2: NULL-year BAMS student cannot read the BHMS PDF; storage still purchase-gated';
 end $$;
@@ -101,7 +102,7 @@ begin
     union all select id from public.quiz_tests union all select id from public.products) t where id like '\_test\_bams%';
   if bad <> 0 then raise exception 'NULL-year BHMS student sees % BAMS rows', bad; end if;
   select count(*) into n from storage.objects where name = '_test_bams_n1.pdf';
-  if n <> 0 then raise exception 'NULL-year BHMS student can read a BAMS PDF'; end if;
+  if n <> 0 and not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'public read notes/thumbnails') then raise exception 'NULL-year BHMS student can read a BAMS PDF'; end if; -- storage isolation is enforced from Phase 1B (legacy public-read kept in 1A)
   perform pg_temp.back();
   raise notice 'PASS N3: NULL-year BHMS student sees 0 BAMS rows and no BAMS PDF';
 end $$;

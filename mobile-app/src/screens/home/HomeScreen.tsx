@@ -25,6 +25,7 @@ import usePurchases from "../../hooks/usePurchases";
 import usePurchase from "../../hooks/usePurchase";
 import useCourseYear from "../../hooks/useCourseYear";
 import { needsCourseYearSelection } from "../../services/courseState";
+import { logAppOpen } from "../../services/analyticsService";
 import { applyPendingReferralCode } from "../../services/referralsService";
 import { getCurrentUser, getCurrentUserDisplayName } from "../../services/authState";
 
@@ -190,6 +191,7 @@ export default function HomeScreen() {
     loadPurchases();
     loadNotifications();
     loadUnreadNotificationCount();
+    logAppOpen();
 
     // A referral code typed at sign-up is applied now that there's a session.
     applyPendingReferralCode().then((result) => {

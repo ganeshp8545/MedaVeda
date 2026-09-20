@@ -1,7 +1,10 @@
+import { Platform } from "react-native";
+import * as Application from "expo-application";
 import { supabase } from "../config/supabase";
 import { getCurrentUser } from "./authState";
 
 export type AnalyticsEventName =
+  | "app_open"
   | "screen_view"
   | "chapter_view"
   | "note_view"
@@ -31,6 +34,23 @@ export async function logEvent({ name, params }: AnalyticsEvent): Promise<void> 
   } catch (error) {
     console.log(`analyticsService.logEvent(${name}) failed:`, error);
   }
+}
+
+// Records which build a signed-in student is running (versionName + versionCode).
+// This is what tells us when enough students have moved to a new build to raise
+// app_config.min_app_version (or to ship a backend change old builds cannot
+// handle). Builds released before this event existed never log it, so
+// "active users with no app_open event" = users still on an older build.
+export function logAppOpen() {
+  if (Platform.OS === "web") return Promise.resolve();
+  return logEvent({
+    name: "app_open",
+    params: {
+      version: Application.nativeApplicationVersion ?? "unknown",
+      build: Application.nativeBuildVersion ?? "unknown",
+      platform: Platform.OS,
+    },
+  });
 }
 
 export function logScreenView(screenName: string) {

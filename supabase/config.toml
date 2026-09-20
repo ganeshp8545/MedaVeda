@@ -53,3 +53,14 @@ verify_jwt = false
 # cannot silently change it.
 [functions.delete-account]
 verify_jwt = true
+
+# Mobile-number sign-in and password reset. Both run BEFORE the user has a
+# session (the app sends only its public anon key), so JWT verification must be
+# off. They authenticate by other means: login-with-mobile verifies the password
+# through Supabase Auth; request-password-reset-by-mobile only ever sends a
+# reset email to the account's own address and always answers { ok: true }.
+[functions.login-with-mobile]
+verify_jwt = false
+
+[functions.request-password-reset-by-mobile]
+verify_jwt = false

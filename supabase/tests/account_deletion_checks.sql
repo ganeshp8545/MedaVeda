@@ -91,6 +91,8 @@ begin
   -- 6. normal grant for a live user still works
   insert into auth.users (id, email, aud, role) values ('eeeeeeee-0000-4000-8000-000000000005', 'del.e@example.test', 'authenticated', 'authenticated');
   insert into public.orders (id, user_id, product_id, amount, status, razorpay_order_id) values ('ord-e', 'eeeeeeee-0000-4000-8000-000000000005', v_prod, 99, 'created', 'rzp_o_e');
+  -- pay marks a payment_sessions row used before settlement; grant_razorpay_payment now requires it (Phase 1)
+  insert into public.payment_sessions (id, order_id, user_id, product_id, expires_at, used) values (gen_random_uuid(), 'ord-e', 'eeeeeeee-0000-4000-8000-000000000005', v_prod, now() + interval '1 hour', true);
   perform public.grant_razorpay_payment('evt-e', 'rzp_o_e', 'rzp_p_e', 9900);
   assert exists (select 1 from public.purchases where order_id = 'ord-e' and user_id = 'eeeeeeee-0000-4000-8000-000000000005'), 'normal grant creates purchase';
   raise notice 'PASS normal grant unaffected';
@@ -110,6 +112,11 @@ do $$ begin
   exception when insufficient_privilege then raise notice 'PASS anon cannot call erase_user_data'; end;
 end $$;
 reset role;
-select case when to_regprocedure('public.delete_my_account()') is null then 'PASS delete_my_account dropped' else 'FAIL delete_my_account still exists' end;
+-- Phase 1A keeps delete_my_account() as a backward-compatible wrapper (signed-in users only)
+select case when to_regprocedure('public.delete_my_account()') is not null
+             and has_function_privilege('authenticated', 'public.delete_my_account()', 'execute')
+             and not has_function_privilege('anon', 'public.delete_my_account()', 'execute')
+            then 'PASS delete_my_account kept as signed-in-only wrapper'
+            else 'FAIL delete_my_account wrapper missing or exposed to anon' end;
 
 rollback;
