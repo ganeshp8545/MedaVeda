@@ -13,3 +13,25 @@ do $$ begin
   exception when insufficient_privilege then raise notice 'PASS authenticated cannot purge'; end;
 end $$;
 rollback;
+
+-- payment_sessions 30-day purge
+begin;
+do $$
+declare v_o record;
+begin
+  select id, user_id, product_id into v_o from public.orders where user_id is not null limit 1;
+  insert into public.payment_sessions (id, order_id, user_id, product_id, expires_at, created_at) values
+    ('00000000-0000-4000-8000-0000000000a1', v_o.id, v_o.user_id, v_o.product_id, now() - interval '31 days', now() - interval '31 days'),
+    ('00000000-0000-4000-8000-0000000000a2', v_o.id, v_o.user_id, v_o.product_id, now() + interval '10 min', now() - interval '29 days'),
+    ('00000000-0000-4000-8000-0000000000a3', v_o.id, v_o.user_id, v_o.product_id, now() + interval '10 min', now());
+  perform public.purge_old_payment_sessions();
+  assert not exists (select 1 from public.payment_sessions where id = '00000000-0000-4000-8000-0000000000a1'), 'old session purged';
+  assert (select count(*) from public.payment_sessions where id in ('00000000-0000-4000-8000-0000000000a2','00000000-0000-4000-8000-0000000000a3')) = 2, 'recent sessions kept';
+  raise notice 'PASS payment_sessions purge keeps <30d, removes >30d';
+end $$;
+set local role authenticated;
+do $$ begin
+  begin perform public.purge_old_payment_sessions(); raise notice 'FAIL authenticated can purge sessions';
+  exception when insufficient_privilege then raise notice 'PASS authenticated cannot purge sessions'; end;
+end $$;
+rollback;
