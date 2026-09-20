@@ -4,7 +4,7 @@ import {
   getReferralSettings,
   getReferrals,
   saveReferralSettings,
-  updateReferralStatus,
+  rejectReferral,
 } from "../services/referralService";
 
 import type {
@@ -44,10 +44,10 @@ export default function useReferrals(status?: ReferralStatus) {
     await load();
   }
 
-  async function changeStatus(id: string, next: ReferralStatus, rejectReason?: string) {
-    await updateReferralStatus(id, next, rejectReason);
+  async function reject(id: string, reason?: string) {
+    await rejectReferral(id, reason);
     await load();
   }
 
-  return { referrals, settings, loading, error, reload: load, saveSettings, changeStatus };
+  return { referrals, settings, loading, error, reload: load, saveSettings, reject };
 }

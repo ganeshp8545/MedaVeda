@@ -1,8 +1,8 @@
 import { supabase } from "../config/supabase";
 
 // Supabase Edge Functions that back the payment flow (see
-// supabase-migration/functions/{pay,verify-payment,create-payment-session}).
-// Deployed with e.g. `supabase functions deploy pay`.
+// supabase/functions/{create-order,verify-payment}).
+// Deployed with e.g. `supabase functions deploy create-order`.
 const projectUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 const CREATE_ORDER_URL = `${projectUrl}/functions/v1/create-order`;
 
@@ -16,6 +16,14 @@ export interface CheckoutData {
   verifyUrl: string;
   prefillName?: string;
   prefillEmail?: string;
+  timeoutSeconds?: number;
+  // Display only; the amount actually charged is amountPaise.
+  breakdown?: {
+    listPrice: number;
+    referralDiscount: number;
+    walletAmount: number;
+    amount: number;
+  };
 }
 
 export interface VerifyResult {
@@ -31,7 +39,7 @@ export interface VerifyResult {
  * Fetches everything PaymentCheckoutScreen needs to open Razorpay
  * Checkout in its WebView.
  *
- * BUG FIX: this used to open the "pay" URL in the device's external
+ * BUG FIX: this used to open the old "pay" URL in the device's external
  * browser (Linking.openURL) and let that hosted page run the checkout
  * JS. Supabase Edge Functions only serve real HTML/JS on a paid custom
  * domain - on this project's default *.supabase.co domain, GET requests
@@ -42,22 +50,20 @@ export interface VerifyResult {
  * silently killed the entire checkout script, so tapping "Pay" did
  * nothing.
  *
- * Fix: "pay" now returns JSON (checkout data) instead of an HTML page,
+ * Fix: create-order (which replaced "pay") returns JSON (checkout data) instead of an HTML page,
  * fetched here with a normal request, and the actual Razorpay UI is
  * rendered by PaymentCheckoutScreen inside an in-app WebView using HTML
  * built locally in the app (checkoutHtmlTemplate.ts) - never fetched
  * from Supabase, so the restriction above doesn't apply to it.
  *
- * SECURITY: the full Supabase access_token is never put in this URL -
- * see create-payment-session for why (it would end up in browser
- * history, OS "recent links", proxy logs, and server access logs). Only
- * a short-lived, single-use, narrowly-scoped payment session id goes
- * into the query string, exchanged for it via an authenticated POST
- * first. The product title comes back from "pay" itself (server-derived,
- * same as price) as part of CheckoutData, so it doesn't need to be
- * passed in here.
+ * SECURITY: the Supabase access_token is sent only in the Authorization
+ * header of an authenticated POST to create-order, never in a URL (URLs
+ * end up in browser history, OS "recent links", proxy logs, and server
+ * access logs). The product title comes back from create-order itself
+ * (server-derived, same as price) as part of CheckoutData, so it doesn't
+ * need to be passed in here.
  */
-export async function purchaseProduct(productId: string): Promise<CheckoutData> {
+export async function purchaseProduct(productId: string, useWallet = false): Promise<CheckoutData> {
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
 
@@ -65,16 +71,17 @@ export async function purchaseProduct(productId: string): Promise<CheckoutData> 
     throw new Error("Please log in before purchasing.");
   }
 
-  // Only the product id is sent. The server reads the price from the products
-  // table, creates the order and the Razorpay order together, and returns the
-  // checkout data. The client cannot write to `orders` at all.
+  // Only the product id and the "use my referral balance" flag are sent - never
+  // an amount. The server reads the price from the products table, applies the
+  // friend discount and wallet rules, creates the order and the Razorpay order
+  // together, and returns the checkout data. The client cannot write to `orders`.
   const res = await fetch(CREATE_ORDER_URL, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`, // header, never the URL
     },
-    body: JSON.stringify({ productId }),
+    body: JSON.stringify({ productId, useWallet }),
   });
 
   const body = await res.json().catch(() => ({}));

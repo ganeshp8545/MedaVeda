@@ -39,6 +39,8 @@ import QuizScreen from "../screens/quiz/QuizScreen";
 import ProfileScreen from "../screens/profile/ProfileScreen";
 import EditProfileScreen from "../screens/profile/EditProfileScreen";
 import ReferralScreen from "../screens/referral/ReferralScreen";
+import ReferralTermsScreen from "../screens/referral/ReferralTermsScreen";
+import OrderSummaryScreen from "../screens/payment/OrderSummaryScreen";
 import ChangePasswordScreen from "../screens/profile/ChangePasswordScreen";
 import MyPurchasesScreen from "../screens/purchases/MyPurchasesScreen";
 import DownloadsScreen from "../screens/downloads/DownloadsScreen";
@@ -150,6 +152,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         <Stack.Screen name="Referral" component={ReferralScreen} />
+        <Stack.Screen name="ReferralTerms" component={ReferralTermsScreen} />
         <Stack.Screen name="ChangePassword" component={ChangePasswordScreen} />
         <Stack.Screen name="MyPurchases" component={MyPurchasesScreen} />
         <Stack.Screen name="Downloads" component={DownloadsScreen} />
@@ -160,6 +163,7 @@ export default function AppNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
         <Stack.Screen name="PaymentFailed" component={PaymentFailedScreen} />
+        <Stack.Screen name="OrderSummary" component={OrderSummaryScreen} />
         <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="Contact" component={ContactScreen} />

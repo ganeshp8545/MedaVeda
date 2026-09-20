@@ -32,9 +32,7 @@ export default function App() {
         startSyncEngine();
 
         // Register this device for push notifications
-        const token = await registerForPushNotifications(getCurrentUser());
-
-        console.log("Expo Push Token:", token);
+        await registerForPushNotifications(getCurrentUser());
       } catch (err) {
         console.error("App initialization error:", err);
       }

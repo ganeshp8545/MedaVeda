@@ -22,8 +22,8 @@ import { markOrderStatus } from "../../services/ordersService";
 // Fix: the app now builds the checkout HTML itself (checkoutHtmlTemplate)
 // and hands it straight to a WebView via source={{ html }} - the
 // Razorpay checkout.js script comes from Razorpay's own CDN, not from
-// Supabase, so none of the above applies. "pay" only ever returns JSON
-// now (see supabase-migration/functions/pay/index.ts).
+// Supabase, so none of the above applies. create-order only ever returns JSON
+// (see supabase/functions/create-order/index.ts).
 export default function PaymentCheckoutScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -37,6 +37,7 @@ export default function PaymentCheckoutScreen() {
     verifyUrl,
     prefillName,
     prefillEmail,
+    timeoutSeconds,
   } = route.params ?? {};
 
   const [verifying, setVerifying] = useState(false);
@@ -376,6 +377,7 @@ export default function PaymentCheckoutScreen() {
   const html = buildCheckoutHtml({
     keyId,
     razorpayOrderId,
+    timeoutSeconds,
     amountPaise,
     productTitle: productTitle || "MedVeda purchase",
     prefillName,
@@ -384,7 +386,7 @@ export default function PaymentCheckoutScreen() {
 
   return (
     <View style={styles.container}>
-      {/* isLiveMode comes from the "pay" Edge Function (server-derived from
+      {/* isLiveMode comes from the create-order Edge Function (server-derived from
           which RAZORPAY_KEY_ID is actually deployed) - shown so nobody
           mistakes a test-mode purchase for a real one, and so a stray test
           deployment in production is immediately obvious instead of silent.

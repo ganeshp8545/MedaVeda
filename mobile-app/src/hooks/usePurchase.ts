@@ -1,8 +1,5 @@
-import { useState } from "react";
-import { Alert } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
-import { purchaseProduct } from "../services/paymentService";
 import { Product } from "../services/productsService";
 
 /**
@@ -24,23 +21,16 @@ import { Product } from "../services/productsService";
  * WebView.
  */
 export default function usePurchase() {
-  const [purchasing, setPurchasing] = useState(false);
+  // Kept so existing callers (`purchasing` spinners) still compile; starting a
+  // payment now happens on the summary screen.
+  const purchasing = false;
   const navigation = useNavigation<any>();
 
-  async function buy(product: Product) {
-    try {
-      setPurchasing(true);
-
-      // The create-order Edge Function creates the order + Razorpay order from
-      // the server-side price; only the product id is sent.
-      const checkoutData = await purchaseProduct(product.id);
-
-      navigation.navigate("PaymentCheckout", checkoutData);
-    } catch (err: any) {
-      Alert.alert("Could Not Start Payment", err?.message || "Please try again.");
-    } finally {
-      setPurchasing(false);
-    }
+  // Opens the order summary (price, friend discount, optional referral balance).
+  // The order itself is only created when the student taps Pay there, so
+  // nothing is reserved or discounted by merely looking at the summary.
+  function buy(product: Product) {
+    navigation.navigate("OrderSummary", { productId: product.id, productTitle: product.title });
   }
 
   return { buy, purchasing };

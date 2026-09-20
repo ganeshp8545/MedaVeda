@@ -1,4 +1,4 @@
-import { settleCapturedPayment } from "../_shared/settle.ts";
+import { settleCapturedPayment, settleRefund } from "../_shared/settle.ts";
 
 const encoder = new TextEncoder();
 const HEX_SIGNATURE = /^[0-9a-f]{64}$/i;
@@ -67,7 +67,10 @@ type RazorpayPayment = {
 
 type RazorpayWebhook = {
   event?: string;
-  payload?: { payment?: { entity?: RazorpayPayment } };
+  payload?: {
+    payment?: { entity?: RazorpayPayment };
+    refund?: { entity?: { id?: string; payment_id?: string } };
+  };
 };
 
 Deno.serve(async (request: Request) => {
@@ -97,9 +100,27 @@ Deno.serve(async (request: Request) => {
     return response(400, { error: "Invalid JSON" });
   }
 
-  // Acknowledge unrelated, authentic events. Configure only payment.captured
-  // in Razorpay; this makes out-of-order delivery harmless if other events
-  // are enabled later.
+  // refund.processed: cancels the referrer's credit if it is still in its hold.
+  // Enable this event in the Razorpay Dashboard webhook alongside payment.captured.
+  if (event.event === "refund.processed") {
+    const refundPaymentId = event.payload?.refund?.entity?.payment_id ?? event.payload?.payment?.entity?.id;
+    if (!refundPaymentId) {
+      console.error("razorpay-webhook: malformed refund.processed payload", { eventId });
+      return response(400, { error: "Invalid refund event" });
+    }
+    try {
+      const refund = await settleRefund({ razorpayPaymentId: refundPaymentId });
+      if (!refund.ok) return response(500, { error: "Unable to process webhook" }); // Razorpay retries
+      console.log("razorpay-webhook: refund processed", { eventId, paymentId: refundPaymentId, outcome: refund.outcome });
+      return response(204);
+    } catch (error) {
+      console.error("razorpay-webhook: refund error", { eventId, error: String(error) });
+      return response(500, { error: "Unable to process webhook" });
+    }
+  }
+
+  // Acknowledge unrelated, authentic events. Everything except payment.captured
+  // and refund.processed is ignored, so out-of-order delivery is harmless.
   if (event.event !== "payment.captured") return response(204);
 
   const payment = event.payload?.payment?.entity;

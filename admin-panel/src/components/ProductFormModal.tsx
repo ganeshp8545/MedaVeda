@@ -5,7 +5,7 @@ import Input from "./Input";
 import Button from "./Button";
 import CoursePicker from "./CoursePicker";
 
-import type { Product, ProductInput, ProductScope } from "../types/product";
+import type { Product, ProductInput, ProductScope, ProductType } from "../types/product";
 import type { Year } from "../types/year";
 import type { Course } from "../types/course";
 import type { Subject } from "../types/subject";
@@ -34,6 +34,7 @@ function buildEmptyForm(): ProductInput {
     title: "",
     description: "",
     scope: "chapter",
+    productType: "other",
     courseId: "",
     price: 0,
     originalPrice: undefined,
@@ -88,6 +89,7 @@ export default function ProductFormModal({
               title: initialData.title,
               description: initialData.description,
               scope: initialData.scope,
+              productType: initialData.productType ?? "other",
               courseId: initialData.courseId,
               price: initialData.price,
               originalPrice: initialData.originalPrice ?? undefined,
@@ -136,6 +138,7 @@ export default function ProductFormModal({
       originalPrice: form.originalPrice,
       thumbnail: form.thumbnail,
       active: form.active,
+      productType: form.productType,
       courseId: form.courseId,
       scope,
     });
@@ -153,6 +156,7 @@ export default function ProductFormModal({
       originalPrice: form.originalPrice,
       thumbnail: form.thumbnail,
       active: form.active,
+      productType: form.productType,
       scope: form.scope,
       courseId,
     });
@@ -464,6 +468,26 @@ export default function ProductFormModal({
           {Math.round(((form.originalPrice - form.price) / form.originalPrice) * 100)}% off)
         </p>
       )}
+
+      <div className="mb-4">
+        <label className="mb-1.5 block text-sm font-medium text-gray-700">
+          Product type (referral wallet)
+        </label>
+        <select
+          value={form.productType}
+          onChange={(e) => setForm({ ...form, productType: e.target.value as ProductType })}
+          className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
+        >
+          <option value="other">Other (referral balance NOT allowed)</option>
+          <option value="notes">Notes (single) - referral balance allowed</option>
+          <option value="notes_bundle">Notes bundle - referral balance allowed</option>
+          <option value="video">Video (referral balance NOT allowed)</option>
+        </select>
+        <p className="mt-1 text-xs text-gray-500">
+          Students can pay part of the price with referral balance only on Notes / Notes bundle
+          products. Decided on the server; the app cannot override it.
+        </p>
+      </div>
 
       <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
         <input

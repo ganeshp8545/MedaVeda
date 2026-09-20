@@ -10,6 +10,19 @@ export interface ReferralSettings {
   refereeRewardValue?: number;
   qualifyOn: ReferralQualifyOn;
   maxReferralsPerUser?: number;
+
+  // Phase 2 reward config. Legacy fields above (rewardType, referrerRewardValue,
+  // refereeRewardValue, qualifyOn) are kept for old app builds and are no
+  // longer read by any reward logic.
+  friendDiscountPercent: number;
+  friendDiscountMax?: number | null; // blank = no cap
+  referrerCreditAmount: number;
+  creditHoldDays: number;
+  creditExpiryDays?: number | null; // blank = never expires
+  walletMaxPercent: number;
+  walletProductTypes: string[];
+  applyWindowDays: number;
+  termsUrl?: string | null;
 }
 
 export type ReferralSettingsInput = ReferralSettings;

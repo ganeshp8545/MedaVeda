@@ -9,12 +9,19 @@
 // and available to every student at the Subject level (see types/quiz.ts).
 export type ProductScope = "chapter" | "subject" | "year" | "bundle";
 
+// What the product is, for the referral wallet rule (added by
+// 20260925100000_phase2_referral_config_and_product_type.sql). Referral
+// balance can be used ONLY on "notes" and "notes_bundle" products. Existing
+// products start as "other" (wallet off) until tagged here.
+export type ProductType = "notes" | "notes_bundle" | "video" | "other";
+
 export interface Product {
   id: string;
 
   title: string;
   description: string;
   scope: ProductScope;
+  productType: ProductType;
 
   price: number;
   // Optional "struck-through" MRP shown next to `price` on the mobile

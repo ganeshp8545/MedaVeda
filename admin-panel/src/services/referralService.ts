@@ -49,19 +49,13 @@ export async function getReferrals(status?: ReferralStatus): Promise<Referral[]>
   }));
 }
 
-// Records status only. No payout/wallet/discount is applied anywhere - that
-// is a deliberate, documented TODO (see the migration's referral notes).
-export async function updateReferralStatus(
-  id: string,
-  status: ReferralStatus,
-  rejectReason?: string
-) {
-  const now = new Date().toISOString();
-  const patch: Record<string, unknown> = { status };
-  if (status === "qualified") patch.qualified_at = now;
-  if (status === "rewarded") patch.rewarded_at = now;
-  if (status === "rejected") patch.reject_reason = rejectReason ?? null;
-
-  const { error } = await supabase.from("referrals").update(patch).eq("id", id);
+// Rewards are issued by the payment system only (settlement), never by hand.
+// The one manual action left is rejecting a referral: the server cancels the
+// referrer's credit if it is still pending (admin_reject_referral).
+export async function rejectReferral(id: string, reason?: string) {
+  const { error } = await supabase.rpc("admin_reject_referral", {
+    p_referral_id: id,
+    p_reason: reason ?? "",
+  });
   if (error) throw error;
 }

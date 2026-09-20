@@ -3,7 +3,10 @@ import { clearPendingReferral, getPendingReferral } from "../utils/pendingReferr
 import {
   applyReferralCode as applyReferralCodeRepo,
   getMyReferrals,
+  getMyReferralList,
+  getMyWallet,
   getReferralSettings,
+  quoteOrder,
 } from "../repositories/referralsRepository";
 
 import type { ApplyReferralCodeResult } from "../types/referral";
@@ -12,12 +15,25 @@ export type {
   ReferralSettings,
   ReferralHistoryItem,
   ApplyReferralCodeResult,
+  ReferralListItem,
+  ReferralListStatus,
+  WalletSummary,
+  OrderQuote,
 } from "../types/referral";
 
 export {
   getReferralSettings as fetchReferralSettings,
   getMyReferrals as fetchMyReferrals,
+  getMyReferralList as fetchMyReferralList,
+  getMyWallet as fetchMyWallet,
+  quoteOrder as fetchOrderQuote,
 };
+
+// "₹50" / "₹49.50" - whole rupees without decimals.
+export function formatRupees(value: number | null | undefined): string {
+  const n = Number(value ?? 0);
+  return `₹${Number.isInteger(n) ? n : n.toFixed(2)}`;
+}
 
 // Referral codes are uppercase A-Z/2-9 (see generate_unique_referral_code
 // in the migration). Used to validate the optional Register field before

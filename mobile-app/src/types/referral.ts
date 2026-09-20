@@ -10,6 +10,18 @@ export interface ReferralSettings {
   refereeRewardValue?: number;
   qualifyOn: ReferralQualifyOn;
   maxReferralsPerUser?: number;
+
+  // Phase 2 reward config (referral_settings, edited in the admin panel).
+  // Nothing in the app hardcodes these numbers - always read from here.
+  friendDiscountPercent: number;
+  friendDiscountMax: number | null; // null = no cap
+  referrerCreditAmount: number;
+  creditHoldDays: number;
+  creditExpiryDays: number | null; // null = never expires
+  walletMaxPercent: number;
+  walletProductTypes: string[];
+  applyWindowDays: number;
+  termsUrl: string | null;
 }
 
 export type ReferralStatus = "pending" | "qualified" | "rewarded" | "rejected";
@@ -43,4 +55,38 @@ export interface ApplyReferralCodeResult {
     | "referrer_limit_reached"
     | "error";
   message: string;
+}
+
+// get_my_wallet() - computed from the append-only ledger, never stored.
+export interface WalletSummary {
+  available: number;
+  pending: number;
+  totalEarned: number;
+  nextAvailableAt: string | null;
+}
+
+// get_my_referral_list(): friendName is already masked by the server ("Rahul S.").
+export type ReferralListStatus = "joined" | "purchased_pending" | "credited" | "cancelled";
+
+export interface ReferralListItem {
+  id: string;
+  friendName: string;
+  joinedAt: string;
+  status: ReferralListStatus;
+  amount: number | null;
+  availableAt: string | null;
+}
+
+// quote_my_order(): what create-order WILL charge. Display only - the amount
+// that is actually charged is decided again on the server at payment time.
+export interface OrderQuote {
+  ok: boolean;
+  code?: string;
+  listPrice: number;
+  referralDiscount: number;
+  walletEligible: boolean;
+  walletAvailable: number;
+  walletMaxUsable: number;
+  walletAmount: number;
+  amount: number;
 }

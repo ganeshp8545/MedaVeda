@@ -20,6 +20,7 @@ import OptionCard from "../../components/OptionCard";
 import ProgressBar from "../../components/ProgressBar";
 
 import { getCurrentUser } from "../../services/authState";
+import { logError } from "../../utils/logger";
 import { QuizTest } from "../../services/quizService";
 import { recordQuizAttempt } from "../../services/quizAttempts";
 import { loadOfflineQuiz } from "../../utils/downloadManager";
@@ -140,7 +141,7 @@ export default function QuizScreen() {
         answers,
       });
     } catch (error) {
-      console.log(error);
+      logError("QuizScreen: saving quiz attempt failed", error);
     }
   };
 

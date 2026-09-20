@@ -25,6 +25,7 @@ function escapeJsString(value: string): string {
 export function buildCheckoutHtml(params: {
   keyId: string;
   razorpayOrderId: string;
+  timeoutSeconds?: number;
   amountPaise: number;
   productTitle: string;
   prefillName?: string;
@@ -40,6 +41,8 @@ export function buildCheckoutHtml(params: {
       name: "MedVeda",
       description: params.productTitle,
       order_id: params.razorpayOrderId,
+      // Checkout stops accepting payment when the order expires (server-driven).
+      ...(params.timeoutSeconds ? { timeout: params.timeoutSeconds } : {}),
       prefill: {
         name: params.prefillName || "",
         email: params.prefillEmail || "",

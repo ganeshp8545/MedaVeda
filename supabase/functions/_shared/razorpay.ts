@@ -125,6 +125,9 @@ export type RazorpayPayment = {
   amount: number;
   currency: string;
   captured?: boolean;
+  created_at?: number; // epoch seconds: when the customer started this payment
+  amount_refunded?: number;
+  refund_status?: string | null; // "partial" | "full" | null
 };
 
 async function razorpayGet<T>(path: string): Promise<T> {

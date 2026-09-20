@@ -92,6 +92,7 @@ export type RootStackParamList = {
 
   Profile: undefined;
   Referral: undefined;
+  ReferralTerms: undefined;
   EditProfile: undefined;
   ChangePassword: undefined;
   MyPurchases: undefined;
@@ -118,6 +119,10 @@ export type RootStackParamList = {
     title?: string;
     reason?: string;
   };
+  OrderSummary: {
+    productId: string;
+    productTitle: string;
+  };
   PaymentCheckout: {
     keyId: string;
     razorpayOrderId: string;
@@ -127,6 +132,7 @@ export type RootStackParamList = {
     verifyUrl: string;
     prefillName?: string;
     prefillEmail?: string;
+    timeoutSeconds?: number;
   };
   About: undefined;
   Contact: undefined;

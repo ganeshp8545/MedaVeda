@@ -46,6 +46,7 @@ export default function ProductTable({ products, onEdit, onDelete }: Props) {
             <th className="p-4 text-left">Title</th>
             <th className="p-4 text-left">Unlocks</th>
             <th className="p-4 text-left">Covers</th>
+            <th className="p-4 text-left">Type</th>
             <th className="p-4 text-left">Price</th>
             <th className="p-4 text-left">Status</th>
             <th className="p-4 text-right">Actions</th>
@@ -62,6 +63,18 @@ export default function ProductTable({ products, onEdit, onDelete }: Props) {
               </td>
 
               <td className="p-4 text-gray-600">{scopeTarget(product)}</td>
+
+              <td className="p-4">
+                {product.productType === "notes" || product.productType === "notes_bundle" ? (
+                  <span className="rounded bg-green-100 px-2 py-0.5 text-xs text-green-700">
+                    {product.productType === "notes" ? "Notes" : "Notes bundle"}
+                  </span>
+                ) : (
+                  <span className="rounded bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
+                    {product.productType === "video" ? "Video" : "Untagged"}
+                  </span>
+                )}
+              </td>
 
               <td className="p-4">
                 ₹ {product.price}

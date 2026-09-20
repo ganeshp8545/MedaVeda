@@ -1,8 +1,11 @@
 // One settlement path for BOTH verify-payment (client callback / recovery) and
 // razorpay-webhook (payment.captured). Nothing here trusts the caller: every
 // fact is re-fetched from Razorpay or read from our own database, and the
-// grant itself happens inside grant_razorpay_payment() (service_role only,
-// row-locked, idempotent on razorpay_payment_id).
+// grant itself happens inside settle_razorpay_payment() (service_role only,
+// row-locked, idempotent on razorpay_payment_id). That one transaction also
+// debits the wallet amount stored on the order and creates the referrer's
+// pending credit, so a payment that never captures never moves any money in
+// the wallet.
 import { supabaseAdmin } from "./supabaseAdmin.ts";
 import { fetchPayment, fetchRazorpayOrder } from "./razorpay.ts";
 
@@ -46,16 +49,48 @@ export async function settleCapturedPayment(params: {
     return { ok: false, status: 400, reason: "razorpay order amount mismatch" };
   }
 
-  // 4. Atomic, idempotent grant of the product stored on the order row.
-  const { error } = await supabaseAdmin.rpc("grant_razorpay_payment", {
+  // 4. Atomic, idempotent grant of the product stored on the order row. The
+  //    payment's own creation time (from Razorpay, not from the client) lets the
+  //    database tell a payment started inside the order's 30-minute life from
+  //    one started after it expired; in that case the wallet is not debited and
+  //    the order is flagged for admin review (see settle_razorpay_payment).
+  const paidAt = Number.isSafeInteger(payment.created_at)
+    ? new Date((payment.created_at as number) * 1000).toISOString()
+    : null;
+  const { error } = await supabaseAdmin.rpc("settle_razorpay_payment", {
     p_event_id: eventId,
     p_razorpay_order_id: razorpayOrderId,
     p_razorpay_payment_id: razorpayPaymentId,
     p_amount_paise: payment.amount,
+    p_paid_at: paidAt,
   });
   if (error) {
     console.error("settle: grant failed", { code: error.code, message: error.message });
     return { ok: false, status: 500, reason: "grant failed" };
   }
   return { ok: true, orderId: order.id, amountRupees: Number(order.amount) };
+}
+
+export type RefundResult =
+  | { ok: true; outcome: string }
+  | { ok: false; status: number; reason: string };
+
+// refund.processed webhook -> cancel the referrer's still-pending credit.
+// The event payload is NOT trusted: we re-fetch the payment from Razorpay and
+// only act on a FULL refund (amount_refunded >= amount). handle_payment_refund()
+// is idempotent and only cancels a credit that is still inside its hold window.
+export async function settleRefund(params: { razorpayPaymentId: string }): Promise<RefundResult> {
+  const payment = await fetchPayment(params.razorpayPaymentId);
+  const fullRefund = payment.refund_status === "full"
+    || (Number.isSafeInteger(payment.amount_refunded) && (payment.amount_refunded as number) >= payment.amount);
+
+  const { data, error } = await supabaseAdmin.rpc("handle_payment_refund", {
+    p_razorpay_payment_id: params.razorpayPaymentId,
+    p_full_refund: fullRefund,
+  });
+  if (error) {
+    console.error("settle: refund handling failed", { code: error.code, message: error.message });
+    return { ok: false, status: 500, reason: "refund handling failed" };
+  }
+  return { ok: true, outcome: String((data as { status?: string } | null)?.status ?? "unknown") };
 }

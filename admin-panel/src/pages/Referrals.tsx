@@ -7,13 +7,7 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import Modal from "../components/Modal";
 
-import type {
-  Referral,
-  ReferralQualifyOn,
-  ReferralRewardType,
-  ReferralSettingsInput,
-  ReferralStatus,
-} from "../types/referral";
+import type { Referral, ReferralSettingsInput, ReferralStatus } from "../types/referral";
 
 const STATUS_STYLES: Record<ReferralStatus, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -21,13 +15,6 @@ const STATUS_STYLES: Record<ReferralStatus, string> = {
   rewarded: "bg-green-100 text-green-700",
   rejected: "bg-red-100 text-red-700",
 };
-
-const REWARD_TYPES: { value: ReferralRewardType; label: string }[] = [
-  { value: "none", label: "None (track only)" },
-  { value: "discount_percent", label: "Discount %" },
-  { value: "discount_flat", label: "Flat discount (₹)" },
-  { value: "credit", label: "Credit" },
-];
 
 const selectClass =
   "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600";
@@ -44,12 +31,21 @@ function formatDate(value: any) {
 const defaultSettings: ReferralSettingsInput = {
   enabled: false,
   rewardType: "none",
-  qualifyOn: "signup",
+  qualifyOn: "first_purchase",
+  friendDiscountPercent: 10,
+  friendDiscountMax: 100,
+  referrerCreditAmount: 50,
+  creditHoldDays: 7,
+  creditExpiryDays: null,
+  walletMaxPercent: 50,
+  walletProductTypes: ["notes", "notes_bundle"],
+  applyWindowDays: 2,
+  termsUrl: null,
 };
 
 export default function Referrals() {
   const [statusFilter, setStatusFilter] = useState<ReferralStatus | "">("");
-  const { referrals, settings, loading, error, saveSettings, changeStatus } = useReferrals(
+  const { referrals, settings, loading, error, saveSettings, reject } = useReferrals(
     statusFilter || undefined
   );
 
@@ -84,22 +80,28 @@ export default function Referrals() {
   }, [referrals, search]);
 
   function validateSettings(): string | null {
-    const nums: [string, number | undefined][] = [
-      ["Referrer reward", form.referrerRewardValue],
-      ["Referee reward", form.refereeRewardValue],
-    ];
-    for (const [label, value] of nums) {
-      if (value !== undefined && value < 0) return `${label} cannot be negative.`;
-    }
-    if (form.rewardType === "discount_percent") {
-      for (const [label, value] of nums) {
-        if (value !== undefined && value > 100) return `${label} cannot exceed 100%.`;
-      }
-    }
-    if (form.maxReferralsPerUser !== undefined && form.maxReferralsPerUser < 1) {
-      return "Max referrals per user must be at least 1 (or leave it blank for no limit).";
-    }
-    return null;
+    const pct = (label: string, v: number) =>
+      !Number.isFinite(v) || v < 0 || v > 100 ? `${label} must be between 0 and 100.` : null;
+    return (
+      pct("Friend discount %", form.friendDiscountPercent) ||
+      pct("Wallet max %", form.walletMaxPercent) ||
+      (form.friendDiscountMax != null && form.friendDiscountMax < 0
+        ? "Friend discount cap cannot be negative."
+        : null) ||
+      (!(form.referrerCreditAmount >= 0) ? "Referrer credit cannot be negative." : null) ||
+      (!Number.isInteger(form.creditHoldDays) || form.creditHoldDays < 0 || form.creditHoldDays > 365
+        ? "Hold days must be a whole number between 0 and 365."
+        : null) ||
+      (form.creditExpiryDays != null && (!Number.isInteger(form.creditExpiryDays) || form.creditExpiryDays < 1)
+        ? "Expiry must be at least 1 day (or leave blank for no expiry)."
+        : null) ||
+      (!Number.isInteger(form.applyWindowDays) || form.applyWindowDays < 1 || form.applyWindowDays > 30
+        ? "Code window must be between 1 and 30 days."
+        : null) ||
+      (form.maxReferralsPerUser !== undefined && form.maxReferralsPerUser !== null && form.maxReferralsPerUser < 1
+        ? "Max referrals per user must be at least 1 (or leave it blank for no limit)."
+        : null)
+    );
   }
 
   async function handleSaveSettings() {
@@ -119,27 +121,28 @@ export default function Referrals() {
     }
   }
 
-  async function updateStatus(referral: Referral, status: ReferralStatus, reason?: string) {
+  async function confirmReject() {
+    if (!rejecting) return;
     setActionError(null);
     try {
-      setBusyId(referral.id);
-      await changeStatus(referral.id, status, reason);
+      setBusyId(rejecting.id);
+      await reject(rejecting.id, rejectReason.trim() || undefined);
+      setRejecting(null);
+      setRejectReason("");
     } catch (err: any) {
-      setActionError(err?.message ?? "Could not update this referral.");
+      setActionError(err?.message ?? "Could not reject this referral.");
     } finally {
       setBusyId(null);
     }
   }
 
-  async function confirmReject() {
-    if (!rejecting) return;
-    await updateStatus(rejecting, "rejected", rejectReason.trim() || undefined);
-    setRejecting(null);
-    setRejectReason("");
-  }
-
-  const numberValue = (v: number | undefined) => (v === undefined || v === null ? "" : v);
+  const numberValue = (v: number | undefined | null) => (v === undefined || v === null ? "" : v);
   const toNumber = (raw: string) => (raw === "" ? undefined : Number(raw));
+  const toNumberOrNull = (raw: string) => (raw === "" ? null : Number(raw));
+  const toInt = (raw: string) => (raw === "" ? NaN : Number(raw));
+
+  const cap =
+    form.friendDiscountMax != null ? ` (up to ₹${form.friendDiscountMax})` : "";
 
   return (
     <div>
@@ -153,8 +156,9 @@ export default function Referrals() {
       <div className="mb-8 rounded-xl bg-white p-6 shadow">
         <h2 className="mb-1 text-lg font-semibold text-gray-800">Settings</h2>
         <p className="mb-4 text-xs text-gray-500">
-          Rewards are recorded as a status only - no payout, credit or discount is applied
-          automatically. Mark referrals as rewarded once you have handled the reward yourself.
+          These values are read by the server at checkout and settlement; the app never hardcodes
+          them. Changes apply to new orders immediately. Rewards are issued automatically after the
+          friend's first paid purchase.
         </p>
 
         <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
@@ -163,61 +167,60 @@ export default function Referrals() {
             checked={form.enabled}
             onChange={(e) => setForm({ ...form, enabled: e.target.checked })}
           />
-          Referral program enabled (shows Refer &amp; Earn in the app)
+          Referral program enabled (shows Refer &amp; Earn in the app, applies discount and credit)
         </label>
 
+        <h3 className="mb-2 text-sm font-semibold text-gray-700">Friend (new user with a code)</h3>
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">Reward type</label>
-            <select
-              value={form.rewardType}
-              onChange={(e) =>
-                setForm({ ...form, rewardType: e.target.value as ReferralRewardType })
-              }
-              className={selectClass}
-            >
-              {REWARD_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <div className="mb-4">
-            <label className="mb-1.5 block text-sm font-medium text-gray-700">
-              Referral qualifies on
-            </label>
-            <select
-              value={form.qualifyOn}
-              onChange={(e) =>
-                setForm({ ...form, qualifyOn: e.target.value as ReferralQualifyOn })
-              }
-              className={selectClass}
-            >
-              <option value="signup">Sign-up (code applied)</option>
-              <option value="first_purchase">First purchase</option>
-            </select>
-          </div>
-
           <Input
-            label="Referrer reward value"
+            label="Discount on first purchase (%)"
             type="number"
             min={0}
-            disabled={form.rewardType === "none"}
-            value={numberValue(form.referrerRewardValue)}
-            onChange={(e) => setForm({ ...form, referrerRewardValue: toNumber(e.target.value) })}
+            max={100}
+            value={numberValue(form.friendDiscountPercent)}
+            onChange={(e) => setForm({ ...form, friendDiscountPercent: toInt(e.target.value) })}
           />
-
           <Input
-            label="Referee reward value"
+            label="Max discount (₹, blank = no cap)"
             type="number"
             min={0}
-            disabled={form.rewardType === "none"}
-            value={numberValue(form.refereeRewardValue)}
-            onChange={(e) => setForm({ ...form, refereeRewardValue: toNumber(e.target.value) })}
+            value={numberValue(form.friendDiscountMax)}
+            onChange={(e) => setForm({ ...form, friendDiscountMax: toNumberOrNull(e.target.value) })}
           />
+          <Input
+            label="Code usable for (days after signup)"
+            type="number"
+            min={1}
+            max={30}
+            value={numberValue(form.applyWindowDays)}
+            onChange={(e) => setForm({ ...form, applyWindowDays: toInt(e.target.value) })}
+          />
+        </div>
 
+        <h3 className="mb-2 mt-2 text-sm font-semibold text-gray-700">Referrer</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Input
+            label="Credit per friend's first purchase (₹)"
+            type="number"
+            min={0}
+            value={numberValue(form.referrerCreditAmount)}
+            onChange={(e) => setForm({ ...form, referrerCreditAmount: toInt(e.target.value) })}
+          />
+          <Input
+            label="Hold before credit is available (days)"
+            type="number"
+            min={0}
+            max={365}
+            value={numberValue(form.creditHoldDays)}
+            onChange={(e) => setForm({ ...form, creditHoldDays: toInt(e.target.value) })}
+          />
+          <Input
+            label="Credit expires after (days, blank = never)"
+            type="number"
+            min={1}
+            value={numberValue(form.creditExpiryDays)}
+            onChange={(e) => setForm({ ...form, creditExpiryDays: toNumberOrNull(e.target.value) })}
+          />
           <Input
             label="Max referrals per user (blank = unlimited)"
             type="number"
@@ -225,6 +228,33 @@ export default function Referrals() {
             value={numberValue(form.maxReferralsPerUser)}
             onChange={(e) => setForm({ ...form, maxReferralsPerUser: toNumber(e.target.value) })}
           />
+        </div>
+
+        <h3 className="mb-2 mt-2 text-sm font-semibold text-gray-700">Wallet</h3>
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <Input
+            label="Max share of an order payable with wallet (%)"
+            type="number"
+            min={0}
+            max={100}
+            value={numberValue(form.walletMaxPercent)}
+            onChange={(e) => setForm({ ...form, walletMaxPercent: toInt(e.target.value) })}
+          />
+          <Input
+            label="Referral terms URL (blank = built-in terms screen)"
+            value={form.termsUrl ?? ""}
+            onChange={(e) => setForm({ ...form, termsUrl: e.target.value.trim() || null })}
+          />
+        </div>
+        <p className="mb-4 text-xs text-gray-500">
+          Wallet applies to products whose Product type is Notes or Notes bundle (set on the
+          Products page). Videos and untagged products never accept it.
+        </p>
+
+        <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">
+          Students will see: “Invite friends, earn ₹{form.referrerCreditAmount}” · “Your friend gets{" "}
+          {form.friendDiscountPercent}% off{cap}” · credit available after {form.creditHoldDays} days ·
+          wallet up to {form.walletMaxPercent}% of the price, notes only.
         </div>
 
         {settingsMessage && (
@@ -308,25 +338,7 @@ export default function Referrals() {
                     <td className="p-4 text-gray-500">{formatDate(r.qualifiedAt)}</td>
                     <td className="p-4 text-gray-500">{formatDate(r.rewardedAt)}</td>
                     <td className="p-4 text-right whitespace-nowrap">
-                      {r.status === "pending" && (
-                        <button
-                          disabled={busyId === r.id}
-                          onClick={() => updateStatus(r, "qualified")}
-                          className="mr-3 text-sm font-medium text-blue-700 hover:underline disabled:opacity-50"
-                        >
-                          Mark qualified
-                        </button>
-                      )}
-                      {(r.status === "pending" || r.status === "qualified") && (
-                        <button
-                          disabled={busyId === r.id}
-                          onClick={() => updateStatus(r, "rewarded")}
-                          className="mr-3 text-sm font-medium text-green-700 hover:underline disabled:opacity-50"
-                        >
-                          Mark rewarded
-                        </button>
-                      )}
-                      {r.status !== "rejected" && r.status !== "rewarded" && (
+                      {r.status !== "rejected" && (
                         <button
                           disabled={busyId === r.id}
                           onClick={() => setRejecting(r)}
