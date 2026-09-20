@@ -24,6 +24,8 @@ import type { AuthIdentifier } from "./identity";
 export const PASSWORD_RESET_REDIRECT_URL =
   "https://medveda-website.vercel.app/reset-password.html";
 
+export const EMAIL_VERIFY_REDIRECT_URL = "https://medveda.in/account-verified";
+
 export async function signInWithIdentifier(identifier: AuthIdentifier, password: string) {
   if (identifier.kind === "email") {
     return supabase.auth.signInWithPassword({ email: identifier.value, password });
@@ -47,9 +49,15 @@ export async function registerWithEmailAndMobile(params: {
   return supabase.auth.signUp({
     email: params.email,
     password: params.password,
-    // The database trigger persists these fields atomically with the Auth
-    // user. Its unique mobile_number index rejects duplicate registrations.
-    options: { data: { full_name: params.fullName, mobile_number: params.mobileNumber } },
+    options: {
+      // Send the confirmation link straight to the "account verified" page
+      // instead of the Supabase Site URL. Must be covered by the Redirect
+      // URLs allow-list (https://medveda.in/**).
+      emailRedirectTo: EMAIL_VERIFY_REDIRECT_URL,
+      // The database trigger persists these fields atomically with the Auth
+      // user. Its unique mobile_number index rejects duplicate registrations.
+      data: { full_name: params.fullName, mobile_number: params.mobileNumber },
+    },
   });
 }
 
