@@ -20,6 +20,7 @@ import {
   Product,
 } from "../../services/productsService";
 import { fetchYears, Year } from "../../services/yearsService";
+import useCourseYear from "../../hooks/useCourseYear";
 import { fetchSubjectsByYear, Subject } from "../../services/subjectsService";
 import usePurchases from "../../hooks/usePurchases";
 import usePurchase from "../../hooks/usePurchase";
@@ -50,8 +51,12 @@ export default function StoreScreen() {
   const { isOwned, refresh: refreshPurchases } = usePurchases();
   const { buy, purchasing } = usePurchase();
 
+  const { ready, courseId } = useCourseYear();
+
   useEffect(() => {
-    fetchYears()
+    if (!ready) return;
+    setLoading(true);
+    fetchYears(courseId)
       .then(async (allYears) => {
         const sorted = [...allYears].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
@@ -83,7 +88,7 @@ export default function StoreScreen() {
       })
       .catch((err) => console.error("Failed to load Store:", err))
       .finally(() => setLoading(false));
-  }, []);
+  }, [ready, courseId]);
 
   useFocusEffect(
     useCallback(() => {

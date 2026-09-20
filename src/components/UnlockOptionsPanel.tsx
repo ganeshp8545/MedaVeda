@@ -1,3 +1,4 @@
+import { getCourseYear } from "../services/courseState";
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 
@@ -44,7 +45,7 @@ export default function UnlockOptionsPanel({
   useEffect(() => {
     let isMounted = true;
 
-    fetchBuyOptionsForChapter(chapterId, subjectId, yearId)
+    fetchBuyOptionsForChapter(chapterId, subjectId, yearId, getCourseYear().courseId)
       .then((data) => {
         if (isMounted) setOptions(data);
       })

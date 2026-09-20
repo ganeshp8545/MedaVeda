@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
 import { COLORS } from "../../theme/colors";
 import { SPACING } from "../../theme/spacing";
 import { supabase } from "../../config/supabase";
+import { resolvePostLoginRoute } from "../../services/courseState";
 
 // BUG FIX ("app logs the student out on its own"): this screen used to
 // navigate straight to "Login" after a fixed 2s delay, no matter what -
@@ -26,7 +27,15 @@ export default function SplashScreen({ navigation }: any) {
       const [{ data }] = await Promise.all([supabase.auth.getSession(), minSplashTime]);
 
       if (!isMounted) return;
-      navigation.replace(data.session ? "Home" : "Login");
+      if (!data.session) {
+        navigation.replace("Login");
+        return;
+      }
+
+      // Post-login gate: a student with no course/year yet picks them first.
+      const route = await resolvePostLoginRoute();
+      if (!isMounted) return;
+      navigation.replace(route);
     }
 
     decideDestination();

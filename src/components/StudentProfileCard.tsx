@@ -18,6 +18,8 @@ type Props = {
   email: string;
   progressPercentage: number;
   purchasedCount: number;
+  // e.g. "BAMS · 1st Year" - the student's current course and year.
+  courseLabel?: string;
   onPress?: () => void;
 };
 
@@ -31,6 +33,7 @@ export default function StudentProfileCard({
   email,
   progressPercentage,
   purchasedCount,
+  courseLabel,
   onPress,
 }: Props) {
   const { currentStreak, loading: streakLoading } = useStreak();
@@ -57,6 +60,11 @@ export default function StudentProfileCard({
           <Text style={styles.email} numberOfLines={1}>
             {email}
           </Text>
+          {!!courseLabel && (
+            <Text style={styles.courseLabel} numberOfLines={1}>
+              🎓 {courseLabel}
+            </Text>
+          )}
 
           <View style={styles.metaRow}>
             <Text style={styles.badgeText}>
@@ -129,6 +137,12 @@ const styles = StyleSheet.create({
     letterSpacing: LETTER_SPACING.heading,
   },
 
+  courseLabel: {
+    fontSize: FONT.small,
+    color: COLORS.accent,
+    fontWeight: "600",
+    marginTop: 2,
+  },
   email: {
     fontSize: FONT.tiny,
     color: COLORS.subtitle,

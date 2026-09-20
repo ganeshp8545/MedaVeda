@@ -19,6 +19,8 @@ export interface DownloadItem {
   subjectTitle: string;
   yearId: string;
   yearTitle: string;
+  // "" when unknown. Legacy rows (all BAMS) are backfilled to "bams".
+  courseId: string;
   sourceUrl: string;
   localUri: string | null;
   fileSizeBytes: number;

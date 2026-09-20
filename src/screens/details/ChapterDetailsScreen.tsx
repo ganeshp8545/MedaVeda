@@ -18,6 +18,7 @@ import usePurchase from "../../hooks/usePurchase";
 
 import { fetchBuyOptionsForChapter, Product } from "../../services/productsService";
 import { recordChapterView } from "../../utils/recentActivity";
+import { getCourseYear } from "../../services/courseState";
 
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
@@ -50,7 +51,7 @@ export default function ChapterDetailsScreen() {
   const notesUnlocked = isChapterOwned({ id: chapterId, subjectId, yearId });
 
   useEffect(() => {
-    fetchBuyOptionsForChapter(chapterId, subjectId, yearId)
+    fetchBuyOptionsForChapter(chapterId, subjectId, yearId, getCourseYear().courseId)
       .then(setBuyOptions)
       .catch((err) => console.error("Failed to load buy options:", err))
       .finally(() => setLoading(false));
@@ -66,6 +67,7 @@ export default function ChapterDetailsScreen() {
       subjectTitle,
       yearId,
       yearTitle,
+      courseId: getCourseYear().courseId,
     });
   }, [chapterId]);
 

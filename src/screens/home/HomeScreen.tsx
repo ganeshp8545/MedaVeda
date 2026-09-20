@@ -22,6 +22,8 @@ import { getLastViewedChapter, getRecentChapters, RecentChapterEntry } from "../
 import useQuizStats from "../../hooks/useQuizStats";
 import usePurchases from "../../hooks/usePurchases";
 import usePurchase from "../../hooks/usePurchase";
+import useCourseYear from "../../hooks/useCourseYear";
+import { needsCourseYearSelection } from "../../services/courseState";
 import { getCurrentUser, getCurrentUserDisplayName } from "../../services/authState";
 
 import YearCard from "../../components/YearCard";
@@ -53,6 +55,17 @@ export default function HomeScreen() {
   const { totalAttempts, averagePercentage, bestScore, loading: statsLoading } = useQuizStats();
 
   const [refreshing, setRefreshing] = useState(false);
+
+  // Shared Course/Year state (loaded once after login). Every course-scoped
+  // fetch below waits for it and re-runs if the course changes.
+  const courseYear = useCourseYear();
+  const { ready, courseId, courseTitle, yearId, yearTitle } = courseYear;
+
+  // Safety net for the post-login gate: if the profile turns out to have no
+  // course/year (e.g. it couldn't be loaded at login), ask for it now.
+  useEffect(() => {
+    if (needsCourseYearSelection(courseYear)) navigation.replace("SelectCourseYear");
+  }, [ready, courseId, yearId]);
 
   const [years, setYears] = useState<Year[]>([]);
   const [yearsLoading, setYearsLoading] = useState(true);
@@ -94,7 +107,7 @@ export default function HomeScreen() {
   const loadYears = useCallback(() => {
     setYearsLoading(true);
     setYearsError(null);
-    return fetchYears()
+    return fetchYears(courseId)
       .then(setYears)
       .catch((err) => {
         console.error("Failed to load years:", err);
@@ -105,11 +118,11 @@ export default function HomeScreen() {
         );
       })
       .finally(() => setYearsLoading(false));
-  }, []);
+  }, [courseId]);
 
   const loadYearProducts = useCallback(() => {
     setYearProductsLoading(true);
-    return fetchYears()
+    return fetchYears(courseId)
       .then(async (yrs) => {
         const sorted = [...yrs].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
         const results = await Promise.all(
@@ -122,7 +135,7 @@ export default function HomeScreen() {
       })
       .catch((err) => console.error("Failed to load year notes products:", err))
       .finally(() => setYearProductsLoading(false));
-  }, []);
+  }, [courseId]);
 
   const loadPurchases = useCallback(() => {
     setPurchasesLoading(true);
@@ -147,44 +160,50 @@ export default function HomeScreen() {
 
   const loadLatest = useCallback(() => {
     setLatestLoading(true);
-    return fetchLatestChapters()
+    return fetchLatestChapters(6, courseId)
       .then(setLatestChapters)
       .catch((err) => console.error("Failed to load latest updates:", err))
       .finally(() => setLatestLoading(false));
-  }, []);
+  }, [courseId]);
 
   const loadRecommended = useCallback(() => {
     setRecommendedLoading(true);
-    return fetchRecommendedChapters(new Set(), years[0]?.id)
+    return fetchRecommendedChapters(new Set(), yearId ?? years[0]?.id, 6, courseId)
       .then(setRecommended)
       .catch((err) => console.error("Failed to load recommendations:", err))
       .finally(() => setRecommendedLoading(false));
-  }, [years]);
+  }, [years, courseId, yearId]);
 
   const loadRecentActivity = useCallback(() => {
     setRecentLoading(true);
-    return Promise.all([getLastViewedChapter(), getRecentChapters()])
+    return Promise.all([getLastViewedChapter(courseId), getRecentChapters(courseId)])
       .then(([last, list]) => {
         setContinueChapter(last);
         setRecentChapters(list.slice(1, 6)); // skip the "continue learning" one
       })
       .finally(() => setRecentLoading(false));
-  }, []);
+  }, [courseId]);
 
   useEffect(() => {
-    loadYears();
-    loadYearProducts();
     loadPurchases();
     loadNotifications();
     loadUnreadNotificationCount();
-    loadLatest();
   }, []);
+
+  // Course-scoped sections load once the student's course is known and
+  // reload if it changes.
+  useEffect(() => {
+    if (!ready) return;
+    loadYears();
+    loadYearProducts();
+    loadLatest();
+  }, [ready, courseId]);
 
   // Recommendations depend on years being loaded first (used as a
   // preference signal), so kick off once years arrive.
   useEffect(() => {
-    if (!yearsLoading) loadRecommended();
-  }, [yearsLoading]);
+    if (ready && !yearsLoading) loadRecommended();
+  }, [ready, yearsLoading, courseId, yearId]);
 
   // Recently viewed / continue learning is local-device data, so refresh
   // it every time the screen regains focus (e.g. after finishing a chapter).
@@ -243,6 +262,9 @@ export default function HomeScreen() {
             email={email}
             progressPercentage={overallProgress}
             purchasedCount={purchases.length}
+            courseLabel={
+              courseTitle ? `${courseTitle}${yearTitle ? ` · ${yearTitle}` : ""}` : undefined
+            }
             onPress={() => navigation.navigate("Profile")}
           />
         )}

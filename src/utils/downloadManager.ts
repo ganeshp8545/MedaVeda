@@ -24,6 +24,7 @@
 // Also note: legacy getInfoAsync no longer takes a { size: true } option
 // - size is now always included in the returned FileInfo for file://
 // URIs, so we just call getInfoAsync(uri) and read .size off the result.
+import { getCourseYear } from "../services/courseState";
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
@@ -77,6 +78,7 @@ function rowToItem(row: any): DownloadItem {
     subjectTitle: row.subject_title,
     yearId: row.year_id,
     yearTitle: row.year_title,
+    courseId: row.course_id ?? "",
     sourceUrl: row.source_url,
     localUri: row.local_uri,
     fileSizeBytes: row.file_size_bytes ?? 0,
@@ -90,9 +92,17 @@ function rowToItem(row: any): DownloadItem {
   };
 }
 
-export function getAllDownloads(): DownloadItem[] {
+// courseId (when given) hides items downloaded under another course. Files
+// are never deleted by a course switch - they just stop being listed.
+// Rows with an unknown course ('') are always shown.
+export function getAllDownloads(courseId?: string): DownloadItem[] {
   const db = getDb();
-  const rows = db.getAllSync(`SELECT * FROM downloads ORDER BY updated_at DESC;`);
+  const rows = courseId
+    ? db.getAllSync(
+        `SELECT * FROM downloads WHERE course_id = ? OR course_id = '' ORDER BY updated_at DESC;`,
+        [courseId]
+      )
+    : db.getAllSync(`SELECT * FROM downloads ORDER BY updated_at DESC;`);
   return rows.map(rowToItem);
 }
 
@@ -112,8 +122,9 @@ function upsertRow(item: Partial<DownloadItem> & { id: string }): void {
       `INSERT INTO downloads
         (id, content_type, title, chapter_id, chapter_title, subject_id, subject_title,
          year_id, year_title, source_url, local_uri, file_size_bytes, bytes_written,
-         status, retry_count, error_message, content_version, downloaded_at, updated_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);`,
+         status, retry_count, error_message, content_version, downloaded_at, updated_at,
+         course_id)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);`,
       [
         item.id,
         item.contentType ?? "note",
@@ -134,6 +145,7 @@ function upsertRow(item: Partial<DownloadItem> & { id: string }): void {
         item.contentVersion ?? 1,
         item.downloadedAt ?? null,
         now,
+        item.courseId ?? getCourseYear().courseId ?? "",
       ]
     );
   } else {

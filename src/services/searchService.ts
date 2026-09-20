@@ -9,6 +9,7 @@ import { fetchMyPurchases, isChapterUnlocked, isProductOwned } from "./purchases
 import { fetchNotifications } from "./notificationsService";
 import { fetchWithCacheFallback } from "../utils/localCache";
 import { getRecentChapters } from "../utils/recentActivity";
+import { getCourseYear, onCourseChange } from "./courseState";
 import { scoreMatch, getMatchRanges, byRelevance } from "../utils/textMatch";
 import { Chapter } from "../types/chapter";
 import { OwnedScope } from "../types/purchase";
@@ -50,6 +51,7 @@ const SECTION_ORDER: SearchResultType[] = [
 ];
 
 let memoryIndex: SearchIndex | null = null;
+let memoryIndexCourseId: string | undefined;
 const MEMORY_TTL_MS = 2 * 60 * 1000; // avoid refetching 8 queries every time the Search screen remounts within the same short session
 
 function toEpoch(value: unknown): number | undefined {
@@ -59,16 +61,22 @@ function toEpoch(value: unknown): number | undefined {
   return Number.isFinite(t) ? t : undefined;
 }
 
-async function buildIndex(): Promise<SearchIndex> {
+// The index is built per course (only that course's rows are fetched) and
+// dropped whenever the course changes, so results never mix courses.
+onCourseChange(() => {
+  memoryIndex = null;
+});
+
+async function buildIndex(courseId?: string): Promise<SearchIndex> {
   const [years, subjects, chapters, notes, videos, quizzesLite, products, purchases, notifications] =
     await Promise.all([
-      getActiveYears(),
-      getAllActiveSubjects(),
-      getActiveChapters(2000),
-      getAllActiveNotes(),
-      getAllActiveVideos(),
-      getAllActiveQuizTestsLite(),
-      getAllActiveProducts(),
+      getActiveYears(courseId),
+      getAllActiveSubjects(courseId),
+      getActiveChapters(2000, courseId),
+      getAllActiveNotes(courseId),
+      getAllActiveVideos(courseId),
+      getAllActiveQuizTestsLite(courseId),
+      getAllActiveProducts(courseId),
       fetchMyPurchases().catch(() => []),
       fetchNotifications().catch(() => []),
     ]);
@@ -177,11 +185,20 @@ async function buildIndex(): Promise<SearchIndex> {
 /** Fetches (or reuses) the full search index. `forceRefresh` skips both
  * the in-memory and AsyncStorage cache - used by pull-to-refresh. */
 export async function getSearchIndex(forceRefresh = false): Promise<SearchIndex> {
-  if (!forceRefresh && memoryIndex && Date.now() - memoryIndex.builtAt < MEMORY_TTL_MS) {
+  const courseId = getCourseYear().courseId;
+  if (
+    !forceRefresh &&
+    memoryIndex &&
+    memoryIndexCourseId === courseId &&
+    Date.now() - memoryIndex.builtAt < MEMORY_TTL_MS
+  ) {
     return memoryIndex;
   }
-  const index = await fetchWithCacheFallback("search:index", buildIndex);
+  const index = await fetchWithCacheFallback(`search:index:${courseId ?? "all"}`, () =>
+    buildIndex(courseId)
+  );
   memoryIndex = index;
+  memoryIndexCourseId = courseId;
   return index;
 }
 
@@ -336,7 +353,7 @@ export async function getDiscoverySections(
   const sections: SearchSection[] = [];
   const chapterResults = enriched.filter((r) => r.type === "chapter");
 
-  const recentChapters = await getRecentChapters();
+  const recentChapters = await getRecentChapters(getCourseYear().courseId);
   if (recentChapters.length > 0) {
     const order = new Map(recentChapters.map((r, i) => [r.chapterId, i]));
     const items = chapterResults

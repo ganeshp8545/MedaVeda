@@ -53,3 +53,16 @@ export async function fetchWithCacheFallback<T>(
     throw error;
   }
 }
+
+// Drops every cached catalog list (years/subjects/chapters/search index).
+// Called when the student changes course so nothing from the old course can
+// be served as an "offline" fallback.
+export async function clearCache(): Promise<void> {
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const ours = keys.filter((k) => k.startsWith(NAMESPACE));
+    if (ours.length > 0) await AsyncStorage.multiRemove(ours);
+  } catch (error) {
+    console.log("clearCache failed:", error);
+  }
+}

@@ -16,6 +16,7 @@ import RegisterScreen from "../screens/auth/RegisterScreen";
 import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
 
 import HomeScreen from "../screens/home/HomeScreen";
+import SelectCourseYearScreen from "../screens/onboarding/SelectCourseYearScreen";
 import YearsScreen from "../screens/years/YearsScreen";
 import SubjectsScreen from "../screens/subjects/SubjectsScreen";
 import ChaptersScreen from "../screens/chapters/ChaptersScreen";
@@ -108,6 +109,11 @@ export default function AppNavigator() {
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen
+          name="SelectCourseYear"
+          component={SelectCourseYearScreen}
+          options={{ gestureEnabled: false }}
+        />
         <Stack.Screen name="Years" component={YearsScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
         <Stack.Screen name="Subjects" component={SubjectsScreen} />

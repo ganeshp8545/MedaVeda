@@ -84,6 +84,15 @@ export default function ProfileScreen() {
           {user?.email}
         </Text>
 
+        {!!profile?.courseTitle && (
+          <View style={styles.detailsBlock}>
+            <Text style={styles.detailText}>
+              🎓 {profile.courseTitle}
+              {profile.yearTitle ? ` · ${profile.yearTitle}` : ""}
+            </Text>
+          </View>
+        )}
+
         {!!profile?.mobile && (
           <View style={styles.detailsBlock}>
             <Text style={styles.detailText}>📱 {profile.mobile}</Text>
@@ -101,6 +110,12 @@ export default function ProfileScreen() {
             value={`${stats.bestScore}%`}
           />
         </View>
+
+        <ProfileMenuCard
+          icon="🎓"
+          title="Change Course / Year"
+          onPress={() => navigation.navigate("SelectCourseYear", { mode: "change" })}
+        />
 
         <ProfileMenuCard
           icon="🧾"

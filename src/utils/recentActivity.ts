@@ -19,6 +19,9 @@ export interface RecentChapterEntry {
   subjectTitle: string;
   yearId: string;
   yearTitle: string;
+  // Missing on entries recorded before multi-course support (those were
+  // all BAMS) - treated as belonging to whichever course is current.
+  courseId?: string;
   viewedAt: number; // epoch ms
 }
 
@@ -43,12 +46,16 @@ export async function recordChapterView(
   }
 }
 
-export async function getRecentChapters(): Promise<RecentChapterEntry[]> {
+// courseId (when given) hides entries recorded under a different course.
+export async function getRecentChapters(courseId?: string): Promise<RecentChapterEntry[]> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    return courseId
+      ? parsed.filter((e: RecentChapterEntry) => !e.courseId || e.courseId === courseId)
+      : parsed;
   } catch (error) {
     console.log("getRecentChapters failed:", error);
     return [];
@@ -56,7 +63,15 @@ export async function getRecentChapters(): Promise<RecentChapterEntry[]> {
 }
 
 // Most recent entry, used for the single "Continue Learning" hero card.
-export async function getLastViewedChapter(): Promise<RecentChapterEntry | null> {
-  const list = await getRecentChapters();
+export async function getLastViewedChapter(courseId?: string): Promise<RecentChapterEntry | null> {
+  const list = await getRecentChapters(courseId);
   return list[0] ?? null;
+}
+
+export async function clearRecentChapters(): Promise<void> {
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.log("clearRecentChapters failed:", error);
+  }
 }

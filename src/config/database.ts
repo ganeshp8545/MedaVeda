@@ -116,6 +116,20 @@ export function initDatabase(): void {
       synced INTEGER DEFAULT 0
     );
   `);
+
+  migrateDownloadsCourseId(db);
+}
+
+// initDatabase() only ever CREATEs tables IF NOT EXISTS, so columns added
+// later must be migrated in explicitly. Safe to run on every launch.
+function migrateDownloadsCourseId(db: SQLite.SQLiteDatabase): void {
+  const columns = db.getAllSync(`PRAGMA table_info(downloads);`) as { name: string }[];
+  if (columns.some((c) => c.name === "course_id")) return;
+
+  db.execSync(`ALTER TABLE downloads ADD COLUMN course_id TEXT NOT NULL DEFAULT '';`);
+  // Every download made before multi-course support was a BAMS one.
+  db.execSync(`UPDATE downloads SET course_id = 'bams' WHERE course_id = '';`);
+  db.execSync(`CREATE INDEX IF NOT EXISTS idx_downloads_course ON downloads(course_id);`);
 }
 
 /** Wipes every offline table. Used by "Clear All Downloads" + logout. */

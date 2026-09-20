@@ -6,6 +6,10 @@ export type RootStackParamList = {
 
   Home: undefined;
 
+  // Post-login gate: shown while the student has no course/year chosen
+  // ("onboarding", no back), and reachable from Profile to change them.
+  SelectCourseYear: { mode?: "onboarding" | "change" } | undefined;
+
   // Entry point for the Home screen's Notes/Video/MCQ shortcuts.
   Years: {
     mode: "notes" | "videos" | "quiz";

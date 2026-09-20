@@ -23,6 +23,7 @@ import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
 import { SPACING } from "../../theme/spacing";
+import { resolvePostLoginRoute } from "../../services/courseState";
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
@@ -68,7 +69,7 @@ export default function LoginScreen() {
         logDebug("profile backfill failed:", profileError);
       }
 
-      navigation.replace("Home");
+      navigation.replace(await resolvePostLoginRoute());
 
     } catch (error: any) {
       logError("Login failed", error);

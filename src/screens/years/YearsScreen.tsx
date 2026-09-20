@@ -6,6 +6,7 @@ import { useRoute, useNavigation } from "@react-navigation/native";
 import YearCard from "../../components/YearCard";
 
 import { fetchYears, Year } from "../../services/yearsService";
+import useCourseYear from "../../hooks/useCourseYear";
 
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
@@ -33,15 +34,23 @@ export default function YearsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const { ready, courseId, yearId: currentYearId } = useCourseYear();
+
+  // Only the student's course is listed. Tapping a year other than their
+  // current one is allowed - RLS then shows just what they have purchased
+  // there (a bundle/year/subject/chapter pack); changing the year itself
+  // is done from Profile.
   useEffect(() => {
-    fetchYears()
+    if (!ready) return;
+    setLoading(true);
+    fetchYears(courseId)
       .then(setYears)
       .catch((err) => {
         console.error("Failed to load years:", err);
         setError("Could not load years. Please try again.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [ready, courseId]);
 
   return (
     <View style={styles.container}>
@@ -76,6 +85,14 @@ export default function YearsScreen() {
           ListEmptyComponent={
             <Text style={styles.empty}>No academic years added yet.</Text>
           }
+          ListFooterComponent={
+            years.length > 1 && currentYearId ? (
+              <Text style={styles.hint}>
+                You&apos;ll see all content for your current year. Other years show only what
+                you&apos;ve purchased - change your year from Profile.
+              </Text>
+            ) : null
+          }
         />
       )}
     </View>
@@ -104,6 +121,12 @@ const styles = StyleSheet.create({
     fontSize: FONT.body,
     color: COLORS.subtitle,
     marginTop: 4,
+  },
+  hint: {
+    marginTop: SPACING.md,
+    textAlign: "center",
+    color: COLORS.subtitle,
+    fontSize: FONT.small,
   },
   empty: {
     marginTop: 50,

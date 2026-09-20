@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Alert } from "react-native";
 
 import * as downloadManager from "../utils/downloadManager";
+import { getCourseYear } from "../services/courseState";
 import { DownloadItem, DownloadRequest, StorageStats } from "../types/offline";
 
 /**
@@ -23,7 +24,7 @@ export default function useDownloads() {
 
   const refresh = useCallback(() => {
     try {
-      setDownloads(downloadManager.getAllDownloads());
+      setDownloads(downloadManager.getAllDownloads(getCourseYear().courseId));
       setStats(downloadManager.getStorageStats());
     } catch (err) {
       console.error("Failed to load downloads:", err);
