@@ -85,8 +85,30 @@ create table if not exists public.courses (
 
 create unique index if not exists courses_code_unique_ci on public.courses (lower(code));
 
--- Reuses the generic updated_at-touch function already introduced by
--- 20260801_auth_verified_identities.sql (body is table-agnostic).
+-- Self-sufficiency: the live DB was found NOT to have profiles.updated_at or
+-- touch_profile_updated_at() (20260801_auth_verified_identities.sql was never
+-- applied there). Both are defined here, identically and idempotently, so this
+-- migration works whether or not that one has run.
+-- profiles_before_write() (§8) also reads email_verified / mobile_verified, which
+-- exist live only if that migration ran; it did not, so they are added here too
+-- (same definitions). Without them every profile UPDATE would raise.
+alter table public.profiles
+  add column if not exists email_verified boolean not null default false,
+  add column if not exists mobile_verified boolean not null default false,
+  add column if not exists updated_at timestamptz not null default now();
+
+create or replace function public.touch_profile_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+-- Generic updated_at-touch function (body is table-agnostic).
 drop trigger if exists courses_touch_updated_at on public.courses;
 create trigger courses_touch_updated_at
   before update on public.courses
@@ -1018,6 +1040,35 @@ drop policy if exists "notes_admin_write" on storage.objects;
 create policy "notes_admin_write" on storage.objects
   for all using (bucket_id = 'notes' and public.am_i_admin())
   with check (bucket_id = 'notes' and public.am_i_admin());
+
+-- ----------------------------------------------------------------------------
+-- 10b. LEGACY PERMISSIVE POLICIES (found on the live DB via pg_dump)
+-- ----------------------------------------------------------------------------
+-- Live carries a SECOND, older policy set (schena.sql-style names) next to the
+-- <table>_public_read_active ones. Permissive policies are ORed, so these
+-- legacy SELECT policies ("any signed-in user may read every active row")
+-- silently defeat the course/year isolation and purchase gating above:
+-- a BAMS student could still read BHMS rows. They are dropped here.
+-- Admin-only legacy write policies ("admin write X", "Admin can manage notes")
+-- are left alone: they only ever grant admins access, which is unchanged.
+drop policy if exists "public read active years"    on public.years;
+drop policy if exists "public read active subjects" on public.subjects;
+drop policy if exists "public read active chapters" on public.chapters;
+drop policy if exists "read notes"                  on public.notes;
+drop policy if exists "Authenticated users can read notes" on public.notes;
+drop policy if exists "public read active videos"   on public.videos;
+drop policy if exists "public read active quiz_tests" on public.quiz_tests;
+drop policy if exists "public read active products" on public.products;
+
+-- Legacy storage SELECT on bucket 'notes' AND 'thumbnails' for everyone made
+-- every note PDF downloadable by name regardless of purchase, bypassing
+-- notes_read_if_purchased. Replace it with a thumbnails-only public read so
+-- product/thumbnail images keep working; 'notes' is now gated by
+-- notes_read_if_purchased (purchase / admin) only.
+drop policy if exists "public read notes/thumbnails" on storage.objects;
+drop policy if exists "public read thumbnails" on storage.objects;
+create policy "public read thumbnails" on storage.objects
+  for select using (bucket_id = 'thumbnails');
 
 -- ============================================================================
 -- 11. grant_razorpay_payment(): course-aware, derives from PRODUCTS not orders
