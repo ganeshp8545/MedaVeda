@@ -34,14 +34,14 @@ export default function GradientBackground({ colors, direction = "vertical", sty
 
   if (direction !== "diagonal") {
     return (
-      <View style={[StyleSheet.absoluteFill, style]} pointerEvents="none">
+      <View style={[StyleSheet.absoluteFill, style, { pointerEvents: "none" }]}>
         {stack}
       </View>
     );
   }
 
   return (
-    <View style={[StyleSheet.absoluteFill, styles.clip, style]} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, styles.clip, style, { pointerEvents: "none" }]}>
       <View style={styles.oversized}>{stack}</View>
     </View>
   );

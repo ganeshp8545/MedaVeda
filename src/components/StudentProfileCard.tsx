@@ -50,7 +50,7 @@ export default function StudentProfileCard({
 
         <View style={styles.avatar}>
           <Text style={styles.avatarText}>{initial}</Text>
-          <View style={styles.avatarSheen} pointerEvents="none" />
+          <View style={[styles.avatarSheen, { pointerEvents: "none" }]} />
         </View>
 
         <View style={styles.info}>

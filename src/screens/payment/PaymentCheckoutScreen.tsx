@@ -390,7 +390,7 @@ export default function PaymentCheckoutScreen() {
           deployment in production is immediately obvious instead of silent.
           Renders nothing once the backend is confirmed on a live key. */}
       {isLiveMode === false && (
-        <View style={styles.testModeBanner} pointerEvents="none">
+        <View style={[styles.testModeBanner, { pointerEvents: "none" }]}>
           <Text style={styles.testModeBannerText}>TEST MODE — no real payment will be made</Text>
         </View>
       )}
