@@ -1,13 +1,20 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type { Product, ProductInput } from "../types/product";
+import { applyContentFilters, omitBlankIds } from "../utils/filters";
+import type { ContentFilters } from "../types/filters";
 
 const TABLE = "products";
 
-export async function getProducts(): Promise<Product[]> {
-  const { data, error } = await supabase.from(TABLE).select("*").order("created_at", { ascending: false });
+// products.year_id only means "the scope='year' target", so only the course
+// filter is applied here (see applyContentFilters).
+export async function getProducts(filters: ContentFilters = {}): Promise<Product[]> {
+  const { data, error } = await applyContentFilters(
+    supabase.from(TABLE).select("*").order("created_at", { ascending: false }),
+    { courseId: filters.courseId }
+  );
   if (error) throw error;
-  return (data ?? []).map((row) => toCamelCase<Product>(row));
+  return (data ?? []).map((row: any) => toCamelCase<Product>(row));
 }
 
 // A Product only ever uses the id field(s) matching its `scope` (see
@@ -15,7 +22,7 @@ export async function getProducts(): Promise<Product[]> {
 // uuid columns reject "" outright ("invalid input syntax for type uuid"),
 // so any unused id must become `null`, not "", before it reaches Supabase.
 function nullifyEmptyIds(payload: Record<string, any>) {
-  const idKeys = ["chapterId", "subjectId", "yearId"];
+  const idKeys = ["chapterId", "subjectId", "yearId", "courseId"];
   const cleaned = { ...payload };
   for (const key of idKeys) {
     if (cleaned[key] === "") cleaned[key] = null;
@@ -43,13 +50,13 @@ function friendlyProductError(error: any): Error {
 }
 
 export async function addProduct(data: ProductInput) {
-  const { chapterTitle, subjectTitle, yearTitle, yearTitles, ...payload } = data;
+  const { chapterTitle, subjectTitle, yearTitle, yearTitles, courseTitle, ...payload } = data;
   const { error } = await supabase.from(TABLE).insert(toSnakeCase(nullifyEmptyIds(payload)));
   if (error) throw friendlyProductError(error);
 }
 
 export async function updateProduct(id: string, data: ProductInput) {
-  const { chapterTitle, subjectTitle, yearTitle, yearTitles, ...payload } = data;
+  const { chapterTitle, subjectTitle, yearTitle, yearTitles, courseTitle, ...payload } = data;
   const { error } = await supabase.from(TABLE).update(toSnakeCase(nullifyEmptyIds(payload))).eq("id", id);
   if (error) throw friendlyProductError(error);
 }

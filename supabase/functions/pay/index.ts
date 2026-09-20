@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
     // can't change what's charged.
     const { data: product, error: productErr } = await supabaseAdmin
       .from("products")
-      .select("id, title, active, price, scope, chapter_id, subject_id, year_id, year_ids")
+      .select("id, title, active, price, scope, chapter_id, subject_id, year_id, year_ids, course_id")
       .eq("id", session.product_id)
       .maybeSingle();
 
@@ -143,6 +143,7 @@ Deno.serve(async (req) => {
         subject_id: product.subject_id,
         year_id: product.year_id,
         year_ids: product.year_ids,
+        course_id: product.course_id,
         updated_at: new Date().toISOString(),
       })
       .eq("id", session.order_id);

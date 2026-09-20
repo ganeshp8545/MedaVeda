@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ContentFilters } from "../types/filters";
 
 import {
   addQuizTest,
@@ -9,19 +10,19 @@ import {
 
 import type { QuizTest, QuizTestInput } from "../types/quiz";
 
-export default function useQuiz() {
+export default function useQuiz(filters: ContentFilters = {}) {
   const [tests, setTests] = useState<QuizTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadTests();
-  }, []);
+  }, [filters.courseId, filters.yearId]);
 
   async function loadTests() {
     try {
       setLoading(true);
-      const data = await getQuizTests();
+      const data = await getQuizTests(filters);
       setTests(data);
       setError(null);
     } catch (err) {

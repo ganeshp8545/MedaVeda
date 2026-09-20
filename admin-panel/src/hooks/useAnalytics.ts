@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ContentFilters } from "../types/filters";
 
 import { getAnalytics } from "../services/analyticsService";
 import type { AnalyticsData } from "../services/analyticsService";
@@ -15,19 +16,19 @@ const emptyData: AnalyticsData = {
   topProducts: [],
 };
 
-export default function useAnalytics() {
+export default function useAnalytics(filters: ContentFilters = {}) {
   const [data, setData] = useState<AnalyticsData>(emptyData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [filters.courseId, filters.yearId]);
 
   async function load() {
     try {
       setLoading(true);
-      const result = await getAnalytics();
+      const result = await getAnalytics(filters);
       setData(result);
       setError(null);
     } catch (err) {

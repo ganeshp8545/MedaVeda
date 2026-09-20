@@ -1,22 +1,23 @@
 import { useEffect, useState } from "react";
+import type { ContentFilters } from "../types/filters";
 
 import { getUsers, setUserBlocked } from "../services/userService";
 
 import type { AppUser } from "../types/user";
 
-export default function useUsers() {
+export default function useUsers(filters: ContentFilters = {}) {
   const [users, setUsers] = useState<AppUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [filters.courseId, filters.yearId]);
 
   async function loadUsers() {
     try {
       setLoading(true);
-      const data = await getUsers();
+      const data = await getUsers(filters);
       setUsers(data);
       setError(null);
     } catch (err) {

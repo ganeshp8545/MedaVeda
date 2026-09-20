@@ -1,22 +1,23 @@
 import { useEffect, useState } from "react";
+import type { ContentFilters } from "../types/filters";
 
 import { getOrders, updateOrderStatus } from "../services/orderService";
 
 import type { Order, OrderStatus } from "../types/order";
 
-export default function useOrders() {
+export default function useOrders(filters: ContentFilters = {}) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadOrders();
-  }, []);
+  }, [filters.courseId, filters.yearId]);
 
   async function loadOrders() {
     try {
       setLoading(true);
-      const data = await getOrders();
+      const data = await getOrders(filters);
       setOrders(data);
       setError(null);
     } catch (err) {

@@ -12,6 +12,32 @@
 import { corsHeaders, handleOptions } from "../_shared/cors.ts";
 import { supabaseAdmin, getUserFromAuthHeader } from "../_shared/supabaseAdmin.ts";
 
+// Only the field matching `scope` is meaningful on a product/order (same
+// convention as the app's Product type), so only that one is compared.
+// Anything else on the client-written order row is ignored here and is
+// overwritten from the product by /pay before any money moves anyway - this
+// check exists to fail fast with a clear error instead of silently
+// "fixing" a tampered/buggy order later.
+// deno-lint-ignore no-explicit-any
+function orderMatchesProduct(order: any, product: any): boolean {
+  if (order.scope !== product.scope) return false;
+  switch (product.scope) {
+    case "chapter":
+      return (order.chapter_id ?? null) === (product.chapter_id ?? null);
+    case "subject":
+      return (order.subject_id ?? null) === (product.subject_id ?? null);
+    case "year":
+      return (order.year_id ?? null) === (product.year_id ?? null);
+    case "bundle": {
+      const a = [...(order.year_ids ?? [])].sort().join(",");
+      const b = [...(product.year_ids ?? [])].sort().join(",");
+      return a === b;
+    }
+    default:
+      return false;
+  }
+}
+
 const SESSION_TTL_SECONDS = 10 * 60; // 10 minutes - long enough to open the browser and pay, short enough that a leaked id is nearly worthless soon after.
 
 Deno.serve(async (req) => {
@@ -53,7 +79,7 @@ Deno.serve(async (req) => {
     // from the product row in /pay, never from this order.
     const { data: order, error: orderErr } = await supabaseAdmin
       .from("orders")
-      .select("id, user_id, product_id, status")
+      .select("id, user_id, product_id, status, scope, chapter_id, subject_id, year_id, year_ids")
       .eq("id", orderId)
       .maybeSingle();
 
@@ -84,13 +110,42 @@ Deno.serve(async (req) => {
 
     const { data: product, error: productErr } = await supabaseAdmin
       .from("products")
-      .select("id, active, price")
+      .select("id, active, price, scope, chapter_id, subject_id, year_id, year_ids, course_id")
       .eq("id", productId)
       .maybeSingle();
 
     if (productErr || !product || !product.active || !product.price || product.price <= 0) {
       return new Response(JSON.stringify({ error: "This product is no longer available." }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!orderMatchesProduct(order, product)) {
+      return new Response(JSON.stringify({ error: "Order does not match the selected product." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // A student can only buy products for the course on their profile.
+    // (Cross-year purchases within the course are fine - that's how a
+    // student keeps/gets content outside their current year.)
+    const { data: profile } = await supabaseAdmin
+      .from("profiles")
+      .select("course_id")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (!profile?.course_id) {
+      return new Response(JSON.stringify({ error: "Please select your course before purchasing." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (profile.course_id !== product.course_id) {
+      return new Response(JSON.stringify({ error: "This product isn't available for your course." }), {
+        status: 403,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

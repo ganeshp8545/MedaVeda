@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import type { ContentFilters } from "../types/filters";
 
 import { getDashboardStats } from "../services/dashboardService";
 
-export default function useDashboard() {
+export default function useDashboard(filters: ContentFilters = {}) {
   const [stats, setStats] = useState({
+    courses: 0,
     years: 0,
     subjects: 0,
     products: 0,
@@ -17,12 +19,12 @@ export default function useDashboard() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [filters.courseId, filters.yearId]);
 
   async function load() {
     try {
       setLoading(true);
-      const data = await getDashboardStats();
+      const data = await getDashboardStats(filters);
       setStats(data);
     } finally {
       setLoading(false);

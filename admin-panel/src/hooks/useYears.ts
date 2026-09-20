@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ContentFilters } from "../types/filters";
 
 import {
   addYear,
@@ -9,19 +10,19 @@ import {
 
 import type { Year, YearInput } from "../types/year";
 
-export default function useYears() {
+export default function useYears(filters: ContentFilters = {}) {
   const [years, setYears] = useState<Year[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadYears();
-  }, []);
+  }, [filters.courseId, filters.yearId]);
 
   async function loadYears() {
     try {
       setLoading(true);
-      const data = await getYears();
+      const data = await getYears(filters);
       setYears(data);
       setError(null);
     } catch (err) {

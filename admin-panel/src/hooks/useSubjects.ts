@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { ContentFilters } from "../types/filters";
 
 import {
   addSubject,
@@ -9,19 +10,19 @@ import {
 
 import type { Subject, SubjectInput } from "../types/subject";
 
-export default function useSubjects() {
+export default function useSubjects(filters: ContentFilters = {}) {
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadSubjects();
-  }, []);
+  }, [filters.courseId, filters.yearId]);
 
   async function loadSubjects() {
     try {
       setLoading(true);
-      const data = await getSubjects();
+      const data = await getSubjects(filters);
       setSubjects(data);
       setError(null);
     } catch (err) {

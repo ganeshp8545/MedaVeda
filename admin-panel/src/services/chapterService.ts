@@ -1,13 +1,18 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type { Chapter, ChapterInput } from "../types/chapter";
+import { applyContentFilters, omitBlankIds } from "../utils/filters";
+import type { ContentFilters } from "../types/filters";
 
 const TABLE = "chapters";
 
-export async function getChapters(): Promise<Chapter[]> {
-  const { data, error } = await supabase.from(TABLE).select("*").order("order", { ascending: true });
+export async function getChapters(filters: ContentFilters = {}): Promise<Chapter[]> {
+  const { data, error } = await applyContentFilters(
+    supabase.from(TABLE).select("*").order("order", { ascending: true }),
+    filters
+  );
   if (error) throw error;
-  return (data ?? []).map((row) => toCamelCase<Chapter>(row));
+  return (data ?? []).map((row: any) => toCamelCase<Chapter>(row));
 }
 
 export async function getChaptersBySubject(subjectId: string): Promise<Chapter[]> {
@@ -17,20 +22,20 @@ export async function getChaptersBySubject(subjectId: string): Promise<Chapter[]
     .eq("subject_id", subjectId)
     .order("order", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((row) => toCamelCase<Chapter>(row));
+  return (data ?? []).map((row: any) => toCamelCase<Chapter>(row));
 }
 
 // yearTitle / subjectTitle are UI-only display fields - not columns on the
 // "chapters" table - so they must be stripped before sending to Supabase.
 export async function addChapter(data: ChapterInput) {
-  const { yearTitle, subjectTitle, ...payload } = data;
-  const { error } = await supabase.from(TABLE).insert(toSnakeCase(payload));
+  const { yearTitle, subjectTitle, courseTitle, ...payload } = data;
+  const { error } = await supabase.from(TABLE).insert(toSnakeCase(omitBlankIds(payload)));
   if (error) throw error;
 }
 
 export async function updateChapter(id: string, data: ChapterInput) {
-  const { yearTitle, subjectTitle, ...payload } = data;
-  const { error } = await supabase.from(TABLE).update(toSnakeCase(payload)).eq("id", id);
+  const { yearTitle, subjectTitle, courseTitle, ...payload } = data;
+  const { error } = await supabase.from(TABLE).update(toSnakeCase(omitBlankIds(payload))).eq("id", id);
   if (error) throw error;
 }
 

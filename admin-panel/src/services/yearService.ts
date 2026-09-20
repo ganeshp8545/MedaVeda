@@ -1,22 +1,33 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type { Year, YearInput } from "../types/year";
+import { applyContentFilters, omitBlankIds } from "../utils/filters";
+import type { ContentFilters } from "../types/filters";
 
 const TABLE = "years";
 
-export async function getYears(): Promise<Year[]> {
-  const { data, error } = await supabase.from(TABLE).select("*").order("order", { ascending: true });
+export async function getYears(filters: ContentFilters = {}): Promise<Year[]> {
+  const query = supabase.from(TABLE).select("*, courses ( name )").order("order", { ascending: true });
+  // years has no year_id of its own - only the course filter applies.
+  const { data, error } = await applyContentFilters(query, { courseId: filters.courseId });
   if (error) throw error;
-  return (data ?? []).map((row) => toCamelCase<Year>(row));
+  return (data ?? []).map((row: any) => ({
+    ...toCamelCase<Year>(row),
+    courseTitle: row.courses?.name ?? "",
+  }));
 }
 
+// courseTitle is a UI-only display field (joined in getYears) - not a column.
+
 export async function addYear(data: YearInput) {
-  const { error } = await supabase.from(TABLE).insert(toSnakeCase(data));
+  const { courseTitle, ...payload } = data;
+  const { error } = await supabase.from(TABLE).insert(toSnakeCase(payload));
   if (error) throw error;
 }
 
 export async function updateYear(id: string, data: YearInput) {
-  const { error } = await supabase.from(TABLE).update(toSnakeCase(data)).eq("id", id);
+  const { courseTitle, ...payload } = data;
+  const { error } = await supabase.from(TABLE).update(toSnakeCase(payload)).eq("id", id);
   if (error) throw error;
 }
 

@@ -1,4 +1,6 @@
 import { supabase } from "../config/supabase";
+import { applyContentFilters } from "../utils/filters";
+import type { ContentFilters } from "../types/filters";
 
 export interface TopProduct {
   productId: string;
@@ -19,10 +21,13 @@ export interface AnalyticsData {
   topProducts: TopProduct[];
 }
 
-export async function getAnalytics(): Promise<AnalyticsData> {
-  const { data: orders, error: ordersError } = await supabase
-    .from("orders")
-    .select("*, products ( title )");
+// Only the course filter applies: orders/products carry a course_id but no
+// meaningful per-row year.
+export async function getAnalytics(filters: ContentFilters = {}): Promise<AnalyticsData> {
+  const { data: orders, error: ordersError } = await applyContentFilters(
+    supabase.from("orders").select("*, products ( title )"),
+    { courseId: filters.courseId }
+  );
   if (ordersError) throw ordersError;
 
   let totalRevenue = 0;
@@ -66,14 +71,16 @@ export async function getAnalytics(): Promise<AnalyticsData> {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 5);
 
-  const { count: usersCount, error: usersError } = await supabase
-    .from("profiles")
-    .select("*", { count: "exact", head: true });
+  const { count: usersCount, error: usersError } = await applyContentFilters(
+    supabase.from("profiles").select("*", { count: "exact", head: true }),
+    { courseId: filters.courseId }
+  );
   if (usersError) throw usersError;
 
-  const { count: productsCount, error: productsError } = await supabase
-    .from("products")
-    .select("*", { count: "exact", head: true });
+  const { count: productsCount, error: productsError } = await applyContentFilters(
+    supabase.from("products").select("*", { count: "exact", head: true }),
+    { courseId: filters.courseId }
+  );
   if (productsError) throw productsError;
 
   return {
