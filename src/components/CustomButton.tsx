@@ -11,16 +11,20 @@ import { SPACING } from "../theme/spacing";
 type Props = {
   title: string;
   onPress: () => void;
+  disabled?: boolean;
 };
 
 export default function CustomButton({
   title,
   onPress,
+  disabled = false,
 }: Props) {
   return (
     <TouchableOpacity
-      style={styles.button}
+      style={[styles.button, disabled && styles.buttonDisabled]}
       onPress={onPress}
+      disabled={disabled}
+      accessibilityState={{ disabled }}
       activeOpacity={0.8}
     >
       <Text style={styles.text}>
@@ -38,6 +42,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: SPACING.lg,
+  },
+
+  buttonDisabled: {
+    opacity: 0.4,
   },
 
   text: {

@@ -55,12 +55,14 @@ export default function SelectCourseYearScreen() {
     loadCourses();
   }, [loadCourses]);
 
-  // Start from the student's existing choice (a backfilled student already
-  // has a course and only needs to pick a year).
+  // Preselect only a CONFIRMED choice: a profile that already has a year (Edit
+  // Profile / "change" mode). A profile with a course but no year - the backfill
+  // for existing students, or the temporary 'bams' signup default - starts
+  // empty, so the student must explicitly tap a course and then a year.
   useEffect(() => {
-    if (current.ready && courseId === null && current.courseId) {
+    if (current.ready && courseId === null && current.courseId && current.yearId) {
       setCourseId(current.courseId);
-      if (current.yearId) setYearId(current.yearId);
+      setYearId(current.yearId);
     }
   }, [current.ready, current.courseId, current.yearId, courseId]);
 
@@ -177,7 +179,8 @@ export default function SelectCourseYearScreen() {
         ) : (
           <CustomButton
             title={mode === "change" ? "Save" : "Continue"}
-            onPress={courseId && yearId ? handleContinue : () => Alert.alert("Select both", "Please choose a course and a year.")}
+            onPress={handleContinue}
+            disabled={!courseId || !yearId}
           />
         )}
         {mode === "change" && !saving && (
