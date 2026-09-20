@@ -13,7 +13,7 @@ import type { AuthIdentifier } from "./identity";
 // ever delivered.
 //
 // Fix: point Supabase at a real https landing page instead (hosted
-// alongside the marketing site - see reset-password.html). https -> https
+// alongside the marketing site at medveda.in/reset-password). https -> https
 // redirects always survive embedded webviews, and that page hands the
 // token to the app via a genuine user tap on an ayurpulse:// link,
 // which webviews honour far more reliably than an automatic redirect.
@@ -22,7 +22,7 @@ import type { AuthIdentifier } from "./identity";
 // URL Configuration -> Redirect URLs, or Supabase silently refuses to
 // redirect there and falls back to the Site URL instead.
 export const PASSWORD_RESET_REDIRECT_URL =
-  "https://medveda-website.vercel.app/reset-password.html";
+  "https://medveda.in/reset-password";
 
 export const EMAIL_VERIFY_REDIRECT_URL = "https://medveda.in/account-verified";
 
