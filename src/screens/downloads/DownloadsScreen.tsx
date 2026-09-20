@@ -3,6 +3,7 @@ import { View, Text, FlatList, StyleSheet, TouchableOpacity } from "react-native
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
 import EmptyState from "../../components/EmptyState";
+import { OFFLINE_DB_SUPPORTED } from "../../config/database";
 import ConfirmationDialog from "../../components/ConfirmationDialog";
 import BottomNav from "../../components/BottomNav";
 
@@ -151,7 +152,13 @@ export default function DownloadsScreen() {
           )}
           ListEmptyComponent={
             !loading ? (
-              <EmptyState title="📥 No downloads yet. Download Notes or Quizzes to access them offline." />
+              <EmptyState
+                title={
+                  OFFLINE_DB_SUPPORTED
+                    ? "📥 No downloads yet. Download Notes or Quizzes to access them offline."
+                    : "📥 Offline downloads are available in the mobile app."
+                }
+              />
             ) : null
           }
         />

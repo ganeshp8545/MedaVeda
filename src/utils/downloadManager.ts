@@ -28,7 +28,7 @@ import { getCourseYear } from "../services/courseState";
 import * as FileSystem from "expo-file-system/legacy";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { getDb } from "../config/database";
+import { getDb, OFFLINE_DB_SUPPORTED } from "../config/database";
 import {
   DownloadItem,
   DownloadRequest,
@@ -96,6 +96,7 @@ function rowToItem(row: any): DownloadItem {
 // are never deleted by a course switch - they just stop being listed.
 // Rows with an unknown course ('') are always shown.
 export function getAllDownloads(courseId?: string): DownloadItem[] {
+  if (!OFFLINE_DB_SUPPORTED) return [];
   const db = getDb();
   const rows = courseId
     ? db.getAllSync(
@@ -107,12 +108,14 @@ export function getAllDownloads(courseId?: string): DownloadItem[] {
 }
 
 export function getDownload(id: string): DownloadItem | null {
+  if (!OFFLINE_DB_SUPPORTED) return null;
   const db = getDb();
   const row = db.getFirstSync(`SELECT * FROM downloads WHERE id = ?;`, [id]);
   return row ? rowToItem(row as any) : null;
 }
 
 function upsertRow(item: Partial<DownloadItem> & { id: string }): void {
+  if (!OFFLINE_DB_SUPPORTED) return;
   const db = getDb();
   const existing = getDownload(item.id);
   const now = Date.now();
@@ -175,6 +178,7 @@ function upsertRow(item: Partial<DownloadItem> & { id: string }): void {
 
 /** Kicks off (or resumes) a download. Safe to call again on a 'failed' item - acts as retry. */
 export async function enqueueDownload(request: DownloadRequest): Promise<void> {
+  if (!OFFLINE_DB_SUPPORTED) return;
   const dir = dirFor(request.contentType);
   await ensureDir(dir);
 
@@ -375,6 +379,7 @@ export async function cancelDownload(id: string): Promise<void> {
 
 /** Deletes a completed download's file + row (used by the trash icon in DownloadsScreen). */
 export async function removeDownload(id: string): Promise<void> {
+  if (!OFFLINE_DB_SUPPORTED) return;
   const existing = getDownload(id);
   if (existing?.localUri) {
     await FileSystem.deleteAsync(existing.localUri, { idempotent: true });
@@ -389,6 +394,7 @@ export async function removeDownload(id: string): Promise<void> {
 }
 
 export async function clearAllDownloads(): Promise<void> {
+  if (!OFFLINE_DB_SUPPORTED) return;
   await FileSystem.deleteAsync(ROOT_DIR, { idempotent: true });
   const db = getDb();
   db.runSync(`DELETE FROM downloads;`);
@@ -401,6 +407,7 @@ export async function clearAllDownloads(): Promise<void> {
  * (which safely re-downloads if no resumable state was persisted).
  */
 export function recoverInterruptedDownloads(): void {
+  if (!OFFLINE_DB_SUPPORTED) return;
   const db = getDb();
   db.runSync(`UPDATE downloads SET status = 'paused' WHERE status = 'downloading';`);
 }
@@ -454,6 +461,7 @@ export async function saveQuizForOffline(params: {
   yearTitle: string;
   quizData: unknown; // the full QuizTest object (with questions[])
 }): Promise<void> {
+  if (!OFFLINE_DB_SUPPORTED) return;
   const dir = dirFor("quiz");
   await ensureDir(dir);
 

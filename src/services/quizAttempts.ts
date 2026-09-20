@@ -10,7 +10,7 @@
 // attempt twice. Add it if it isn't already there:
 //   alter table quiz_scores add column if not exists id text primary key;
 
-import { getDb } from "../config/database";
+import { getDb, OFFLINE_DB_SUPPORTED } from "../config/database";
 import { queueForSync } from "./syncEngine";
 
 export interface QuizAttemptInput {
@@ -26,8 +26,9 @@ export interface QuizAttemptInput {
 }
 
 export function recordQuizAttempt(input: QuizAttemptInput): string {
-  const db = getDb();
   const attemptId = `qa_${input.quizId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  if (!OFFLINE_DB_SUPPORTED) return attemptId;
+  const db = getDb();
   const takenAt = Date.now();
   const percentage = Math.round((input.score / input.totalQuestions) * 100);
 
@@ -66,6 +67,7 @@ export function recordQuizAttempt(input: QuizAttemptInput): string {
 
 /** Every quiz attempt taken on this device, newest first - offline-safe history/review. */
 export function getLocalQuizAttempts(quizId?: string) {
+  if (!OFFLINE_DB_SUPPORTED) return [];
   const db = getDb();
   const rows = quizId
     ? db.getAllSync(

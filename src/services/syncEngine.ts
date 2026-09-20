@@ -25,7 +25,7 @@
 // Requires: npx expo install @react-native-community/netinfo
 
 import NetInfo from "@react-native-community/netinfo";
-import { getDb } from "../config/database";
+import { getDb, OFFLINE_DB_SUPPORTED } from "../config/database";
 import { supabase } from "../config/supabase";
 import { SyncEntityType, SyncQueueItem } from "../types/offline";
 
@@ -59,6 +59,7 @@ export function queueForSync(
   operation: "upsert" | "delete",
   payload: Record<string, unknown>
 ): void {
+  if (!OFFLINE_DB_SUPPORTED) return;
   const db = getDb();
   const queueId = `${entityType}_${payload.id ?? Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   db.runSync(
@@ -169,6 +170,7 @@ export async function drainQueue(): Promise<void> {
 }
 
 export function getPendingSyncCount(): number {
+  if (!OFFLINE_DB_SUPPORTED) return 0;
   const db = getDb();
   const row = db.getFirstSync(
     `SELECT COUNT(*) as cnt FROM sync_queue WHERE synced_at IS NULL;`
@@ -178,6 +180,7 @@ export function getPendingSyncCount(): number {
 
 /** Call once at app startup (after initDatabase). */
 export function startSyncEngine(): void {
+  if (!OFFLINE_DB_SUPPORTED) return;
   unsubscribeNetInfo?.();
   unsubscribeNetInfo = NetInfo.addEventListener((state) => {
     if (state.isConnected && state.isInternetReachable) {

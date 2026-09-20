@@ -22,7 +22,12 @@
 // One WAL-mode connection is opened once per app session and reused
 // everywhere (DownloadManager, SyncEngine, repositories) via getDb().
 
+import { Platform } from "react-native";
 import * as SQLite from "expo-sqlite";
+
+// expo-sqlite on web needs SharedArrayBuffer + a wasm worker; MedVeda is a
+// phone app, so the offline DB (downloads, sync queue) is simply skipped there.
+export const OFFLINE_DB_SUPPORTED = Platform.OS !== "web";
 
 let dbInstance: SQLite.SQLiteDatabase | null = null;
 
@@ -40,6 +45,7 @@ export function getDb(): SQLite.SQLiteDatabase {
  * navigation). Idempotent - safe to call on every launch.
  */
 export function initDatabase(): void {
+  if (!OFFLINE_DB_SUPPORTED) return;
   const db = getDb();
 
   db.execSync(`
