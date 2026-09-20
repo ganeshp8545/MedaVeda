@@ -266,9 +266,24 @@ export async function resumeDownload(id: string): Promise<void> {
   if (!existing) return;
 
   const savedRaw = await AsyncStorage.getItem(RESUME_STATE_PREFIX + id);
-  if (!savedRaw) {
-    // No resumable state (e.g. app was killed and memory handle lost) -
-    // simplest correct recovery is to restart the download cleanly.
+
+  let saved: any = null;
+  if (savedRaw) {
+    try {
+      saved = JSON.parse(savedRaw);
+    } catch {
+      // Corrupted resume-state JSON (e.g. app was killed mid-write) -
+      // treat exactly like "no resumable state" below rather than
+      // throwing and leaving the Resume button permanently broken.
+      console.log(`Resume state for download ${id} is corrupt JSON - restarting instead`);
+      await AsyncStorage.removeItem(RESUME_STATE_PREFIX + id);
+    }
+  }
+
+  if (!saved) {
+    // No resumable state (e.g. app was killed and memory handle lost, or
+    // it was corrupted above) - simplest correct recovery is to restart
+    // the download cleanly.
     await enqueueDownload({
       id: existing.id,
       contentType: existing.contentType,
@@ -285,7 +300,6 @@ export async function resumeDownload(id: string): Promise<void> {
     return;
   }
 
-  const saved = JSON.parse(savedRaw);
   upsertRow({ id, status: "downloading" });
 
   const resumable = new FileSystem.DownloadResumable(

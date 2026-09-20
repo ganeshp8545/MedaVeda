@@ -20,7 +20,7 @@ import { supabase } from "../config/supabase";
 import { getCurrentUser, getCurrentUserDisplayName } from "../services/authState";
 
 // Real brand glyphs for the "Follow us" row (Instagram/Facebook/YouTube/
-// Telegram/Twitter icons, not emoji lookalikes). `@expo/vector-icons`
+// Telegram/WhatsApp icons, not emoji lookalikes). `@expo/vector-icons`
 // ships bundled with every Expo project already - no extra install
 // needed.
 import { FontAwesome } from "@expo/vector-icons";
@@ -37,16 +37,16 @@ import { fetchUserProfile, UserProfile } from "../services/usersService";
 
 const PANEL_WIDTH = Math.min(300, Dimensions.get("window").width * 0.8);
 
-// Facebook/Telegram/Twitter accounts aren't live yet - kept as `null` so
-// the icons still show (consistent row) but tapping surfaces a
-// "Coming Soon" message instead of a dead link. Fill in the real URL
-// here once each account is created.
+// Facebook isn't live yet - kept as `null` so the icon still shows
+// (consistent row) but tapping surfaces a "Coming Soon" message instead
+// of a dead link. Fill in the real URL here once that account is
+// created.
 const SOCIAL_LINKS: Record<string, string | null> = {
   instagram: "https://www.instagram.com/_ashwiniii.21?igsh=Ym02c3NlOHZlbms1",
   facebook: null,
   youtube: "https://youtube.com/@thedisturbingmedico?si=ZKSurB8bCVvLK42U",
-  telegram: null,
-  twitter: null,
+  telegram: "https://t.me/medveda_26",
+  whatsapp: "https://wa.me/917620616068",
 };
 
 type Props = {
@@ -227,9 +227,9 @@ export default function SideDrawer({ visible, onClose }: Props) {
                 onPress={() => openSocial(SOCIAL_LINKS.telegram)}
               />
               <SocialButton
-                icon="twitter"
-                color="#1DA1F2"
-                onPress={() => openSocial(SOCIAL_LINKS.twitter)}
+                icon="whatsapp"
+                color="#25D366"
+                onPress={() => openSocial(SOCIAL_LINKS.whatsapp)}
               />
             </View>
           </View>

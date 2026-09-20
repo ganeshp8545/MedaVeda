@@ -33,6 +33,8 @@ export async function fetchUserProfile(uid: string): Promise<UserProfile | null>
     name: data.name ?? "",
     email: data.email ?? "",
     mobile: data.phone ?? undefined,
+    emailVerified: data.emailVerified ?? false,
+    mobileVerified: data.mobileVerified ?? false,
     role: "student",
     createdAt: data.createdAt?.toMillis ? data.createdAt.toMillis() : data.createdAt,
     courseId: data.courseId ?? undefined,
@@ -57,7 +59,7 @@ export async function setMyCourseYear(courseId: string, yearId: string | null): 
 
 export async function updateUserProfile(
   uid: string,
-  data: Partial<Pick<UserProfile, "name" | "mobile">>
+  data: Partial<Pick<UserProfile, "name" | "mobile" | "emailVerified" | "mobileVerified">>
 ): Promise<void> {
   // The DB column is "phone", not "mobile". Translate here so every
   // screen can keep using the friendlier `mobile` name without knowing

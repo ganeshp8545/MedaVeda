@@ -13,6 +13,7 @@ import { SPACING } from "../theme/spacing";
 import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
 
+
 type Props = {
   title: string;
   onPress: () => void;
@@ -46,6 +47,7 @@ export default function NoteCard({
 }: Props) {
   // Locked notes can't be downloaded at all - purchase first.
   const showDownloadAction = !locked && !!(onDownloadPress || onRemoveDownloadPress);
+  const progressPct = Math.round(downloadProgress * 100);
 
   return (
     <TouchableOpacity
@@ -54,15 +56,20 @@ export default function NoteCard({
       activeOpacity={0.85}
       disabled={opening}
     >
-      {opening ? (
-        <ActivityIndicator size="small" color={COLORS.accent} style={styles.icon} />
-      ) : (
-        <Text style={styles.icon}>{locked ? "🔒" : free ? "🎁" : "📚"}</Text>
-      )}
+      <View style={styles.iconWrap}>
+        {opening ? (
+          <ActivityIndicator size="small" color={COLORS.accent} />
+        ) : (
+          <Text style={styles.icon}>{locked ? "🔒" : free ? "🎁" : "📚"}</Text>
+        )}
+      </View>
 
       <View style={styles.content}>
         <View style={styles.titleRow}>
-          <Text style={[styles.title, locked && styles.titleLocked]}>
+          <Text
+            style={[styles.title, locked && styles.titleLocked]}
+            numberOfLines={1}
+          >
             {title}
           </Text>
           {free && (
@@ -72,22 +79,25 @@ export default function NoteCard({
           )}
         </View>
 
-        <Text style={styles.subtitle}>
+        <Text style={styles.subtitle} numberOfLines={1}>
           {locked
-            ? "Premium - Purchase required to unlock"
+            ? "Premium content"
             : downloaded
-            ? "Downloaded - Available Offline"
+            ? "Available offline"
             : free
-            ? "Free Preview - Tap to Open PDF"
-            : "Tap to Open PDF"}
+            ? "Free preview"
+            : "Tap to open"}
         </Text>
       </View>
 
       {showDownloadAction && (
         <TouchableOpacity
-          style={styles.downloadButton}
+          style={[
+            styles.downloadButton,
+            downloaded && styles.downloadButtonDone,
+          ]}
           activeOpacity={0.7}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           onPress={(e) => {
             // Don't also trigger the card's own onPress (open PDF).
             e.stopPropagation?.();
@@ -99,11 +109,19 @@ export default function NoteCard({
           }}
         >
           {downloading ? (
-            <ActivityIndicator size="small" color={COLORS.accent} />
+            <>
+              <ActivityIndicator size="small" color={COLORS.accent} />
+              <Text style={styles.downloadLabel}>{progressPct}%</Text>
+            </>
+          ) : downloaded ? (
+            <>
+              <Text style={styles.downloadIcon}>🗑️</Text>
+              <Text style={[styles.downloadLabel, styles.downloadLabelDone]}>
+                Remove
+              </Text>
+            </>
           ) : (
-            <Text style={styles.downloadIcon}>
-              {downloaded ? "🗑️" : "⬇️"}
-            </Text>
+            <Text style={styles.downloadLabel}>Download</Text>
           )}
         </TouchableOpacity>
       )}
@@ -118,10 +136,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: COLORS.card,
     borderRadius: RADIUS.lg,
-    padding: SPACING.lg,
-    marginBottom: SPACING.md,
+    padding: SPACING.md,
     borderWidth: 1,
     borderColor: COLORS.border,
+    marginBottom: SPACING.md,
     ...SHADOW.card,
   },
 
@@ -134,9 +152,15 @@ const styles = StyleSheet.create({
     color: COLORS.subtitle,
   },
 
-  icon: {
-    fontSize: 30,
+  iconWrap: {
+    width: 40,
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: SPACING.md,
+  },
+
+  icon: {
+    fontSize: 28,
   },
 
   content: {
@@ -146,10 +170,17 @@ const styles = StyleSheet.create({
   titleRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 8,
+  },
+
+  title: {
+    fontSize: FONT.body,
+    color: COLORS.text,
+    fontWeight: "600",
+    flexShrink: 1,
   },
 
   freeBadge: {
-    marginLeft: 8,
     backgroundColor: COLORS.success,
     borderRadius: RADIUS.sm,
     paddingHorizontal: 8,
@@ -162,12 +193,6 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  title: {
-    fontSize: FONT.body,
-    color: COLORS.text,
-    fontWeight: "600",
-  },
-
   subtitle: {
     marginTop: SPACING.xs,
     color: COLORS.subtitle,
@@ -175,17 +200,33 @@ const styles = StyleSheet.create({
   },
 
   downloadButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginLeft: SPACING.sm,
+    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
+    gap: 6,
+    marginLeft: SPACING.sm,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: RADIUS.md,
     backgroundColor: COLORS.surfaceMuted,
   },
 
+  downloadButtonDone: {
+    backgroundColor: COLORS.background,
+  },
+
   downloadIcon: {
-    fontSize: 18,
+    fontSize: 14,
+  },
+
+  downloadLabel: {
+    fontSize: FONT.small,
+    fontWeight: "600",
+    color: COLORS.accent,
+  },
+
+  downloadLabelDone: {
+    color: COLORS.subtitle,
   },
 
 });

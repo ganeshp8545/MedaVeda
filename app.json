@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "AyurPulse",
+    "name": "MedVeda",
     "slug": "ayurpulse",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -34,13 +34,23 @@
       "expo-splash-screen",
       "expo-status-bar",
       "expo-web-browser",
-      "expo-sqlite"
+      "expo-sqlite",
+      "./plugins/withAndroidQueries.js"
     ],
     "extra": {
       "eas": {
         "projectId": "2d642c70-8ec1-4d7b-a388-2f2f99e8a8df"
       }
     },
-    "owner": "ganeshp0305"
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/2d642c70-8ec1-4d7b-a388-2f2f99e8a8df"
+    },
+    "owner": "ganeshp0305",
+    "ios": {
+      "bundleIdentifier": "com.ayurpulse.app"
+    }
   }
 }

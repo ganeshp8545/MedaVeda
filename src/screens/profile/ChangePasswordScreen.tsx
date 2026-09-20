@@ -69,8 +69,13 @@ export default function ChangePasswordScreen() {
 
   const handleChangePassword = async () => {
     if (saving) return;
-    if (!user?.email) {
-      Alert.alert("Error", "Could not find your account email. Please log in again.");
+    const loginIdentifier = user?.email
+      ? { email: user.email, password: currentPassword }
+      : user?.phone
+        ? { phone: user.phone, password: currentPassword }
+        : null;
+    if (!loginIdentifier) {
+      Alert.alert("Error", "Could not find your account identifier. Please log in again.");
       return;
     }
     if (!validate()) return;
@@ -81,10 +86,7 @@ export default function ChangePasswordScreen() {
       // Supabase's updateUser() doesn't ask for the current password, so we
       // re-authenticate with it first - this both confirms the user really
       // knows the current password and keeps the session valid.
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password: currentPassword,
-      });
+      const { error: signInError } = await supabase.auth.signInWithPassword(loginIdentifier);
 
       if (signInError) {
         setCurrentPasswordError("Current password is incorrect");

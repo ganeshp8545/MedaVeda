@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { Animated, Easing, TouchableWithoutFeedback } from "react-native";
+import { Animated, Easing, Pressable } from "react-native";
 
 import { useNavigation } from "@react-navigation/native";
 import SearchBar from "./SearchBar";
@@ -34,7 +34,7 @@ export default function FloatingSearchBar() {
   };
 
   return (
-    <TouchableWithoutFeedback
+    <Pressable
       onPress={() => navigation.navigate("Search")}
       onPressIn={onPressIn}
       onPressOut={onPressOut}
@@ -53,6 +53,6 @@ export default function FloatingSearchBar() {
           floating
         />
       </Animated.View>
-    </TouchableWithoutFeedback>
+    </Pressable>
   );
 }

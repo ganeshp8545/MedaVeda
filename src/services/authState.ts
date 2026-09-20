@@ -5,8 +5,27 @@
 // `getCurrentUser()` instead with no other changes to their logic.
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../config/supabase";
+import { registerForPushNotifications } from "./pushNotifications";
 
 let currentUser: User | null = null;
+
+// BUG FIX: registerForPushNotifications() existed in pushNotifications.ts
+// but was never actually called from anywhere in the app, so no device
+// ever saved an Expo Push Token into the `push_tokens` table - hence the
+// admin panel always showing "Notification sent to 0 device(s)". This
+// module is the single place that already tracks every transition into
+// a signed-in state (both "already logged in at app startup" via
+// getSession() below, and "just logged in" via onAuthStateChange), so
+// it's the correct place to trigger registration exactly once per user
+// per app session. registerForPushNotifications() itself upserts on the
+// unique `expo_push_token` column, so this is also safe against
+// duplicate token rows even if called again later.
+let pushRegisteredForUserId: string | null = null;
+function maybeRegisterForPush(user: User | null): void {
+  if (!user || pushRegisteredForUserId === user.id) return;
+  pushRegisteredForUserId = user.id;
+  registerForPushNotifications();
+}
 
 // BUG FIX: the admin panel has a "Block User" toggle (profiles.blocked)
 // but nothing in the mobile app ever read that column - an admin
@@ -42,11 +61,13 @@ async function enforceNotBlocked(user: User): Promise<void> {
 supabase.auth.getSession().then(({ data }) => {
   currentUser = data.session?.user ?? null;
   if (currentUser) enforceNotBlocked(currentUser);
+  maybeRegisterForPush(currentUser);
 });
 
 supabase.auth.onAuthStateChange((_event, session) => {
   currentUser = session?.user ?? null;
   if (currentUser) enforceNotBlocked(currentUser);
+  maybeRegisterForPush(currentUser);
 });
 
 export function getCurrentUser(): User | null {

@@ -35,8 +35,8 @@ const SOCIAL_LINKS: Record<string, string | null> = {
   instagram: "https://www.instagram.com/_ashwiniii.21?igsh=Ym02c3NlOHZlbms1",
   facebook: null,
   youtube: "https://youtube.com/@thedisturbingmedico?si=ZKSurB8bCVvLK42U",
-  telegram: null,
-  twitter: null,
+  telegram: "https://t.me/medveda_26",
+  whatsapp: "https://wa.me/917620616068",
 };
 
 // This app has no backend mail sender yet (no Resend/SendGrid Edge
@@ -206,9 +206,9 @@ export default function ContactScreen() {
             onPress={() => openSocial(SOCIAL_LINKS.telegram)}
           />
           <SocialButton
-            icon="twitter"
-            color="#1DA1F2"
-            onPress={() => openSocial(SOCIAL_LINKS.twitter)}
+            icon="whatsapp"
+            color="#25D366"
+            onPress={() => openSocial(SOCIAL_LINKS.whatsapp)}
           />
         </View>
       </ScrollView>

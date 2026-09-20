@@ -69,15 +69,33 @@ export async function registerForPushNotifications(): Promise<string | null> {
     );
     const token = tokenResponse.data;
 
-    const { error } = await supabase.from("push_tokens").upsert(
-      {
-        user_id: user.id,
-        expo_push_token: token,
-        platform: Platform.OS,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "expo_push_token" }
-    );
+    console.log("==================================");
+    console.log("Expo Push Token:", token);
+    console.log("User ID:", user.id);
+    console.log("Platform:", Platform.OS);
+    console.log("==================================");
+
+  const { data, error } = await supabase
+  .from("push_tokens")
+  .upsert(
+    {
+      user_id: user.id,
+      expo_push_token: token,
+      platform: Platform.OS,
+      updated_at: new Date().toISOString(),
+    },
+    {
+      onConflict: "expo_push_token",
+    }
+  )
+  .select();
+
+console.log("UPSERT RESULT:", data);
+console.log("UPSERT ERROR:", error);
+
+if (error) throw error;
+
+console.log("✅ Push token saved successfully.");
 
     if (error) throw error;
 
@@ -98,9 +116,12 @@ export async function unregisterCurrentDeviceToken(): Promise<void> {
       projectId ? { projectId } : undefined
     );
     await supabase.from("push_tokens").delete().eq("expo_push_token", tokenResponse.data);
-  } catch (err) {
-    console.error("Failed to unregister push token:", err);
-  }
+  } catch (err: any) {
+  console.error("❌ Push Registration Error");
+  console.error(err);
+  console.error(err?.message);
+  return;
+}
 }
 
 /**

@@ -9,6 +9,7 @@ const CREATE_SESSION_URL = `${projectUrl}/functions/v1/create-payment-session`;
 
 export interface CheckoutData {
   keyId: string;
+  isLiveMode?: boolean;
   razorpayOrderId: string;
   amountPaise: number;
   productTitle: string;
@@ -195,4 +196,43 @@ export async function recoverPayment(
   }
 
   return body as VerifyResult;
+}
+
+/**
+ * BUG FIX: recoverPayment() used to be called exactly once, with no retry.
+ * The UPI success callback (and this recovery check that follows a dropped
+ * verifyPayment call) can fire the instant the student's UPI app hands
+ * control back - but Razorpay's own order->payment status can still say
+ * "authorized" for a few seconds before it flips to "captured" (autocapture
+ * isn't instantaneous, and is often slower right as the app is resuming
+ * from background). A single recoverPayment() call at that exact moment
+ * came back { success: false }, and the caller treated that as final -
+ * permanently showing "Payment Failed" even though the same payment shows
+ * up as "captured" on Razorpay's dashboard moments later, with no way for
+ * the app to ever find out.
+ *
+ * Fix: retry recoverPayment several times with growing delays before
+ * giving up, giving Razorpay's own capture process realistic time to
+ * finish. Total window here is ~24s, which comfortably covers normal
+ * autocapture latency without leaving the student staring at a spinner
+ * indefinitely.
+ */
+export async function recoverPaymentWithRetry(
+  verifyUrl: string,
+  internalOrderId: string
+): Promise<VerifyResult> {
+  const attempts = [0, 2000, 3000, 5000, 6000, 8000]; // ms delay before each attempt (~24s total)
+  let lastResult: VerifyResult = { success: false };
+
+  for (let i = 0; i < attempts.length; i++) {
+    if (attempts[i] > 0) await delay(attempts[i]);
+    try {
+      lastResult = await recoverPayment(verifyUrl, internalOrderId);
+      if (lastResult.success) return lastResult;
+    } catch {
+      // Transient network hiccup on this attempt - keep trying.
+    }
+  }
+
+  return lastResult;
 }

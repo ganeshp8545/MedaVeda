@@ -56,6 +56,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     ...SHADOW.card,
   },
+  
 
   icon: {
     fontSize: 34,

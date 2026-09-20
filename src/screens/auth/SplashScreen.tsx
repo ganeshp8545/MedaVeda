@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Linking } from "react-native";
 import { COLORS } from "../../theme/colors";
 import { SPACING } from "../../theme/spacing";
 import { supabase } from "../../config/supabase";
@@ -24,9 +24,29 @@ export default function SplashScreen({ navigation }: any) {
 
     async function decideDestination() {
       const minSplashTime = new Promise((resolve) => setTimeout(resolve, 1200));
-      const [{ data }] = await Promise.all([supabase.auth.getSession(), minSplashTime]);
+      const [{ data }, initialUrl] = await Promise.all([
+        supabase.auth.getSession(),
+        Linking.getInitialURL(),
+      ]);
+      await minSplashTime;
 
       if (!isMounted) return;
+
+      // BUG FIX ("reset link opens Login instead of the reset screen"):
+      // this effect used to unconditionally replace() to Home/Login on
+      // every launch, with no awareness of *why* the app was opened. When
+      // launched via the password-reset email's deep link
+      // (ayurpulse://reset-password#...&type=recovery), that forced
+      // replace() ran and won the race against React Navigation's own
+      // linking resolution, silently stranding the user on Login/Home
+      // before the reset screen ever had a chance to show. Checking the
+      // launch URL here and routing to ResetPassword first fixes that -
+      // the token itself is parsed by ResetPasswordScreen, not here.
+      if (initialUrl && initialUrl.includes("type=recovery")) {
+        navigation.replace("ResetPassword");
+        return;
+      }
+
       if (!data.session) {
         navigation.replace("Login");
         return;

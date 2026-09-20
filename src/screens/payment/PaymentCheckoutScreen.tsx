@@ -7,7 +7,7 @@ import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 import { buildCheckoutHtml } from "./checkoutHtmlTemplate";
-import { verifyPayment, recoverPayment } from "../../services/paymentService";
+import { verifyPayment, recoverPaymentWithRetry } from "../../services/paymentService";
 import { markOrderStatus } from "../../services/ordersService";
 
 // Replaces the old "open the hosted checkout page in the external
@@ -29,6 +29,7 @@ export default function PaymentCheckoutScreen() {
   const route = useRoute<any>();
   const {
     keyId,
+    isLiveMode,
     razorpayOrderId,
     amountPaise,
     productTitle,
@@ -73,6 +74,41 @@ export default function PaymentCheckoutScreen() {
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [internalOrderId, productTitle]
+  );
+
+  // ROOT CAUSE OF "payment succeeds, backend verifies, purchase unlocks,
+  // but the app still shows a failure": recoverPaymentWithRetry only keeps
+  // trying for ~24s total. Real-world UPI captures (PhonePe/GPay - the
+  // student entering their UPI PIN, their bank confirming, Razorpay's
+  // autocapture running) routinely take longer than that once you count
+  // the time the app spent backgrounded during the app-switch itself. When
+  // that 24s window runs out, the payment is NOT actually failed - it's
+  // still in flight - but the old code called goToFailed() unconditionally,
+  // which (a) permanently marked the order "failed" and (b) sent the
+  // student to a dead-end screen with zero further checking. Meanwhile the
+  // payment goes on to genuinely capture moments later and the webhook
+  // grants the purchase server-side - the app just never finds out, because
+  // nothing was left polling.
+  //
+  // Fix: this ambiguous "verify call failed AND recovery couldn't confirm
+  // in time" case is no longer treated as a hard failure. It's routed to
+  // PaymentFailedScreen with `pending: true` (+ verifyUrl/internalOrderId),
+  // which now keeps polling verify-payment's recovery path in the
+  // background and auto-redirects to PaymentSuccess the moment the payment
+  // actually confirms - instead of stranding the student on a screen that
+  // will never update itself. The order is also NOT marked "failed" here,
+  // since it may well still succeed.
+  const goToPending = useCallback(
+    (paymentId?: string) => {
+      resetTo("PaymentFailed", {
+        title: productTitle,
+        pending: true,
+        verifyUrl,
+        internalOrderId,
+        paymentId,
+      });
+    },
+    [productTitle, verifyUrl, internalOrderId]
   );
 
   async function handleMessage(event: WebViewMessageEvent) {
@@ -120,9 +156,7 @@ export default function PaymentCheckoutScreen() {
         const recovered = await runRecoveryCheck();
         if (!recovered) {
           settledRef.current = true;
-          goToFailed(
-            `Payment may have succeeded but verification could not be confirmed. Payment ID: ${message.razorpay_payment_id || "unknown"}. Please check My Purchases or contact support.`
-          );
+          goToPending(message.razorpay_payment_id);
         }
       } finally {
         if (!settledRef.current) setVerifying(false);
@@ -157,35 +191,74 @@ export default function PaymentCheckoutScreen() {
   // screen is open and unsettled, or (b) the WebView's renderer process
   // itself crashes. Safe to call even when nothing was actually paid yet -
   // it just comes back { success: false } and this screen keeps waiting.
-  const recovering = useRef(false);
+  // BUG FIX ("app still shows Confirming Your Payment even though the
+  // payment/verification/unlock all succeeded on the backend"): this used
+  // to be `const recovering = useRef(false)`, and the very first line of
+  // this function was `if (settledRef.current || recovering.current)
+  // return false;`. That `false` is indistinguishable, to a caller, from
+  // "recovery checked and confirmed the payment did NOT go through" - but
+  // it fires just as easily when a check is simply already in flight.
+  //
+  // On a real UPI payment (PhonePe/GPay) that's exactly what happens: the
+  // AppState "active" listener below fires the instant the app is
+  // foregrounded again and starts a recovery check (~24s of retries) -
+  // and around the same moment, the WebView (also just resumed) can
+  // independently deliver Checkout's delayed success postMessage, which
+  // goes through handleMessage's verifyPayment() call above. If THAT call
+  // fails (dropped mid-request - the exact same resume window is when the
+  // network is most likely to hiccup, per the comment on verifyPayment()
+  // in paymentService.ts), its catch block calls runRecoveryCheck() a
+  // second time. With the old guard, this second call saw
+  // recovering.current already true (from the AppState-triggered check
+  // that was still mid-retry) and returned false immediately - not
+  // because the payment was unconfirmed, but purely because another check
+  // happened to be running. handleMessage's catch treats any `false` as
+  // "give up", so it called goToPending() right then - sending the
+  // student to the pending/"Confirming Your Payment" screen instead of
+  // waiting the few remaining seconds for the AppState-triggered check
+  // (which - per the verified backend facts - was about to come back
+  // successful anyway).
+  //
+  // Fix: track the in-flight recovery as a Promise instead of a boolean.
+  // A concurrent caller now awaits and returns THAT SAME promise's real
+  // result instead of a hardcoded false, so every caller (AppState
+  // resume, the WebView's own success message, onRenderProcessGone) ends
+  // up seeing the one true outcome instead of racing each other.
+  const recoveryInFlightRef = useRef<Promise<boolean> | null>(null);
   const runRecoveryCheck = useCallback(async (): Promise<boolean> => {
-    if (settledRef.current || recovering.current) return false;
+    if (settledRef.current) return false;
     if (!verifyUrl || !internalOrderId) return false;
-    recovering.current = true;
-    setVerifying(true);
-    try {
-      const result = await recoverPayment(verifyUrl, internalOrderId);
-      if (result.success) {
-        settledRef.current = true;
-        resetTo("PaymentSuccess", {
-          title: productTitle,
-          amount: result.amount,
-          orderId: internalOrderId,
-        });
-        return true;
+    if (recoveryInFlightRef.current) return recoveryInFlightRef.current;
+
+    const check = (async (): Promise<boolean> => {
+      setVerifying(true);
+      try {
+        const result = await recoverPaymentWithRetry(verifyUrl, internalOrderId);
+        if (result.success) {
+          settledRef.current = true;
+          resetTo("PaymentSuccess", {
+            title: productTitle,
+            amount: result.amount,
+            orderId: internalOrderId,
+          });
+          return true;
+        }
+        // Not paid yet (or still processing on Razorpay's side) - say
+        // nothing and let the student keep watching; the next resume or
+        // retry will check again.
+        return false;
+      } catch {
+        // Transient network hiccup while checking - stay quiet, next resume
+        // or retry will check again.
+        return false;
+      } finally {
+        recoveryInFlightRef.current = null;
+        if (!settledRef.current) setVerifying(false);
       }
-      // Not paid yet (or still processing on Razorpay's side) - say
-      // nothing and let the student keep watching; the next resume or
-      // retry will check again.
-      return false;
-    } catch {
-      // Transient network hiccup while checking - stay quiet, next resume
-      // or retry will check again.
-      return false;
-    } finally {
-      recovering.current = false;
-      if (!settledRef.current) setVerifying(false);
-    }
+    })();
+
+    recoveryInFlightRef.current = check;
+    return check;
   }, [verifyUrl, internalOrderId, productTitle]);
 
   useEffect(() => {
@@ -227,36 +300,62 @@ export default function PaymentCheckoutScreen() {
   // BUG FIX ("UPI options don't do anything when tapped"): Razorpay's UPI
   // block (see checkoutHtmlTemplate.ts) is enabled and does render PhonePe /
   // Google Pay / Paytm / other installed UPI apps - but selecting one makes
-  // checkout.js try to navigate the WebView itself to a deep link
-  // (upi://pay?..., tez://upi/pay?..., phonepe://..., paytmmp://..., or an
-  // Android intent://...#Intent;...end URL). A WebView has no way to "load"
-  // those - they aren't http(s) pages - so without interception the
-  // navigation just silently fails and the UPI app never opens.
+  // checkout.js try to navigate the WebView itself to a deep link. A WebView
+  // has no way to "load" those - they aren't http(s) pages - so without
+  // interception the navigation just silently fails and the UPI app never
+  // opens.
   //
-  // Fix: intercept every navigation attempt before the WebView acts on it.
-  // Anything that isn't a normal http(s) URL (i.e. an app deep link) gets
-  // handed to the OS via Linking.openURL instead, which is what actually
-  // launches the matching UPI app - and we tell the WebView not to try
-  // loading it itself (return false).
+  // BUG FIX #2 (previous version of this fix): Android's UPI choice comes as
+  // a Chrome-style "intent://...#Intent;scheme=upi;package=...;
+  // S.browser_fallback_url=...;end" URL. The earlier version of this
+  // handler extracted S.browser_fallback_url and opened THAT directly -
+  // but Razorpay includes a browser_fallback_url on almost every intent
+  // URL regardless of whether the app is installed, so this always sent
+  // the student to the Play Store listing instead of actually opening the
+  // installed app. Every UPI app tap looked "broken" even when e.g. PhonePe
+  // was already installed.
+  //
+  // Fix: strip the Chrome intent:// wrapper and rebuild a plain "upi://"
+  // URI (the standard scheme every UPI app registers as a handler for).
+  // Try that first via Linking.canOpenURL/openURL - if and only if no app
+  // can handle it, THEN fall back to S.browser_fallback_url (Play Store).
   const handleShouldStartLoad = useCallback((request: { url: string }) => {
     const url = request.url;
     const isWebUrl = url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:");
 
     if (isWebUrl) return true;
 
-    // Android sends UPI app choices as intent://...#Intent;scheme=upi;...end
-    // URLs. Extract the S.browser_fallback_url if present (points to the
-    // Play Store listing when the app isn't installed); otherwise just try
-    // the intent URL itself - Linking on Android can resolve these directly.
-    let target = url;
     if (Platform.OS === "android" && url.startsWith("intent://")) {
+      // "intent://pay?pa=...&pn=...#Intent;scheme=upi;package=...;end"
+      // -> "upi://pay?pa=...&pn=..."
+      const upiPart = url.replace(/^intent:\/\//, "").split("#Intent")[0];
+      const directUpiUrl = `upi://${upiPart}`;
       const fallbackMatch = url.match(/S\.browser_fallback_url=([^;]+)/);
-      if (fallbackMatch) {
-        target = decodeURIComponent(fallbackMatch[1]);
-      }
+      const fallbackUrl = fallbackMatch ? decodeURIComponent(fallbackMatch[1]) : null;
+
+      Linking.canOpenURL(directUpiUrl)
+        .then((supported) => {
+          if (supported) {
+            return Linking.openURL(directUpiUrl);
+          }
+          if (fallbackUrl) {
+            return Linking.openURL(fallbackUrl);
+          }
+          throw new Error("No handler for UPI URL and no fallback available.");
+        })
+        .catch(() => {
+          Alert.alert(
+            "App not found",
+            "The selected UPI app isn't installed on this device. Please choose another payment method."
+          );
+        });
+
+      return false;
     }
 
-    Linking.openURL(target).catch(() => {
+    // Non-Android app deep links (tez://, phonepe://, paytmmp:// etc.) -
+    // hand straight to the OS.
+    Linking.openURL(url).catch(() => {
       Alert.alert(
         "App not found",
         "The selected UPI app isn't installed on this device. Please choose another payment method."
@@ -285,6 +384,16 @@ export default function PaymentCheckoutScreen() {
 
   return (
     <View style={styles.container}>
+      {/* isLiveMode comes from the "pay" Edge Function (server-derived from
+          which RAZORPAY_KEY_ID is actually deployed) - shown so nobody
+          mistakes a test-mode purchase for a real one, and so a stray test
+          deployment in production is immediately obvious instead of silent.
+          Renders nothing once the backend is confirmed on a live key. */}
+      {isLiveMode === false && (
+        <View style={styles.testModeBanner} pointerEvents="none">
+          <Text style={styles.testModeBannerText}>TEST MODE — no real payment will be made</Text>
+        </View>
+      )}
       <WebView
         source={{ html }}
         onMessage={handleMessage}
@@ -305,6 +414,9 @@ export default function PaymentCheckoutScreen() {
         <View style={styles.overlay}>
           <ActivityIndicator color={COLORS.accent} size="large" />
           <Text style={styles.overlayText}>Verifying payment...</Text>
+          <Text style={styles.overlaySubText}>
+            This can take up to 30 seconds. Please don't close the app.
+          </Text>
         </View>
       )}
     </View>
@@ -312,6 +424,22 @@ export default function PaymentCheckoutScreen() {
 }
 
 const styles = StyleSheet.create({
+  testModeBanner: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#E2703D",
+    paddingVertical: 6,
+    alignItems: "center",
+    zIndex: 999,
+    elevation: 999,
+  },
+  testModeBannerText: {
+    color: "#100C0A",
+    fontSize: 12,
+    fontWeight: "700",
+  },
   container: {
     flex: 1,
     backgroundColor: COLORS.background,
@@ -342,5 +470,13 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     fontSize: FONT.body,
     marginTop: SPACING.md,
+  },
+  overlaySubText: {
+    color: COLORS.subtitle,
+    fontSize: FONT.small,
+    marginTop: SPACING.xs,
+    opacity: 0.8,
+    textAlign: "center",
+    paddingHorizontal: SPACING.lg,
   },
 });

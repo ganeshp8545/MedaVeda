@@ -1,320 +1,123 @@
 import React, { useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from "react-native";
-
+import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
-
-import { Ionicons } from "@expo/vector-icons";
-
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
-
 import { registerSchema } from "../../validation/registerSchema";
-
-import { supabase } from "../../config/supabase";
-import { createUserProfile } from "../../services/usersService";
-import { logDebug, logError } from "../../utils/logger";
-
+import { parseAuthIdentifier } from "../../features/auth/identity";
+import { registerWithEmailAndMobile } from "../../features/auth/authService";
+import { getPasswordStrength } from "../../utils/passwordStrength";
+import { savePendingReferral } from "../../utils/pendingReferral";
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
-import { SHADOW } from "../../theme/shadows";
 import { SPACING } from "../../theme/spacing";
 
-export default function RegisterScreen() {
-  const [hidePassword, setHidePassword] = useState(true);
-  const [hideConfirmPassword, setHideConfirmPassword] = useState(true);
-  const navigation = useNavigation<any>();
+type FormData = { fullName: string; email: string; mobileNumber: string; password: string; confirmPassword: string; referralCode?: string };
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm({
+const STRENGTH_COLOR: Record<string, string> = {
+  weak: COLORS.error,
+  fair: COLORS.warning,
+  good: COLORS.info,
+  strong: COLORS.success,
+};
+
+export default function RegisterScreen() {
+  const navigation = useNavigation<any>();
+  const [loading, setLoading] = useState(false);
+  const { control, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: yupResolver(registerSchema),
-    defaultValues: {
-      fullName: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-    },
+    mode: "onBlur",
+    reValidateMode: "onChange",
+    defaultValues: { fullName: "", email: "", mobileNumber: "", password: "", confirmPassword: "", referralCode: "" },
   });
 
-  const onRegister = async (data: any) => {
+  const passwordValue = watch("password");
+  const strength = getPasswordStrength(passwordValue || "");
+
+  const register = async (data: FormData) => {
+    // Guard against double-submits (double-tap, slow network + repeat
+    // tap) in addition to the button's own `disabled` state.
+    if (loading) return;
+
+    const email = parseAuthIdentifier(data.email);
+    const mobile = parseAuthIdentifier(data.mobileNumber);
+    if (email?.kind !== "email" || mobile?.kind !== "phone") return;
+    setLoading(true);
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: { data: { name: data.fullName } },
+      const { error } = await registerWithEmailAndMobile({
+        fullName: data.fullName.trim(), email: email.value, mobileNumber: mobile.value, password: data.password,
       });
       if (error) throw error;
 
-      logDebug("Registration success");
+      // Optional referral code: it can only be applied once there's a
+      // session, so keep it on the device until the student logs in. It never
+      // affects whether registration succeeds.
+      const referralCode = data.referralCode?.trim().toUpperCase();
+      if (referralCode) await savePendingReferral(referralCode, email.value);
 
-      // The DB trigger (see schema.sql) already creates a profile row on
-      // signup with a blank name - this fills in the name/email the user
-      // just typed. A hiccup here shouldn't be reported as a failed
-      // registration - the auth account already exists at this point.
-      try {
-        if (authData.user) {
-          await createUserProfile(authData.user.id, {
-            name: data.fullName,
-            email: data.email,
-          });
-        }
-      } catch (profileError) {
-        logDebug("createUserProfile failed:", profileError);
-      }
-
-      Alert.alert("Success", "Registration Successful");
-
-      navigation.navigate("Login");
-
-    } catch (error: any) {
-      logError("Registration failed", error);
-
-      const message =
-        error.message?.includes("already registered")
-          ? "This email is already registered. Please login instead."
-          : error.message?.includes("Password should be")
-          ? "Password is too weak. Please use at least 8 characters."
-          : error.message?.includes("valid email")
-          ? "Please enter a valid email address."
-          : "Registration failed. Please try again.";
-
-      Alert.alert("Registration Failed", message);
-    }
+      Alert.alert(
+        "Verification email sent",
+        "A verification email has been sent. Please verify your email before logging in.",
+        [{ text: "Back to Login", onPress: () => navigation.replace("Login") }]
+      );
+    } catch {
+      // Do not identify which unique field or account state caused failure.
+      Alert.alert("Unable to create account", "Please check your details and try again.");
+    } finally { setLoading(false); }
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.logo}>🌿</Text>
+  const field = (name: keyof FormData, placeholder: string, secure = false) => <>
+    <Controller control={control} name={name} render={({ field: { onChange, onBlur, value } }) => <TextInput style={styles.input} placeholder={placeholder} placeholderTextColor={COLORS.subtitle} value={value} onChangeText={onChange} onBlur={onBlur} secureTextEntry={secure} autoCapitalize="none" editable={!loading} />} />
+    {errors[name] && <Text style={styles.error}>{errors[name]?.message}</Text>}
+  </>;
 
-      <Text style={styles.title}>MedVeda</Text>
+  return <View style={styles.container}>
+    <Text style={styles.logo}>🌿</Text><Text style={styles.title}>Create Your Account</Text>
+    {field("fullName", "Full Name")}{field("email", "Email Address")}{field("mobileNumber", "Mobile Number (e.g. 9876543210)")}
+    {field("password", "Password", true)}
 
-      <Text style={styles.subtitle}>
-        Create Your Account
-      </Text>
-
-      {/* Full Name */}
-
-      <Controller
-        control={control}
-        name="fullName"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="Full Name"
-            placeholderTextColor={COLORS.subtitle}
-            style={styles.input}
-            value={value}
-            onChangeText={onChange}
-          />
-        )}
-      />
-
-      {errors.fullName && (
-        <Text style={styles.error}>
-          {errors.fullName.message}
-        </Text>
-      )}
-
-      {/* Email */}
-
-      <Controller
-        control={control}
-        name="email"
-        render={({ field: { onChange, value } }) => (
-          <TextInput
-            placeholder="Email"
-            placeholderTextColor={COLORS.subtitle}
-            style={styles.input}
-            value={value}
-            onChangeText={onChange}
-            keyboardType="email-address"
-          />
-        )}
-      />
-
-      {errors.email && (
-        <Text style={styles.error}>
-          {errors.email.message}
-        </Text>
-      )}
-
-      {/* Password */}
-
-      <View style={styles.passwordContainer}>
-
-        <Controller
-          control={control}
-          name="password"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              placeholder="Password"
-              placeholderTextColor={COLORS.subtitle}
-              style={styles.passwordInput}
-              secureTextEntry={hidePassword}
-              value={value}
-              onChangeText={onChange}
+    {/* Password strength indicator - purely a UX aid; registerSchema is
+        the actual policy gate that decides whether the form can submit. */}
+    {!!passwordValue && (
+      <View style={styles.strengthWrap}>
+        <View style={styles.strengthTrack}>
+          {[0, 1, 2, 3].map((segment) => (
+            <View
+              key={segment}
+              style={[
+                styles.strengthSegment,
+                segment < strength.score ? { backgroundColor: STRENGTH_COLOR[strength.level] } : undefined,
+              ]}
             />
-          )}
-        />
-
-        <TouchableOpacity
-          onPress={() =>
-            setHidePassword(!hidePassword)
-          }
-        >
-          <Ionicons
-            name={hidePassword ? "eye-off" : "eye"}
-            size={22}
-            color={COLORS.subtitle}
-          />
-        </TouchableOpacity>
-
+          ))}
+        </View>
+        <Text style={[styles.strengthLabel, { color: STRENGTH_COLOR[strength.level] }]}>
+          {strength.label}
+        </Text>
       </View>
+    )}
 
-      {errors.password && (
-        <Text style={styles.error}>
-          {errors.password.message}
-        </Text>
-      )}
+    {field("confirmPassword", "Confirm Password", true)}
 
-      {/* Confirm Password */}
-
-      <View style={styles.passwordContainer}>
-
-        <Controller
-          control={control}
-          name="confirmPassword"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              placeholder="Confirm Password"
-              placeholderTextColor={COLORS.subtitle}
-              style={styles.passwordInput}
-              secureTextEntry={hideConfirmPassword}
-              value={value}
-              onChangeText={onChange}
-            />
-          )}
-        />
-
-        <TouchableOpacity
-          onPress={() =>
-            setHideConfirmPassword(
-              !hideConfirmPassword
-            )
-          }
-        >
-          <Ionicons
-            name={
-              hideConfirmPassword
-                ? "eye-off"
-                : "eye"
-            }
-            size={22}
-            color={COLORS.subtitle}
-          />
-        </TouchableOpacity>
-
-      </View>
-
-      {errors.confirmPassword && (
-        <Text style={styles.error}>
-          {errors.confirmPassword.message}
-        </Text>
-      )}
-
-      <TouchableOpacity
-        style={styles.button}
-        onPress={handleSubmit(onRegister)}
-      >
-        <Text style={styles.buttonText}>
-          Register
-        </Text>
-      </TouchableOpacity>
-    </View>
-  );
+    <Controller control={control} name="referralCode" render={({ field: { onChange, onBlur, value } }) => <TextInput style={styles.input} placeholder="Referral code (optional)" placeholderTextColor={COLORS.subtitle} value={value} onChangeText={(text) => onChange(text.toUpperCase())} onBlur={onBlur} autoCapitalize="characters" autoCorrect={false} maxLength={10} editable={!loading} />} />
+    {errors.referralCode && <Text style={styles.error}>{errors.referralCode.message}</Text>}
+    <TouchableOpacity style={[styles.button, loading && styles.disabled]} disabled={loading} onPress={handleSubmit(register)}>{loading ? <ActivityIndicator color={COLORS.textOnPrimary} /> : <Text style={styles.buttonText}>Create Account</Text>}</TouchableOpacity>
+    <TouchableOpacity onPress={() => navigation.navigate("Login")} disabled={loading}><Text style={styles.link}>Already have an account? Login</Text></TouchableOpacity>
+  </View>;
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.background,
-    justifyContent: "center",
-    padding: 25,
-  },
-
-  logo: {
-    fontSize: 70,
-    textAlign: "center",
-  },
-
-  title: {
-    fontSize: 34,
-    fontWeight: "bold",
-    textAlign: "center",
-    color: COLORS.text,
-    marginTop: SPACING.sm,
-  },
-
-  subtitle: {
-    textAlign: "center",
-    color: COLORS.subtitle,
-    marginTop: SPACING.sm,
-    marginBottom: 35,
-  },
-
-  input: {
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    backgroundColor: COLORS.card,
-    color: COLORS.text,
-    padding: SPACING.md,
-    marginBottom: SPACING.sm,
-  },
-
-  passwordContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: COLORS.border,
-    borderRadius: RADIUS.md,
-    paddingHorizontal: SPACING.md,
-    backgroundColor: COLORS.card,
-    marginTop: SPACING.xs,
-  },
-
-  passwordInput: {
-    flex: 1,
-    paddingVertical: SPACING.md,
-    color: COLORS.text,
-  },
-
-  button: {
-    backgroundColor: COLORS.accent,
-    padding: 16,
-    borderRadius: RADIUS.md,
-    marginTop: SPACING.lg,
-    ...SHADOW.glow,
-  },
-
-  buttonText: {
-    color: COLORS.textOnPrimary,
-    fontWeight: "bold",
-    textAlign: "center",
-    fontSize: 18,
-  },
-
-  error: {
-    color: COLORS.error,
-    marginBottom: SPACING.sm,
-    marginTop: 3,
-  },
+  container: { flex: 1, justifyContent: "center", padding: 25, backgroundColor: COLORS.background },
+  logo: { textAlign: "center", fontSize: 64 },
+  title: { color: COLORS.text, fontSize: 28, fontWeight: "bold", textAlign: "center", marginBottom: SPACING.xl },
+  input: { color: COLORS.text, backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.xs },
+  error: { color: COLORS.error, marginBottom: SPACING.sm },
+  strengthWrap: { marginTop: -SPACING.xs / 2, marginBottom: SPACING.sm },
+  strengthTrack: { flexDirection: "row", gap: 4 },
+  strengthSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: COLORS.border },
+  strengthLabel: { fontSize: 12, fontWeight: "600", marginTop: SPACING.xs / 2 },
+  button: { backgroundColor: COLORS.accent, padding: 16, borderRadius: RADIUS.md, marginTop: SPACING.sm },
+  disabled: { opacity: 0.6 },
+  buttonText: { color: COLORS.textOnPrimary, fontWeight: "bold", textAlign: "center", fontSize: 17 },
+  link: { color: COLORS.accentLight, textAlign: "center", marginTop: SPACING.lg },
 });

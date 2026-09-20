@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
+  ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -15,9 +16,17 @@ import { yupResolver } from "@hookform/resolvers/yup";
 
 import { loginSchema } from "../../validation/loginSchema";
 
-import { supabase } from "../../config/supabase";
 import { createUserProfile, fetchUserProfile } from "../../services/usersService";
-import { logDebug, logError } from "../../utils/logger";
+import { logDebug } from "../../utils/logger";
+import { parseAuthIdentifier } from "../../features/auth/identity";
+import { signInWithIdentifier } from "../../features/auth/authService";
+import {
+  clearLoginAttempts,
+  formatRemainingTime,
+  getLockStatus,
+  recordFailedAttempt,
+  type LockStatus,
+} from "../../features/auth/loginLockout";
 
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
@@ -25,31 +34,118 @@ import { SHADOW } from "../../theme/shadows";
 import { SPACING } from "../../theme/spacing";
 import { resolvePostLoginRoute } from "../../services/courseState";
 
+type FormData = { identifier: string; password: string };
+
+const NOT_LOCKED: LockStatus = { locked: false, remainingMs: 0 };
+
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
 
   const [hidePassword, setHidePassword] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [lockStatus, setLockStatus] = useState<LockStatus>(NOT_LOCKED);
 
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
-  } = useForm({
+  } = useForm<FormData>({
     resolver: yupResolver(loginSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
     defaultValues: {
-      email: "",
+      identifier: "",
       password: "",
     },
   });
 
-  const onLogin = async (data: any) => {
-    try {
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
-      if (error) throw error;
+  const identifierValue = watch("identifier");
 
+  // Re-check the lockout state (from SecureStore) whenever the identifier
+  // changes, so switching between two accounts on a shared device - or
+  // reopening the app while an account is still locked - reflects the
+  // correct, persisted status immediately. Debounced so this isn't a
+  // storage read on every keystroke.
+  useEffect(() => {
+    let cancelled = false;
+    const parsed = parseAuthIdentifier((identifierValue ?? "").trim());
+    if (!parsed) {
+      setLockStatus(NOT_LOCKED);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      const status = await getLockStatus(parsed.value);
+      if (!cancelled) setLockStatus(status);
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [identifierValue]);
+
+  // Live countdown while locked, so "locked for 4m 59s" ticks down on
+  // screen without the user needing to retry to find out it's expired.
+  useEffect(() => {
+    if (!lockStatus.locked) return;
+    const interval = setInterval(() => {
+      setLockStatus((prev) => {
+        if (!prev.locked) return prev;
+        const remainingMs = prev.remainingMs - 1000;
+        return remainingMs <= 0 ? NOT_LOCKED : { locked: true, remainingMs };
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [lockStatus.locked]);
+
+  const onLogin = async (data: FormData) => {
+    // Guard against double-submits (double-tap, slow network + repeat
+    // tap) in addition to the button's own `disabled` state.
+    if (loading) return;
+
+    const identifier = data.identifier.trim();
+    const parsedIdentifier = parseAuthIdentifier(identifier);
+    if (!parsedIdentifier) {
+      Alert.alert("Login Failed", "Enter a valid email or mobile number");
+      return;
+    }
+    const lockKey = parsedIdentifier.value;
+
+    // Re-verify against persisted state right before attempting the
+    // request - closes the gap where the debounced check above hasn't
+    // run yet but the account is already locked.
+    const freshLock = await getLockStatus(lockKey);
+    if (freshLock.locked) {
+      setLockStatus(freshLock);
+      Alert.alert(
+        "Account Temporarily Locked",
+        `Too many failed attempts. Please try again in ${formatRemainingTime(freshLock.remainingMs)}.`
+      );
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data: authData, error } = await signInWithIdentifier(parsedIdentifier, data.password);
+      const user = authData?.user;
+
+      if (error || !user) {
+        const status = await recordFailedAttempt(lockKey);
+        setLockStatus(status);
+        logDebug("Login rejected");
+        if (status.locked) {
+          Alert.alert(
+            "Account Temporarily Locked",
+            `Too many failed attempts. Please try again in ${formatRemainingTime(status.remainingMs)}.`
+          );
+        } else {
+          Alert.alert("Login Failed", "Invalid email/mobile number or password");
+        }
+        return;
+      }
+
+      await clearLoginAttempts(lockKey);
+      setLockStatus(NOT_LOCKED);
       logDebug("Login success");
 
       // Backfill a profile row for accounts that predate this feature.
@@ -58,11 +154,11 @@ export default function LoginScreen() {
       // overwrites an existing profile (e.g. a name the student already
       // customized).
       try {
-        const existingProfile = await fetchUserProfile(authData.user!.id);
+        const existingProfile = await fetchUserProfile(user.id);
         if (!existingProfile) {
-          await createUserProfile(authData.user!.id, {
-            name: authData.user?.user_metadata?.name || data.email.split("@")[0],
-            email: data.email,
+          await createUserProfile(user.id, {
+            name: user.user_metadata?.name || user.email?.split("@")[0] || "Student",
+            email: user.email || "",
           });
         }
       } catch (profileError) {
@@ -70,12 +166,19 @@ export default function LoginScreen() {
       }
 
       navigation.replace(await resolvePostLoginRoute());
-
     } catch (error: any) {
-      logError("Login failed", error);
-      Alert.alert("Login Failed", "Invalid email or password");
+      // Unexpected/network errors are distinct from wrong credentials -
+      // don't count them against the lockout counter, and don't imply
+      // anything about whether the identifier or password was correct.
+      logDebug("Login error", error);
+      Alert.alert("Something Went Wrong", "Please check your connection and try again.");
+    } finally {
+      setLoading(false);
     }
   };
+
+  const isLocked = lockStatus.locked;
+  const isButtonDisabled = loading || isLocked;
 
   return (
     <View style={styles.container}>
@@ -87,27 +190,29 @@ export default function LoginScreen() {
         Learn Ayurveda Anytime, Anywhere
       </Text>
 
-      {/* Email */}
+      {/* Email or mobile number */}
 
       <Controller
         control={control}
-        name="email"
-        render={({ field: { onChange, value } }) => (
+        name="identifier"
+        render={({ field: { onChange, onBlur, value } }) => (
           <TextInput
-            placeholder="Email"
+            placeholder="Email or mobile number"
             placeholderTextColor={COLORS.subtitle}
             style={styles.input}
             value={value}
             onChangeText={onChange}
-            keyboardType="email-address"
+            onBlur={onBlur}
             autoCapitalize="none"
+            keyboardType="email-address"
+            editable={!loading}
           />
         )}
       />
 
-      {errors.email && (
+      {errors.identifier && (
         <Text style={styles.error}>
-          {errors.email.message}
+          {errors.identifier.message}
         </Text>
       )}
 
@@ -117,7 +222,7 @@ export default function LoginScreen() {
         <Controller
           control={control}
           name="password"
-          render={({ field: { onChange, value } }) => (
+          render={({ field: { onChange, onBlur, value } }) => (
             <TextInput
               placeholder="Password"
               placeholderTextColor={COLORS.subtitle}
@@ -125,12 +230,15 @@ export default function LoginScreen() {
               secureTextEntry={hidePassword}
               value={value}
               onChangeText={onChange}
+              onBlur={onBlur}
+              editable={!loading}
             />
           )}
         />
 
         <TouchableOpacity
           onPress={() => setHidePassword(!hidePassword)}
+          disabled={loading}
         >
           <Ionicons
             name={hidePassword ? "eye-off" : "eye"}
@@ -146,10 +254,19 @@ export default function LoginScreen() {
         </Text>
       )}
 
+      {/* Lockout notice */}
+
+      {isLocked && (
+        <Text style={styles.lockedNotice}>
+          Too many failed attempts. Try again in {formatRemainingTime(lockStatus.remainingMs)}.
+        </Text>
+      )}
+
       {/* Forgot Password */}
 
       <TouchableOpacity
         onPress={() => navigation.navigate("ForgotPassword")}
+        disabled={loading}
       >
         <Text style={styles.forgot}>
           Forgot Password?
@@ -159,18 +276,24 @@ export default function LoginScreen() {
       {/* Login Button */}
 
       <TouchableOpacity
-        style={styles.button}
+        style={[styles.button, isButtonDisabled && styles.buttonDisabled]}
         onPress={handleSubmit(onLogin)}
+        disabled={isButtonDisabled}
       >
-        <Text style={styles.buttonText}>
-          Login
-        </Text>
+        {loading ? (
+          <ActivityIndicator color={COLORS.textOnPrimary} />
+        ) : (
+          <Text style={styles.buttonText}>
+            {isLocked ? `Locked (${formatRemainingTime(lockStatus.remainingMs)})` : "Login"}
+          </Text>
+        )}
       </TouchableOpacity>
 
       {/* Register */}
 
       <TouchableOpacity
         onPress={() => navigation.navigate("Register")}
+        disabled={loading}
       >
         <Text style={styles.register}>
           Don't have an account? Register
@@ -240,6 +363,16 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
 
+  lockedNotice: {
+    color: COLORS.error,
+    backgroundColor: COLORS.surfaceMuted,
+    borderRadius: RADIUS.sm,
+    padding: SPACING.sm,
+    marginTop: SPACING.xs,
+    marginBottom: SPACING.sm,
+    textAlign: "center",
+  },
+
   forgot: {
     color: COLORS.accentLight,
     textAlign: "right",
@@ -252,6 +385,10 @@ const styles = StyleSheet.create({
     padding: 16,
     borderRadius: RADIUS.md,
     ...SHADOW.glow,
+  },
+
+  buttonDisabled: {
+    opacity: 0.6,
   },
 
   buttonText: {

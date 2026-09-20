@@ -1,3 +1,5 @@
+import { Sentry } from "../config/sentry";
+
 // SECURITY FIX: plain console.log/console.error calls run in production
 // builds too (RN/Hermes does not strip them), and their output is
 // reachable via `adb logcat` on Android and can be picked up by any
@@ -21,7 +23,10 @@ export function logError(label: string, error?: unknown): void {
     // eslint-disable-next-line no-console
     console.error(label, message ?? error);
   }
-  // Wire this up to your crash/telemetry provider (Sentry, etc.) here if
-  // you have one - keep it to `label` + `message`, never the raw error
-  // object or request/response payloads.
+  // Wired up to Sentry - deliberately does NOT send the raw `error` object,
+  // only a fresh Error built from `label` + `message`, so nothing attached
+  // to the original error (request payloads, tokens, etc. some SDKs carry)
+  // ever leaves the device. This keeps the exact same PII policy as above,
+  // just visible on the Sentry dashboard instead of nowhere.
+  Sentry.captureException(new Error(`${label}${message ? `: ${message}` : ""}`));
 }

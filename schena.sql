@@ -40,11 +40,74 @@ create table if not exists public.profiles (
   name text,
   email text,
   phone text,
+  email_verified boolean not null default false,
+  mobile_verified boolean not null default false,
   photo_url text,
   college text,
   blocked boolean not null default false,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists email_verified boolean not null default false,
+  add column if not exists mobile_verified boolean not null default false,
+  add column if not exists updated_at timestamptz not null default now();
+
+-- Password login by phone resolves a profile to its linked auth account on
+-- the server. Store a canonical E.164 value for that lookup, rather than
+-- searching free-form phone text. The raw `phone` column remains for
+-- backwards compatibility with existing clients.
+alter table public.profiles
+  add column if not exists phone_normalized text;
+
+create or replace function public.normalize_phone(input text)
+returns text
+language sql
+immutable
+parallel safe
+as $$
+  select case
+    when input is null or btrim(input) = '' then null
+    when regexp_replace(btrim(input), '[[:space:]().-]', '', 'g') ~ '^00[1-9][0-9]{7,14}$'
+      then '+' || substr(regexp_replace(btrim(input), '[[:space:]().-]', '', 'g'), 3)
+    when regexp_replace(btrim(input), '[[:space:]().-]', '', 'g') ~ '^\+[1-9][0-9]{7,14}$'
+      then regexp_replace(btrim(input), '[[:space:]().-]', '', 'g')
+    else null
+  end;
+$$;
+
+-- Backfill valid legacy values without changing what is displayed to users.
+update public.profiles
+set phone_normalized = public.normalize_phone(phone)
+where phone_normalized is distinct from public.normalize_phone(phone);
+
+create or replace function public.sync_profile_phone_normalized()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.phone_normalized := public.normalize_phone(new.phone);
+  if (tg_op = 'INSERT' or new.phone is distinct from old.phone)
+    and new.phone is not null
+    and btrim(new.phone) <> ''
+    and new.phone_normalized is null then
+    raise exception 'phone must be a valid E.164 number';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_sync_phone_normalized on public.profiles;
+create trigger profiles_sync_phone_normalized
+  before insert or update on public.profiles
+  for each row execute function public.sync_profile_phone_normalized();
+
+-- A phone may identify only one linked account. Resolve and correct any
+-- pre-existing duplicate values before applying this index in production.
+create unique index if not exists profiles_phone_normalized_unique
+  on public.profiles (phone_normalized)
+  where phone_normalized is not null;
 
 -- Auto-creates a profile row the moment someone signs up via Supabase Auth.
 create or replace function public.handle_new_user()
@@ -54,8 +117,15 @@ security definer
 set search_path = public
 as $$
 begin
-  insert into public.profiles (id, name, email)
-  values (new.id, coalesce(new.raw_user_meta_data ->> 'name', ''), new.email)
+  insert into public.profiles (id, name, email, phone, email_verified, mobile_verified)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data ->> 'name', ''),
+    new.email,
+    new.phone,
+    new.email_confirmed_at is not null,
+    new.phone_confirmed_at is not null
+  )
   on conflict (id) do nothing;
   return new;
 end;
@@ -65,6 +135,22 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+create or replace function public.touch_profile_updated_at()
+returns trigger
+language plpgsql
+set search_path = public
+as $$
+begin
+  new.updated_at := now();
+  return new;
+end;
+$$;
+
+drop trigger if exists profiles_touch_updated_at on public.profiles;
+create trigger profiles_touch_updated_at
+  before update on public.profiles
+  for each row execute function public.touch_profile_updated_at();
 
 
 -- ============================================================================
@@ -468,3 +554,4 @@ create policy "notes_admin_write" on storage.objects
 -- ============================================================================
 -- DONE. Re-run any time - every statement above is safe to repeat.
 -- ============================================================================
+cd

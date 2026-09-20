@@ -1,6 +1,6 @@
 import React, { useRef } from "react";
 import {
-  TouchableWithoutFeedback,
+  Pressable,
   Animated,
   Text,
   StyleSheet,
@@ -39,7 +39,7 @@ export default function YearCard({
   const iconGlow = mixColor(color, "#FFFFFF", 0.25);
 
   return (
-    <TouchableWithoutFeedback onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
       <Animated.View style={[styles.card, { transform: [{ scale }] }]}>
         <View style={[styles.iconBadge, { backgroundColor: `${color}1F`, borderColor: `${color}3D` }]}>
           <View style={[styles.iconGlowDot, { backgroundColor: iconGlow }]} />
@@ -53,7 +53,7 @@ export default function YearCard({
 
         <Text style={[styles.chevron, { color }]}>›</Text>
       </Animated.View>
-    </TouchableWithoutFeedback>
+    </Pressable>
   );
 }
 

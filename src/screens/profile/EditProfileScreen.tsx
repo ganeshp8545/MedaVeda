@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../../config/supabase";
 import { getCurrentUser } from "../../services/authState";
 import { fetchUserProfile, updateUserProfile } from "../../services/usersService";
+import { normalizePhoneNumber } from "../../utils/phone";
 
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
@@ -50,6 +51,16 @@ export default function EditProfileScreen() {
   const handleSave = async () => {
     if (!user) return;
 
+    let normalizedMobile: string | undefined;
+    if (mobile.trim()) {
+      const candidate = normalizePhoneNumber(mobile);
+      if (!candidate) {
+        Alert.alert("Invalid mobile number", "Use international format with country code, for example +919876543210.");
+        return;
+      }
+      normalizedMobile = candidate;
+    }
+
     try {
       setSaving(true);
 
@@ -59,7 +70,7 @@ export default function EditProfileScreen() {
 
       await updateUserProfile(user.id, {
         name,
-        mobile: mobile || undefined,
+        mobile: normalizedMobile,
       });
 
       Alert.alert("Success", "Profile updated successfully.");
@@ -94,7 +105,7 @@ export default function EditProfileScreen() {
 
       <TextInput
         style={styles.input}
-        placeholder="Mobile Number"
+        placeholder="Mobile number (e.g. +919876543210)"
         placeholderTextColor={COLORS.subtitle}
         value={mobile}
         onChangeText={setMobile}

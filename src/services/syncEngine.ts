@@ -33,17 +33,24 @@ let syncInProgress = false;
 let unsubscribeNetInfo: (() => void) | null = null;
 let safetyInterval: ReturnType<typeof setInterval> | null = null;
 
-function rowToQueueItem(row: any): SyncQueueItem {
-  return {
-    queueId: row.queue_id,
-    entityType: row.entity_type,
-    operation: row.operation,
-    payload: JSON.parse(row.payload),
-    createdAt: row.created_at,
-    attemptCount: row.attempt_count,
-    lastError: row.last_error,
-    syncedAt: row.synced_at,
-  };
+// Returns null if the row's payload isn't valid JSON (e.g. the app was
+// killed mid-write, or on-disk corruption) - never throws, so one bad
+// row can't take down the whole drainQueue() pass.
+function rowToQueueItem(row: any): SyncQueueItem | null {
+  try {
+    return {
+      queueId: row.queue_id,
+      entityType: row.entity_type,
+      operation: row.operation,
+      payload: JSON.parse(row.payload),
+      createdAt: row.created_at,
+      attemptCount: row.attempt_count,
+      lastError: row.last_error,
+      syncedAt: row.synced_at,
+    };
+  } catch {
+    return null;
+  }
 }
 
 /** Call this from any repository/service right after a successful local write. */
@@ -67,8 +74,22 @@ function getPendingItems(): SyncQueueItem[] {
   const db = getDb();
   const rows = db.getAllSync(
     `SELECT * FROM sync_queue WHERE synced_at IS NULL ORDER BY created_at ASC LIMIT 50;`
-  );
-  return rows.map(rowToQueueItem);
+  ) as any[];
+
+  const items: SyncQueueItem[] = [];
+  for (const row of rows) {
+    const item = rowToQueueItem(row);
+    if (item) {
+      items.push(item);
+    } else {
+      // Corrupted payload - can never sync as-is. Drop it from the queue
+      // (same "give up" treatment as a row that failed 5 real sync
+      // attempts) rather than let it block every row behind it forever.
+      console.log(`sync_queue row ${row?.queue_id} has corrupt payload JSON - dropping it`);
+      markSynced(row.queue_id);
+    }
+  }
+  return items;
 }
 
 function markSynced(queueId: string): void {

@@ -1,3 +1,8 @@
+// Imported first, before anything else, so Sentry is initialized as early
+// as possible in the app's lifecycle and can catch errors thrown by any
+// later import/render in this file.
+import "../config/sentry";
+
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "react-native";
@@ -9,11 +14,14 @@ import {
   restoreStudyReminderOnLaunch,
 } from "../services/studyReminderService";
 import usePreventScreenshot from "../hooks/usePreventScreenshot";
+import ErrorBoundary from "../components/ErrorBoundary";
+import { initDeepLinkListener } from "../features/auth/deepLinkStore";
 
 import SplashScreen from "../screens/auth/SplashScreen";
 import LoginScreen from "../screens/auth/LoginScreen";
 import RegisterScreen from "../screens/auth/RegisterScreen";
 import ForgotPasswordScreen from "../screens/auth/ForgotPasswordScreen";
+import ResetPasswordScreen from "../screens/auth/ResetPasswordScreen";
 
 import HomeScreen from "../screens/home/HomeScreen";
 import SelectCourseYearScreen from "../screens/onboarding/SelectCourseYearScreen";
@@ -65,20 +73,26 @@ const navigationTheme = {
   },
 };
 
-// Legacy: PaymentSuccess/PaymentFailed used to be reached via an
-// medveda:// deep link from the external browser after the hosted
-// checkout page finished. That flow is no longer used - payment now
-// happens in-app (PaymentCheckoutScreen's WebView), which reaches these
-// same screens via normal in-app navigation instead. Left in place in
-// case a custom domain is set up later and this reverts to a browser
-// based flow; harmless either way. Still requires app.json / app.config.js
-// to declare "scheme": "medveda" for the deep link itself to work.
+// Legacy: PaymentSuccess/PaymentFailed used to be reached via a browser
+// deep link after the hosted checkout page finished. That flow is no
+// longer used - payment now happens in-app (PaymentCheckoutScreen's
+// WebView), which reaches these same screens via normal in-app
+// navigation instead. Left in place in case a custom domain is set up
+// later and this reverts to a browser based flow; harmless either way.
+//
+// ResetPassword IS live: Supabase's password-reset email links back to
+// "ayurpulse://reset-password" (see authService.PASSWORD_RESET_REDIRECT_URL).
+//
+// NOTE: the prefix below must match app.json's "scheme" field exactly
+// ("ayurpulse", not "medveda" - that scheme was never actually
+// registered there) or none of these deep links will open the app.
 const linking = {
-  prefixes: ["medveda://"],
+  prefixes: ["ayurpulse://"],
   config: {
     screens: {
       PaymentSuccess: "payment-success",
       PaymentFailed: "payment-failed",
+      ResetPassword: "reset-password",
     },
   },
 };
@@ -89,6 +103,14 @@ export default function AppNavigator() {
   // a safety net for Android dropping exact alarms after a device
   // reboot - the OS otherwise keeps firing the schedule on its own).
   useEffect(() => {
+    // Must run first, and before any Linking.getInitialURL() call
+    // elsewhere (e.g. SplashScreen), so the "url" event listener is
+    // already registered by the time a warm-start deep link tap fires.
+    // This was defined in deepLinkStore.ts but never actually called
+    // anywhere - so lastUrl stayed null forever, and ResetPasswordScreen
+    // could never recover the recovery token.
+    initDeepLinkListener();
+
     setupNotificationChannel();
     restoreStudyReminderOnLaunch();
   }, []);
@@ -100,7 +122,7 @@ export default function AppNavigator() {
   usePreventScreenshot();
 
   return (
-    <>
+    <ErrorBoundary>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <NavigationContainer theme={navigationTheme} linking={linking}>
         <Stack.Navigator
@@ -144,8 +166,9 @@ export default function AppNavigator() {
         <Stack.Screen name="Privacy" component={PrivacyScreen} />
         <Stack.Screen name="Terms" component={TermsScreen} />
         <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
       </Stack.Navigator>
     </NavigationContainer>
-    </>
+    </ErrorBoundary>
   );
 }
