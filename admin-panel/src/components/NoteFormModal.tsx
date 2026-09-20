@@ -5,7 +5,7 @@ import Input from "./Input";
 import Button from "./Button";
 import ChapterPicker from "./ChapterPicker";
 
-import { uploadFile } from "../services/storageService";
+import { extractStoragePath, getSignedUrl, uploadFile } from "../services/storageService";
 
 import type { Note, NoteInput } from "../types/note";
 import type { Year } from "../types/year";
@@ -110,6 +110,37 @@ export default function NoteFormModal({
     return Object.keys(newErrors).length === 0;
   }
 
+  // The stored pdfUrl is a public-style URL that stops resolving once the
+  // "notes" bucket is private, so open a short-lived signed URL instead. The
+  // tab is opened synchronously (popup blockers) and pointed at the URL once
+  // it is ready.
+  async function handleViewCurrentPdf() {
+    const path = extractStoragePath("notes", form.pdfUrl);
+    if (!path) {
+      // Not a notes-bucket URL (e.g. an external link): open it as-is.
+      window.open(form.pdfUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    const tab = window.open("", "_blank");
+    try {
+      const signedUrl = await getSignedUrl("notes", path);
+      if (tab) {
+        tab.opener = null;
+        tab.location.href = signedUrl;
+      } else {
+        window.location.assign(signedUrl);
+      }
+    } catch (err: any) {
+      console.error(err);
+      tab?.close();
+      setErrors({
+        ...errors,
+        pdfUrl: "Could not open the current PDF. Please try again.",
+      });
+    }
+  }
+
   async function handleSubmit() {
     if (!validate()) return;
 
@@ -193,14 +224,13 @@ export default function NoteFormModal({
         )}
 
         {!selectedFile && form.pdfUrl && (
-          <a
-            href={form.pdfUrl}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            type="button"
+            onClick={handleViewCurrentPdf}
             className="mt-1.5 inline-block text-xs font-medium text-green-700 hover:underline"
           >
             View current PDF
-          </a>
+          </button>
         )}
 
         {uploading && (

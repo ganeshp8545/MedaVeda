@@ -128,3 +128,15 @@ export async function getSignedUrl(
   if (error) throw error;
   return data.signedUrl;
 }
+
+// Extracts the object path from a stored getPublicUrl()-style URL
+// (.../storage/v1/object/public/<bucket>/<path>). Pure string parsing, so it
+// works whether or not the bucket is currently public. Returns null when the
+// URL does not point at that bucket.
+export function extractStoragePath(bucket: string, storedUrl: string): string | null {
+  const marker = `/object/public/${bucket}/`;
+  const idx = storedUrl.indexOf(marker);
+  if (idx === -1) return null;
+  const path = storedUrl.slice(idx + marker.length).split("?")[0];
+  return path ? decodeURIComponent(path) : null;
+}
