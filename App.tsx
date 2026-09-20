@@ -16,6 +16,7 @@ import {
 } from "./src/services/syncEngine";
 
 import { registerForPushNotifications } from "./src/services/pushNotifications";
+import { getCurrentUser } from "./src/services/authState";
 
 export default function App() {
   // Force-update gate: checked on launch and on every resume; fails open.
@@ -31,7 +32,7 @@ export default function App() {
         startSyncEngine();
 
         // Register this device for push notifications
-        const token = await registerForPushNotifications();
+        const token = await registerForPushNotifications(getCurrentUser());
 
         console.log("Expo Push Token:", token);
       } catch (err) {

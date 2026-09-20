@@ -24,7 +24,7 @@ let pushRegisteredForUserId: string | null = null;
 function maybeRegisterForPush(user: User | null): void {
   if (!user || pushRegisteredForUserId === user.id) return;
   pushRegisteredForUserId = user.id;
-  registerForPushNotifications();
+  registerForPushNotifications(user);
 }
 
 // BUG FIX: the admin panel has a "Block User" toggle (profiles.blocked)
@@ -58,15 +58,18 @@ async function enforceNotBlocked(user: User): Promise<void> {
   blockedListeners.forEach((fn) => fn());
 }
 
-supabase.auth.getSession().then(({ data }) => {
-  currentUser = data.session?.user ?? null;
-  if (currentUser) enforceNotBlocked(currentUser);
-  maybeRegisterForPush(currentUser);
-});
+supabase.auth
+  .getSession()
+  .then(({ data }) => {
+    currentUser = data.session?.user ?? null;
+    if (currentUser) enforceNotBlocked(currentUser).catch(() => {});
+    maybeRegisterForPush(currentUser);
+  })
+  .catch((err) => console.warn("getSession failed:", err));
 
 supabase.auth.onAuthStateChange((_event, session) => {
   currentUser = session?.user ?? null;
-  if (currentUser) enforceNotBlocked(currentUser);
+  if (currentUser) enforceNotBlocked(currentUser).catch(() => {});
   maybeRegisterForPush(currentUser);
 });
 

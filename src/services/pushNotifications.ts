@@ -17,9 +17,11 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 import type * as ExpoNotifications from "expo-notifications";
 
 import { supabase } from "../config/supabase";
-import { getCurrentUser } from "./authState";
+import type { User } from "@supabase/supabase-js";
 
-const isExpoGo = Constants.executionEnvironment === ExecutionEnvironment.StoreClient;
+// Push is unsupported in Expo Go (SDK 53+) and on web (no vapidPublicKey).
+const isExpoGo =
+  Constants.executionEnvironment === ExecutionEnvironment.StoreClient || Platform.OS === "web";
 
 let Notifications: typeof ExpoNotifications | null = null;
 if (!isExpoGo) {
@@ -33,13 +35,12 @@ if (!isExpoGo) {
  * it to the `push_tokens` table. Call once at app startup (after the
  * user is signed in) - safe to call on every launch, it's an upsert.
  */
-export async function registerForPushNotifications(): Promise<string | null> {
+export async function registerForPushNotifications(user: User | null): Promise<string | null> {
   if (isExpoGo || !Notifications) {
-    console.log("Push notifications unavailable in Expo Go - skipping registration.");
+    console.log("Push notifications unavailable in Expo Go/web - skipping registration.");
     return null;
   }
 
-  const user = getCurrentUser();
   if (!user) return null;
 
   try {
@@ -69,34 +70,15 @@ export async function registerForPushNotifications(): Promise<string | null> {
     );
     const token = tokenResponse.data;
 
-    console.log("==================================");
-    console.log("Expo Push Token:", token);
-    console.log("User ID:", user.id);
-    console.log("Platform:", Platform.OS);
-    console.log("==================================");
-
-  const { data, error } = await supabase
-  .from("push_tokens")
-  .upsert(
-    {
-      user_id: user.id,
-      expo_push_token: token,
-      platform: Platform.OS,
-      updated_at: new Date().toISOString(),
-    },
-    {
-      onConflict: "expo_push_token",
-    }
-  )
-  .select();
-
-console.log("UPSERT RESULT:", data);
-console.log("UPSERT ERROR:", error);
-
-if (error) throw error;
-
-console.log("✅ Push token saved successfully.");
-
+    const { error } = await supabase.from("push_tokens").upsert(
+      {
+        user_id: user.id,
+        expo_push_token: token,
+        platform: Platform.OS,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "expo_push_token" }
+    );
     if (error) throw error;
 
     return token;
@@ -116,12 +98,9 @@ export async function unregisterCurrentDeviceToken(): Promise<void> {
       projectId ? { projectId } : undefined
     );
     await supabase.from("push_tokens").delete().eq("expo_push_token", tokenResponse.data);
-  } catch (err: any) {
-  console.error("❌ Push Registration Error");
-  console.error(err);
-  console.error(err?.message);
-  return;
-}
+  } catch (err) {
+    console.error("Failed to unregister push token:", err);
+  }
 }
 
 /**
