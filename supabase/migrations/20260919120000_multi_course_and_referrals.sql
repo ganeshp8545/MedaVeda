@@ -20,8 +20,12 @@
 --     nullable ("on delete set null") in the reconstructed schema.
 --   - purchases has a product_id column (added by
 --     20260801150000_razorpay_webhook_atomic_grant.sql) usable for backfill.
---   - No duplicate/conflicting RLS policy names exist today (verify with
---     `select * from pg_policies where schemaname='public'` before/after).
+--   - RLS policy names on orders/purchases: the real migrations and the
+--     reconstructed schena.sql use DIFFERENT names for the same rules, so both
+--     sets may be live (redundant, not conflicting - permissive policies are
+--     ORed). This migration does not touch them; list what is live with
+--     `select tablename, policyname, cmd from pg_policies
+--       where schemaname = 'public' order by 1, 3, 2;` before applying.
 --
 -- ROLLBACK NOTES (not executed — for manual use if this needs reverting):
 --   - Dropping the new `course_id`/`year_id` columns added here is the
@@ -662,6 +666,18 @@ as $$
 declare
   v_course_id text;
 begin
+  -- Only the payment system (service role: no auth.uid()) or an admin may
+  -- mark an order paid. The real orders RLS already requires status =
+  -- 'created' on insert and forbids 'paid' on update, but the reconstructed
+  -- schena.sql has an insert policy without that check - if that one is live,
+  -- a student could fabricate "paid" orders (no content, but it inflates the
+  -- admin revenue analytics). This holds whichever policies are deployed.
+  if auth.uid() is not null and new.status = 'paid'
+     and (tg_op = 'INSERT' or old.status is distinct from 'paid')
+     and not public.am_i_admin() then
+    raise exception 'Orders can only be marked paid by the payment system';
+  end if;
+
   select course_id into v_course_id from public.products where id = new.product_id;
   if v_course_id is null then
     raise exception 'Unknown product_id % on orders', new.product_id;
@@ -1213,13 +1229,18 @@ create trigger profiles_before_insert_referral_code
   for each row execute function public.profiles_generate_referral_code();
 
 -- Backfill existing profiles one at a time (collision-safe).
+-- profiles_before_write() (§8) rejects changes to referral_code from anyone
+-- who isn't an admin or a validated RPC, and a migration is neither - so use
+-- the same transaction-local bypass flag set_my_course_year() uses.
 do $$
 declare
   r record;
 begin
+  perform set_config('app.allow_profile_admin_fields', 'true', true);
   for r in select id from public.profiles where referral_code is null loop
     update public.profiles set referral_code = public.generate_unique_referral_code() where id = r.id;
   end loop;
+  perform set_config('app.allow_profile_admin_fields', 'false', true);
 end;
 $$;
 
