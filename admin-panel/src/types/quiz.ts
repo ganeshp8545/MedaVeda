@@ -23,6 +23,10 @@ export interface QuizTest {
   active: boolean;
   questions: QuizTestQuestion[];
   createdAt?: any;
+
+  // Added by 20260919120000_multi_course_and_referrals.sql - see types/course.ts.
+  courseId: string;
+  courseTitle?: string;
 }
 
 export type QuizTestInput = Omit<QuizTest, "id" | "createdAt">;
