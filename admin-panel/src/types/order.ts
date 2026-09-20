@@ -3,7 +3,9 @@ export type OrderStatus = "created" | "paid" | "failed" | "refunded";
 export interface Order {
   id: string;
 
-  userId: string;
+  // null once the student has deleted their account (the order is kept, anonymised).
+  userId: string | null;
+  userDeleted?: boolean;
   userName: string;
   userEmail: string;
 

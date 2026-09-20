@@ -51,7 +51,7 @@ export default function OrdersTable({ orders, onStatusChange }: Props) {
               <td className="p-4 text-gray-500">{formatDate(order.createdAt)}</td>
 
               <td className="p-4">
-                <div className="font-medium text-gray-800">{order.userName || "-"}</div>
+                <div className={order.userDeleted ? "font-medium text-gray-400 italic" : "font-medium text-gray-800"}>{order.userName || "-"}</div>
                 <div className="text-xs text-gray-400">{order.userEmail || "-"}</div>
               </td>
 
