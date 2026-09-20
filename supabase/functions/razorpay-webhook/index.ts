@@ -2,6 +2,8 @@ import { settleCapturedPayment, settleRefund } from "../_shared/settle.ts";
 
 const encoder = new TextEncoder();
 const HEX_SIGNATURE = /^[0-9a-f]{64}$/i;
+const PAYMENT_ID = /^pay_[A-Za-z0-9]{6,32}$/;
+const ORDER_ID = /^order_[A-Za-z0-9]{6,32}$/;
 
 function response(status: number, body?: Record<string, string>): Response {
   return new Response(body ? JSON.stringify(body) : null, {
@@ -73,6 +75,26 @@ type RazorpayWebhook = {
   };
 };
 
+type ValidatedPayment = { id: string; orderId: string; amountPaise: number };
+
+// Narrows the untrusted webhook entity to the fields settlement relies on.
+// Anything missing or malformed is rejected here, before settlement is reached.
+function parseCapturedPayment(
+  entity: RazorpayPayment | undefined
+): ({ ok: true } & ValidatedPayment) | { ok: false; problem: string } {
+  if (!entity || typeof entity !== "object") return { ok: false, problem: "missing payment entity" };
+
+  const { id, order_id: orderId, amount, status, captured } = entity;
+  if (typeof id !== "string" || !PAYMENT_ID.test(id)) return { ok: false, problem: "missing or malformed payment id" };
+  if (typeof orderId !== "string" || !ORDER_ID.test(orderId)) return { ok: false, problem: "missing or malformed order id" };
+  if (typeof amount !== "number" || !Number.isSafeInteger(amount) || amount <= 0) {
+    return { ok: false, problem: "missing or invalid amount" };
+  }
+  if (status !== "captured" && captured !== true) return { ok: false, problem: "payment not captured" };
+
+  return { ok: true, id, orderId, amountPaise: amount };
+}
+
 Deno.serve(async (request: Request) => {
   if (request.method !== "POST") return response(405, { error: "Method not allowed" });
 
@@ -123,11 +145,10 @@ Deno.serve(async (request: Request) => {
   // and refund.processed is ignored, so out-of-order delivery is harmless.
   if (event.event !== "payment.captured") return response(204);
 
-  const payment = event.payload?.payment?.entity;
-  if (!payment?.id || !payment.order_id || !Number.isSafeInteger(payment.amount)
-    || payment.amount <= 0 || (payment.status !== "captured" && payment.captured !== true)) {
-    console.error("razorpay-webhook: malformed payment.captured payload", { eventId });
-    return response(400, { error: "Invalid payment event" });
+  const payment = parseCapturedPayment(event.payload?.payment?.entity);
+  if (!payment.ok) {
+    console.error("razorpay-webhook: malformed payment.captured payload", { eventId, problem: payment.problem });
+    return response(400, { error: `Invalid payment event: ${payment.problem}` });
   }
 
   // Same settlement path as verify-payment: re-fetch the payment from Razorpay,
@@ -138,7 +159,7 @@ Deno.serve(async (request: Request) => {
   try {
     result = await settleCapturedPayment({
       eventId,
-      razorpayOrderId: payment.order_id,
+      razorpayOrderId: payment.orderId,
       razorpayPaymentId: payment.id,
     });
   } catch (error) {
