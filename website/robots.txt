@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /reset-password
+Disallow: /account-verified
+
+Sitemap: https://medveda.in/sitemap.xml

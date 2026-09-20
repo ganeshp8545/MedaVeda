@@ -1,0 +1,69 @@
+<!--META {"path":"/privacy-policy","title":"Privacy Policy","description":"How MedVeda collects, uses, shares and protects your personal data, and how to access, correct or delete it."} -->
+<section class="page-hero"><div class="wrap"><span class="eyebrow">Legal</span><h1>Privacy Policy</h1><p>Effective date: {{EFFECTIVE_DATE}}</p></div></section>
+<section class="section"><div class="wrap prose">
+<p class="notice"><strong>Template notice:</strong> this policy was drafted from what the MedVeda app and its backend actually do. It should be reviewed by the owner and a qualified lawyer before you rely on it.</p>
+
+<h2 style="margin-top:0">1. Who we are</h2>
+<p>This policy applies to the MedVeda mobile app (Android package <code>com.ayurpulse.app</code>) and the website medveda.in (together, the "Service"), operated by {{COMPANY_LEGAL_NAME}} ("MedVeda", "we", "us"), {{BUSINESS_ADDRESS}}, India. For the purposes of India's Digital Personal Data Protection Act, 2023 ("DPDP Act") we act as the Data Fiduciary for the personal data described below. Contact: <a href="mailto:{{SUPPORT_EMAIL}}">{{SUPPORT_EMAIL}}</a>.</p>
+
+<h2>2. Data we collect</h2>
+<div class="table-wrap"><table>
+<thead><tr><th>Category</th><th>What</th><th>Why</th></tr></thead><tbody>
+<tr><td>Account</td><td>Full name, email address, mobile number, password (managed by our authentication provider, Supabase Auth), email/mobile verification status</td><td>Create and secure your account, sign you in by email or mobile number, send account emails</td></tr>
+<tr><td>Study profile</td><td>Selected course and academic year, referral code you were given or entered</td><td>Show the right content; run the referral programme</td></tr>
+<tr><td>Purchases &amp; payments</td><td>Orders, purchased products and scope, amount, status, Razorpay order and payment IDs, timestamps</td><td>Unlock content, order history, support, accounting and fraud prevention</td></tr>
+<tr><td>Learning activity</td><td>Quiz attempts and scores; usage events such as screens viewed, chapters/notes/videos opened, quizzes attempted, orders created, purchases unlocked, and search terms</td><td>Save your progress, improve the app, understand which content is used</td></tr>
+<tr><td>Notifications</td><td>Expo push token and device platform (e.g. Android), your notification preferences</td><td>Deliver push notifications you have allowed</td></tr>
+<tr><td>Referrals</td><td>Your referral code, referrals made or received and their status</td><td>Operate Refer &amp; Earn when it is enabled, and prevent abuse</td></tr>
+<tr><td>Crash and error data</td><td>Error reports and performance traces sent to Sentry in release builds when enabled (device model, OS version, app version, error details)</td><td>Find and fix bugs</td></tr>
+<tr><td>Support</td><td>Anything you send us by email or WhatsApp</td><td>Respond to you</td></tr>
+</tbody></table></div>
+<p><strong>What we do not collect:</strong> we do not collect your location, contacts or photos. We do not store your debit/credit card numbers, UPI PINs or bank credentials; payments are handled by Razorpay.</p>
+
+<h3>Data stored on your device</h3>
+<p>The app keeps some data locally: your sign-in session (in the device's secure storage), downloaded notes and quizzes and an offline database (SQLite) with queued quiz scores awaiting sync, recently viewed chapters, recent searches, study streak, study-reminder and notification-preference settings. This data stays on your device until you delete downloads, sign out, clear app data or uninstall the app.</p>
+
+<h2>3. Why we use your data, and consent</h2>
+<p>We process your data to provide the Service you asked for (account, content, purchases), to run and secure it (fraud/abuse prevention, error monitoring), to communicate with you, and to comply with law. Where the DPDP Act requires consent, we rely on the consent you give when you register and use the app; you can withdraw consent by deleting your account (section 9), and you can switch off push notifications in the app or your phone settings at any time. We may also process data for "legitimate uses" the DPDP Act recognises, such as complying with legal obligations.</p>
+
+<h2>4. Who we share data with</h2>
+<p>We do not sell your personal data. We share it only with service providers that process it for us:</p>
+<ul>
+<li><strong>Supabase</strong> – database, authentication, file storage and server functions. Our Supabase project is hosted on Amazon Web Services in the <strong>Asia-Pacific (Seoul, ap-northeast-2)</strong> region, so your data is stored and processed outside India.</li>
+<li><strong>Razorpay</strong> – payment processing. Razorpay receives the details needed to complete a payment and has its own privacy policy.</li>
+<li><strong>Expo (Expo Push Notification service)</strong> – delivers push notifications to your device using your push token.</li>
+<li><strong>Sentry</strong> – crash and error reporting, when enabled in the release build.</li>
+<li><strong>Google Play / Google</strong> – app distribution and, on our website, Google Fonts (see section 10).</li>
+<li><strong>Resend</strong> – sends our account emails (email verification and password reset) on our behalf; it is set up as the custom SMTP provider for our authentication service. Resend receives your email address and the content of those messages in order to deliver them.</li>
+<li><strong>Authorities</strong> – where required by law or to protect rights and safety.</li>
+</ul>
+<p>Each provider handles data under its own terms and privacy policy.</p>
+
+<h2>5. How long we keep data</h2>
+<p>We keep your account and study data while your account is active. If you delete your account, we delete the data described on our <a href="/delete-account">Account &amp; Data Deletion</a> page. Some records, such as transaction and tax/accounting records, may be kept for as long as the law requires ({{DATA_RETENTION_PERIOD}}). Crash reports and usage events are kept for {{ANALYTICS_RETENTION_PERIOD}}. Backups are overwritten in the normal cycle.</p>
+
+<h2>6. Security</h2>
+<p>We use encrypted connections (HTTPS) to Supabase, row-level access rules so that students can read only their own account data, secure device storage for your session, time-limited signed links for paid notes, and restricted administrative access. No system is perfectly secure; please keep your password private. If a personal data breach affects you we will notify you and the Data Protection Board of India as the law requires.</p>
+
+<h2>7. Your rights</h2>
+<p>Under the DPDP Act, you may: ask for a summary of the personal data we hold and who we share it with; ask us to correct or update inaccurate data (you can edit your name and profile in the app); ask us to erase your data; withdraw consent; nominate another person to exercise your rights in case of death or incapacity; and have your grievance addressed. To exercise these rights, use the in-app options or email <a href="mailto:{{SUPPORT_EMAIL}}">{{SUPPORT_EMAIL}}</a> from your registered email address. We will respond within {{RIGHTS_RESPONSE_TIME}}. If you are not satisfied, you may complain to the Data Protection Board of India once it is operational.</p>
+
+<h2>8. Children</h2>
+<p>MedVeda is intended for students of degree-level AYUSH courses and is not directed at children. If you are under 18, please use the app only with the consent and supervision of a parent or guardian. We do not knowingly collect data from children without verifiable parental consent; if you believe we have, contact us and we will delete it.</p>
+
+<h2>9. Deleting your account and data</h2>
+<p>You can delete your account in the app under <strong>Settings → Delete Account</strong>, or follow the steps on the <a href="/delete-account">Account &amp; Data Deletion</a> page.</p>
+
+<h2>10. Website, cookies and browser storage</h2>
+<p>This website does not use advertising or tracking cookies, and we do not run analytics scripts on it. Pages load fonts from Google Fonts, so Google receives your IP address and browser details when a page loads. The sign-up verification and password-reset pages read a secure token from the link you opened, use it only to talk to Supabase, and remove it from the address bar immediately; they do not store it in cookies, localStorage or sessionStorage.</p>
+
+<h2>11. International transfers</h2>
+<p>Your data is processed in the Republic of Korea (Supabase region) and in other countries where our providers operate. The DPDP Act permits transfers to countries other than those the Government of India restricts.</p>
+
+<h2>12. Changes to this policy</h2>
+<p>We may update this policy. The "Effective date" above shows the latest version; for material changes we will notify you in the app or by email.</p>
+
+<h2>13. Grievance Officer and contact</h2>
+<p>Name: {{GRIEVANCE_OFFICER_NAME}}<br>Email: {{GRIEVANCE_OFFICER_EMAIL}}<br>Address: {{BUSINESS_ADDRESS}}<br>General contact: <a href="mailto:{{SUPPORT_EMAIL}}">{{SUPPORT_EMAIL}}</a></p>
+<p class="meta">This policy refers to the Digital Personal Data Protection Act, 2023 and the Information Technology Act, 2000 and rules made under it in plain language. It does not claim any certification.</p>
+</div></section>

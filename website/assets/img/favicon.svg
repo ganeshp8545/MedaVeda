@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="MedVeda">
+  <rect width="64" height="64" rx="14" fill="#8c3a22"/>
+  <path fill="#ffffff" d="M13 48V16h8.500L32 33.500 42.500 16H51v32h-7.500V29.500L34.500 44h-5L20.500 29.500V48z"/>
+  <rect x="20" y="52" width="24" height="3.500" rx="1.750" fill="#e2703d"/>
+</svg>

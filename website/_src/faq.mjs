@@ -1,0 +1,38 @@
+// FAQ content — each answer is derived from the app code (see final report for file references).
+export const FAQ = [
+  // Getting started
+  { group: "Getting started", home: true, q: "What is MedVeda?", a: "<p>MedVeda is a mobile study app for AYUSH degree students. For your course and academic year it organises study material as subject → chapter, with PDF notes, video lectures and MCQ tests.</p>" },
+  { group: "Getting started", home: true, q: "Which courses are supported?", a: "<p>BAMS, BNYS, BSMS, BUMS and BHMS are set up on the platform. Courses are managed by the MedVeda team, so more can be added over time. What you can study depends on the content published for your course and year.</p>" },
+  { group: "Getting started", q: "Which phones does MedVeda run on?", a: "<p>MedVeda is available on Android through <a href=\"{{PLAY_URL}}\" rel=\"noopener\">Google Play</a>. Check the <a href=\"/download\">Download page</a> for the latest availability.</p>" },
+  { group: "Getting started", home: true, q: "Is MedVeda free?", a: "<p>Video lectures and MCQ tests are free. PDF notes are sold as paid packages (a few individual notes may be marked free). See <a href=\"/how-it-works\">How it works</a>.</p>" },
+
+  // Account
+  { group: "Account & sign-in", home: true, q: "How do I create an account?", a: "<p>Open the app, tap Register and enter your full name, email address, mobile number and a password. You will then pick your course and academic year.</p>" },
+  { group: "Account & sign-in", q: "I didn't get the verification email. What should I do?", a: "<p>Check your spam or promotions folder first. If it is not there, open the app and request a new verification email. Verification links expire, so use the newest one. Tapping the link opens a page on this website confirming your email is verified; you can then return to the app and sign in.</p>" },
+  { group: "Account & sign-in", q: "The verification link says it has expired.", a: "<p>Links are single-use and time-limited. Open the app and request a new one. If it keeps failing, <a href=\"/contact\">contact support</a> from the email address you registered with.</p>" },
+  { group: "Account & sign-in", q: "Can I sign in with my mobile number?", a: "<p>Yes. The sign-in screen accepts either your registered email address or your registered mobile number, together with your password.</p>" },
+  { group: "Account & sign-in", home: true, q: "I forgot my password. How do I reset it?", a: "<p>On the sign-in screen tap <strong>Forgot password</strong> and enter your email or mobile number. Open the reset email and tap the link. You can set a new password on our secure reset page, or choose \"Reset inside the app\". If the link has expired, request a new one from the app.</p>" },
+  { group: "Account & sign-in", q: "What are the password rules?", a: "<p>Passwords must be 8–32 characters and include an uppercase letter, a lowercase letter, a number and a special character.</p>" },
+  { group: "Account & sign-in", q: "How do I change my password while signed in?", a: "<p>Go to Profile and choose Change Password.</p>" },
+  { group: "Account & sign-in", q: "How do I change my course or year?", a: "<p>Open Profile and tap <strong>Change Course / Year</strong>. Home, Subjects, Store and search will then show content for your new selection. Notes you bought remain linked to your account.</p>" },
+
+  // Learning
+  { group: "Learning & content", q: "Why can't I see a subject or chapter?", a: "<p>Content is shown for the course and academic year in your profile, and only what has been published by the MedVeda team. Check your selection under Profile → Change Course / Year, and pull down to refresh. If content is still missing, <a href=\"/contact\">tell us</a>.</p>" },
+  { group: "Learning & content", q: "Can I study offline?", a: "<p>You can download PDF notes you have access to and quizzes to your device from within the app and open them from the Downloads screen without a connection; downloads can be paused, resumed or removed. Video lectures open from their online link and need internet.</p>" },
+  { group: "Learning & content", q: "Why can't I take screenshots of notes?", a: "<p>To protect paid content, the app blocks screenshots and screen recording on supported devices.</p>" },
+  { group: "Learning & content", q: "Are my quiz scores saved?", a: "<p>Yes. Test scores are recorded to your account. If you finish a test while offline, the score is saved on the device and synced when you're back online.</p>" },
+
+  // Payments
+  { group: "Payments & purchases", home: true, q: "How do I buy notes?", a: "<p>Open a chapter, subject or the Store and choose an option: notes can be sold per chapter, per subject, per academic year, or as a multi-year bundle. Pay in the app through Razorpay. When payment succeeds the notes unlock.</p>" },
+  { group: "Payments & purchases", q: "Which payment methods can I use?", a: "<p>Payments are handled by Razorpay, which shows the methods available for your purchase at checkout. MedVeda does not see or store your card, UPI PIN or bank details.</p>" },
+  { group: "Payments & purchases", q: "My payment failed or money was deducted but the notes are locked.", a: "<p>First reopen the app and check <strong>My Purchases</strong> — confirmation can take a short while. If the amount was debited and the notes are still locked, email us with your registered email and the payment reference from your bank or Razorpay. See the <a href=\"/refund-policy\">Refund &amp; Cancellation Policy</a> and <a href=\"/shipping-policy\">Delivery Policy</a>.</p>" },
+  { group: "Payments & purchases", q: "Can I get a refund?", a: "<p>Please read our <a href=\"/refund-policy\">Refund &amp; Cancellation Policy</a>. It explains what is refundable, how duplicate or failed payments are handled and how to ask.</p>" },
+  { group: "Payments & purchases", q: "Where can I see what I've bought?", a: "<p>Open <strong>My Purchases</strong> in the app for your order history and unlocked content.</p>" },
+  { group: "Payments & purchases", q: "Does a purchase work for other courses?", a: "<p>Purchases are tied to the course of the product you bought. Notes for a different course need their own purchase.</p>" },
+
+  // Other
+  { group: "Notifications, referrals & privacy", q: "How do I control notifications?", a: "<p>In the app you can choose which categories to receive: new notes, new videos, offers, payment updates, exam reminders and app updates. You can also set a daily study reminder at a time you choose; it is scheduled on your phone.</p>" },
+  { group: "Notifications, referrals & privacy", q: "How does Refer &amp; Earn work?", a: "<p>When the referral programme is switched on, the Refer screen shows your personal code to share. A friend enters it when signing up, and you can follow the status of your referrals (pending, qualified, rewarded). Reward type and conditions are set by MedVeda and shown in the app, and can change. If the programme is off, the screen says so.</p>" },
+  { group: "Notifications, referrals & privacy", home: true, q: "How do I delete my account and data?", a: "<p>Go to Settings → <strong>Delete Account</strong> in the app. You can also follow the steps on our <a href=\"/delete-account\">Account &amp; Data Deletion</a> page.</p>" },
+  { group: "Notifications, referrals & privacy", q: "How do I contact support?", a: "<p>Email <a href=\"mailto:{{SUPPORT_EMAIL}}\">{{SUPPORT_EMAIL}}</a> or message us on <a href=\"{{WHATSAPP_URL}}\" rel=\"noopener\">WhatsApp</a>. Full details are on the <a href=\"/contact\">Contact page</a>.</p>" },
+];

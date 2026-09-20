@@ -1,0 +1,29 @@
+<!--META {"path":"/account-verified","title":"Account verified","description":"Confirmation page for MedVeda email verification links.","noindex":true,"supabase":true,"scripts":["/assets/js/account-verified.js"]} -->
+<div class="auth-wrap"><div class="auth-card" aria-live="polite">
+<div id="state-loading"><div class="spinner" role="status"></div><h1>Checking your link…</h1></div>
+
+<div id="state-success" class="hidden">
+<div class="status-ico ok">{{icon:check}}</div>
+<h1>Your email is verified</h1>
+<p>Your MedVeda account is active. <span id="verified-email" style="font-weight:600"></span></p>
+<div class="btn-row" style="justify-content:center"><a class="btn" href="ayurpulse://">Open MedVeda app</a>{{PLAY_BADGE}}</div>
+<p class="alt-action">If the app doesn't open, launch MedVeda from your phone and sign in with your email or mobile number.</p>
+</div>
+
+<div id="state-error" class="hidden">
+<div class="status-ico err">{{icon:x}}</div>
+<h1>This link didn't work</h1>
+<p id="error-msg"></p>
+<p>Open the MedVeda app and request a new verification email, or just try signing in — your account may already be verified.</p>
+<div class="btn-row" style="justify-content:center"><a class="btn" href="ayurpulse://">Open MedVeda app</a><a class="btn ghost" href="/contact">Contact support</a></div>
+</div>
+
+<div id="state-empty" class="hidden">
+<div class="status-ico info">{{icon:mail}}</div>
+<h1>Email verification</h1>
+<p>When you register in the MedVeda app we email you a verification link. Tapping that link brings you to this page to confirm your account is active.</p>
+<p>Didn't get the email? Check spam, then request a new one in the app.</p>
+<div class="btn-row" style="justify-content:center"><a class="btn" href="ayurpulse://">Open MedVeda app</a>{{PLAY_BADGE}}</div>
+</div>
+</div></div>
+<noscript><p style="text-align:center">JavaScript is needed to check your verification link. If you tapped a link from the MedVeda email, your account is very likely verified — open the app and sign in.</p></noscript>
