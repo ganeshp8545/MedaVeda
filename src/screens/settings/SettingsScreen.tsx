@@ -29,7 +29,7 @@ export default function SettingsScreen() {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The Ultimate BAMS Study App.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse",
+          "Download MedVeda - The Ultimate BAMS Study App.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
       });
     } catch (error) {
       console.error(error);
@@ -53,7 +53,7 @@ export default function SettingsScreen() {
   };
 
   const handleRateApp = async () => {
-    const packageName = "com.ayurpulse";
+    const packageName = "com.ayurpulse.app";
 
     try {
       await Linking.openURL(

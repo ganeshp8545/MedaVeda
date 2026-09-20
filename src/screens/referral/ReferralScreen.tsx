@@ -21,7 +21,7 @@ import { FONT } from "../../theme/fonts";
 import { RADIUS } from "../../theme/radius";
 import { SPACING } from "../../theme/spacing";
 
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.ayurpulse";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.ayurpulse.app";
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Pending",
