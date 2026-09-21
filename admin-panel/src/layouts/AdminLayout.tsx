@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar";
@@ -14,7 +15,9 @@ export default function AdminLayout() {
         <Header />
 
         <div className="mt-8">
-          <Outlet />
+          <Suspense fallback={<p className="text-gray-500">Loading...</p>}>
+            <Outlet />
+          </Suspense>
         </div>
 
       </div>
