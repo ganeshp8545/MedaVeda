@@ -4,7 +4,7 @@
 // The ONLY way an order comes into existence. The client sends a product id and
 // an optional "use my referral balance" flag, never an amount. The database
 // (create_priced_order) reads the price from `products`, applies the friend's
-// first-purchase discount and the wallet (notes products only, max 50%) from
+// first-purchase discount and the wallet (eligible product types and max share) from
 // referral_settings and the ledger, and stores list price + discount + wallet +
 // final amount on the order. The Razorpay order is then created for exactly
 // that final amount. The row is immutable afterwards (orders_01_immutable_columns)
@@ -69,6 +69,7 @@ Deno.serve(async (req: Request) => {
         product_unavailable: "This product is no longer available.",
         wallet_not_allowed: "Referral balance can only be used on notes purchases.",
         invalid_price: "This product doesn't have a valid price.",
+        already_owned: "You already own this. It is in your library.",
       };
       return jsonResponse({ error: messages[priced.code] ?? "This order could not be created." }, 400);
     }

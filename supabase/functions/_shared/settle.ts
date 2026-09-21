@@ -7,7 +7,7 @@
 // pending credit, so a payment that never captures never moves any money in
 // the wallet.
 import { supabaseAdmin } from "./supabaseAdmin.ts";
-import { fetchPayment, fetchRazorpayOrder } from "./razorpay.ts";
+import { fetchDispute, fetchPayment, fetchRazorpayOrder } from "./razorpay.ts";
 
 export type SettleResult =
   | { ok: true; orderId: string; amountRupees: number }
@@ -91,6 +91,41 @@ export async function settleRefund(params: { razorpayPaymentId: string }): Promi
   if (error) {
     console.error("settle: refund handling failed", { code: error.code, message: error.message });
     return { ok: false, status: 500, reason: "refund handling failed" };
+  }
+  return { ok: true, outcome: String((data as { status?: string } | null)?.status ?? "unknown") };
+}
+
+// payment.dispute.* webhooks -> suspend / restore / reverse access.
+// As with refunds the event payload is NOT trusted beyond the dispute id: the
+// dispute is re-fetched from Razorpay and ITS status decides what happens.
+//   open / under_review  -> "opened": access suspended while the dispute is open
+//   won                  -> "won":    access restored
+//   lost                 -> "lost":   money gone - reversed like a full refund
+//                                     (the student's wallet amount is NOT given back)
+//   closed               -> nothing automatic; logged for a manual decision
+//                           (an open dispute stays suspended until someone decides).
+export function disputeOutcome(status: string | undefined): "opened" | "won" | "lost" | null {
+  if (status === "open" || status === "under_review") return "opened";
+  if (status === "won") return "won";
+  if (status === "lost") return "lost";
+  return null;
+}
+
+export async function settleDispute(params: { disputeId: string }): Promise<RefundResult> {
+  const dispute = await fetchDispute(params.disputeId);
+  if (typeof dispute.payment_id !== "string" || !dispute.payment_id.startsWith("pay_")) {
+    return { ok: false, status: 400, reason: "dispute has no payment" };
+  }
+  const outcome = disputeOutcome(dispute.status);
+  if (!outcome) return { ok: true, outcome: `no_change_status_${String(dispute.status)}` };
+
+  const { data, error } = await supabaseAdmin.rpc("handle_payment_dispute", {
+    p_razorpay_payment_id: dispute.payment_id,
+    p_outcome: outcome,
+  });
+  if (error) {
+    console.error("settle: dispute handling failed", { code: error.code, message: error.message });
+    return { ok: false, status: 500, reason: "dispute handling failed" };
   }
   return { ok: true, outcome: String((data as { status?: string } | null)?.status ?? "unknown") };
 }

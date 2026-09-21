@@ -1,0 +1,69 @@
+diff --git a/supabase/tests/multi_course_checks.sql b/supabase/tests/multi_course_checks.sql
+index 1ed8b1c..8a3a806 100644
+--- a/supabase/tests/multi_course_checks.sql
++++ b/supabase/tests/multi_course_checks.sql
+@@ -102,8 +102,8 @@ begin
+   select count(*) into n   from public.notes     where id like '\_test\_%';
+   select count(*) into bad from public.notes     where id like '\_test\_bhms%';
+   if n <> 1 or bad <> 0 then raise exception 'BAMS student notes wrong'; end if;
+-  select count(*) into n   from public.videos    where id like '\_test\_%';
+-  select count(*) into bad from public.videos    where id like '\_test\_bhms%';
++  select count(*) into n   from public.get_videos() where id like '\_test\_%';
++  select count(*) into bad from public.get_videos() where id like '\_test\_bhms%';
+   if n <> 1 or bad <> 0 then raise exception 'BAMS student videos wrong'; end if;
+   select count(*) into n   from public.quiz_tests where id like '\_test\_%';
+   select count(*) into bad from public.quiz_tests where id like '\_test\_bhms%';
+diff --git a/supabase/tests/null_year_fallback_checks.sql b/supabase/tests/null_year_fallback_checks.sql
+index 0bfd9b8..71dae8b 100644
+--- a/supabase/tests/null_year_fallback_checks.sql
++++ b/supabase/tests/null_year_fallback_checks.sql
+@@ -46,6 +46,7 @@ update public.profiles set course_id = '_test_bhms', year_id = null where id = '
+ update public.profiles set course_id = null,         year_id = null where id = 'dddddddd-1111-0000-0000-00000000000d';
+ select set_config('app.allow_profile_admin_fields', 'false', true);
+ 
++-- Batch 2 (F1): students no longer read paid videos from the table; the app lists them through get_videos().
+ -- N1. NULL-year BAMS student sees all its own course (both years), 0 BHMS rows.
+ do $$
+ declare n int; bad int;
+@@ -60,8 +61,8 @@ begin
+   select count(*) into n   from public.notes where id like '\_test\_%';
+   select count(*) into bad from public.notes where id like '\_test\_bhms%';
+   if n <> 1 or bad <> 0 then raise exception 'notes: % visible (want 1), % BHMS', n, bad; end if;
+-  select count(*) into n   from public.videos where id like '\_test\_%';
+-  select count(*) into bad from public.videos where id like '\_test\_bhms%';
++  select count(*) into n   from public.get_videos() where id like '\_test\_%';
++  select count(*) into bad from public.get_videos() where id like '\_test\_bhms%';
+   if n <> 2 or bad <> 0 then raise exception 'videos: % visible (want 2), % BHMS', n, bad; end if;
+   select count(*) into n   from public.quiz_tests where id like '\_test\_%';
+   select count(*) into bad from public.quiz_tests where id like '\_test\_bhms%';
+@@ -133,7 +134,7 @@ begin
+   select count(*) into n from public.subjects where id like '\_test\_%';
+   if n <> 1 then raise exception 'year set: sees % subjects, want only its own year (1)', n; end if;
+   if exists (select 1 from public.subjects where id = '_test_bams_s2') then raise exception 'year set: still sees Y2'; end if;
+-  select count(*) into n from public.videos where id like '\_test\_%';
++  select count(*) into n from public.get_videos() where id like '\_test\_%';
+   if n <> 1 then raise exception 'year set: sees % videos, want 1', n; end if;
+   perform pg_temp.back();
+   raise notice 'PASS N5: with year_id set the student is back to strict course+year';
+@@ -148,7 +149,7 @@ begin
+   update public.profiles set year_id = null where id = 'aaaaaaaa-1111-0000-0000-00000000000a';
+   perform set_config('app.allow_profile_admin_fields', 'false', true);
+   perform pg_temp.act_as('aaaaaaaa-1111-0000-0000-00000000000a');
+-  select count(*) into n from public.videos where id like '\_test\_bams%';
++  select count(*) into n from public.get_videos() where id like '\_test\_bams%';
+   if n <> 1 then raise exception 'NULL-year student sees % BAMS videos, want 1 (inactive one hidden)', n; end if;
+   perform pg_temp.back();
+   raise notice 'PASS N6: inactive content is still hidden under the fallback';
+diff --git a/supabase/tests/phase1a_old_build_compat.sql b/supabase/tests/phase1a_old_build_compat.sql
+index 1f5088e..e3810ae 100644
+--- a/supabase/tests/phase1a_old_build_compat.sql
++++ b/supabase/tests/phase1a_old_build_compat.sql
+@@ -75,7 +75,7 @@ select public.grant_razorpay_payment('e_oc', 'order_OCOLDBUILD0001', 'pay_OCOLDB
+ select pg_temp.chk('C1 student (bams, no year) still sees all active years',
+   pg_temp.cnt('authenticated', 'c1000000-0000-0000-0000-000000000001', $$select count(*) from public.years where id like 'oc\_%'$$) = 2);
+ select pg_temp.chk('C2 ... subjects, chapters, notes, videos, quizzes, products',
+-  pg_temp.cnt('authenticated', 'c1000000-0000-0000-0000-000000000001', $$select (select count(*) from public.subjects where id like 'oc\_%') + (select count(*) from public.chapters where id like 'oc\_%') + (select count(*) from public.notes where id like 'oc\_%') + (select count(*) from public.videos where id like 'oc\_%') + (select count(*) from public.quiz_tests where id like 'oc\_%') + (select count(*) from public.products where id like 'oc\_%')$$) = 2+2+2+1+1+2);
++  pg_temp.cnt('authenticated', 'c1000000-0000-0000-0000-000000000001', $$select (select count(*) from public.subjects where id like 'oc\_%') + (select count(*) from public.chapters where id like 'oc\_%') + (select count(*) from public.notes where id like 'oc\_%') + (select count(*) from public.videos where id like 'oc\_%') /* Batch 2: paid video rows are no longer readable from the table -> 0 */ + (select count(*) from public.quiz_tests where id like 'oc\_%') + (select count(*) from public.products where id like 'oc\_%')$$) = 2+2+2+0+1+2);
+ select pg_temp.chk('C3 embedded selects still unambiguous (exactly one FK between each pair)',
+   (select bool_and(n = 1) from (
+      select count(*) n from pg_constraint c

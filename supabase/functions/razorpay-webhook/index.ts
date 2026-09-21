@@ -1,9 +1,18 @@
-import { settleCapturedPayment, settleRefund } from "../_shared/settle.ts";
+import { settleCapturedPayment, settleDispute, settleRefund } from "../_shared/settle.ts";
 
 const encoder = new TextEncoder();
 const HEX_SIGNATURE = /^[0-9a-f]{64}$/i;
 const PAYMENT_ID = /^pay_[A-Za-z0-9]{6,32}$/;
 const ORDER_ID = /^order_[A-Za-z0-9]{6,32}$/;
+const DISPUTE_ID = /^disp_[A-Za-z0-9]{6,32}$/;
+const DISPUTE_EVENTS = new Set([
+  "payment.dispute.created",
+  "payment.dispute.under_review",
+  "payment.dispute.action_required",
+  "payment.dispute.won",
+  "payment.dispute.lost",
+  "payment.dispute.closed",
+]);
 
 function response(status: number, body?: Record<string, string>): Response {
   return new Response(body ? JSON.stringify(body) : null, {
@@ -72,6 +81,7 @@ type RazorpayWebhook = {
   payload?: {
     payment?: { entity?: RazorpayPayment };
     refund?: { entity?: { id?: string; payment_id?: string } };
+    dispute?: { entity?: { id?: string; payment_id?: string; status?: string } };
   };
 };
 
@@ -141,8 +151,28 @@ Deno.serve(async (request: Request) => {
     }
   }
 
-  // Acknowledge unrelated, authentic events. Everything except payment.captured
-  // and refund.processed is ignored, so out-of-order delivery is harmless.
+  // payment.dispute.*: a chargeback suspends access while open, restores it if
+  // won and reverses the purchase if lost. Enable these events in the Razorpay
+  // Dashboard webhook. The dispute is re-fetched from Razorpay (settleDispute).
+  if (event.event && DISPUTE_EVENTS.has(event.event)) {
+    const disputeId = event.payload?.dispute?.entity?.id;
+    if (typeof disputeId !== "string" || !DISPUTE_ID.test(disputeId)) {
+      console.error("razorpay-webhook: malformed dispute payload", { eventId, event: event.event });
+      return response(400, { error: "Invalid dispute event" });
+    }
+    try {
+      const dispute = await settleDispute({ disputeId });
+      if (!dispute.ok) return response(500, { error: "Unable to process webhook" }); // Razorpay retries
+      console.log("razorpay-webhook: dispute processed", { eventId, disputeId, event: event.event, outcome: dispute.outcome });
+      return response(204);
+    } catch (error) {
+      console.error("razorpay-webhook: dispute error", { eventId, error: String(error) });
+      return response(500, { error: "Unable to process webhook" });
+    }
+  }
+
+  // Acknowledge unrelated, authentic events. Everything except payment.captured,
+  // refund.processed and payment.dispute.* is ignored, so out-of-order delivery is harmless.
   if (event.event !== "payment.captured") return response(204);
 
   const payment = parseCapturedPayment(event.payload?.payment?.entity);

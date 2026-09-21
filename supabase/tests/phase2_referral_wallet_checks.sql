@@ -96,12 +96,25 @@ insert into public.products(id, title, scope, price, original_price, chapter_id,
   ('p2_notes500', 'notes 500', 'chapter', 500, 900, 'p2_c1', true, 'notes'),
   ('p2_notes2000', 'notes 2000', 'chapter', 2000, 3000, 'p2_c2', true, 'notes'),
   ('p2_video', 'video pack', 'chapter', 500, null, 'p2_c3', true, 'video'),
-  ('p2_other', 'untagged', 'chapter', 500, null, 'p2_c4', true, 'other');
+  ('p2_other', 'untagged', 'chapter', 500, null, 'p2_c4', true, 'other'),
+  -- Batch 1 (F6): a student can no longer buy the SAME product twice, so scenarios that need several
+  -- payable orders for one student use these look-alike products instead of repeating p2_notes500.
+  ('p2_notes500b', 'notes 500 b', 'chapter', 500, 900, 'p2_c1', true, 'notes'),
+  ('p2_notes500c', 'notes 500 c', 'chapter', 500, 900, 'p2_c1', true, 'notes'),
+  ('p2_notes500d', 'notes 500 d', 'chapter', 500, 900, 'p2_c1', true, 'notes');
 insert into public.products(id, title, scope, price, year_ids, active, product_type)
   values ('p2_bundle', 'notes bundle', 'bundle', 1000, array['p2_y'], true, 'notes_bundle');
 
 update public.referral_settings set enabled = true, friend_discount_percent = 10, friend_discount_max = 100,
   referrer_credit_amount = 50, credit_hold_days = 7, wallet_max_percent = 50, apply_window_days = 2 where id = true;
+
+-- Batch 3 (F5) requires a verified mobile number for referrals. This suite tests the referral MONEY flows, not
+-- verification (that is batch3_checks.sql), and its fixture users are unverified: switch the rule off here.
+do $$ begin
+  if exists (select 1 from information_schema.columns where table_schema = 'public' and table_name = 'referral_settings' and column_name = 'require_verified_phone') then
+    update public.referral_settings set require_verified_phone = false where id = true;
+  end if;
+end $$;
 
 \set A '''b2000000-0000-0000-0000-00000000000a'''
 \set F '''b2000000-0000-0000-0000-00000000000f'''
@@ -303,12 +316,17 @@ select pg_temp.q('authenticated', :A::uuid, $$select string_agg(status, ',' orde
 select pg_temp.chk('F7 referral list shows cancelled for the refunded friend', :'r' like '%cancelled%', :'r');
 -- refund AFTER release: not auto-cancelled
 select public.handle_payment_refund('pay_' || (:'o2'::jsonb->>'order_id'), true) as r \gset
-select pg_temp.chk('F8 refund after the hold: credit kept, flagged for admin', :'r'::jsonb->>'status' = 'credit_already_released', :'r');
+select pg_temp.chk('F8 refund after the hold: the released credit is REVERSED with a ledger row (Batch 1 / F3; it used to only warn)',
+  :'r'::jsonb->>'status' = 'credit_reversed'
+  and (select count(*) from public.wallet_ledger where entry_type = 'reversal' and reverses_id = (:'r'::jsonb->>'ledger_id')::uuid and amount = 50) = 1, :'r');
+-- admin path: a freshly released credit that is still unspent
+insert into public.wallet_ledger(user_id, entry_type, status, amount, source, note)
+  values (:A, 'credit', 'available', 30, 'admin_adjustment', 'p2 F9 fixture') returning id as f9_id \gset
 select pg_temp.attempt('authenticated', :ADM::uuid,
-  format($$select public.admin_reverse_wallet_credit(%L, 'refund after hold')$$, :'r'::jsonb->>'ledger_id')) as r2 \gset
+  format($$select public.admin_reverse_wallet_credit(%L, 'refund after hold')$$, :'f9_id')) as r2 \gset
 select pg_temp.chk('F9 admin can post a reversal for a released credit', :'r2' = 'OK', :'r2');
 select pg_temp.attempt('authenticated', :F::uuid,
-  format($$select public.admin_reverse_wallet_credit(%L, 'x')$$, :'r'::jsonb->>'ledger_id')) as r3 \gset
+  format($$select public.admin_reverse_wallet_credit(%L, 'x')$$, :'f9_id')) as r3 \gset
 select pg_temp.chk('F10 a student cannot reverse credits', :'r3' like 'ERR:%admin only%', :'r3');
 
 -- ---- 9b. wallet restored on refund (item 4) ---------------------------------
@@ -345,7 +363,7 @@ select pg_temp.chk('RW8 a student cannot create a restore credit', :'r' like 'ER
 insert into auth.users(id, email) values ('b2000000-0000-0000-0000-0000000000a6', 'p2_g@example.com');
 \set G '''b2000000-0000-0000-0000-0000000000a6'''
 insert into public.wallet_ledger(user_id, entry_type, status, amount, source, note)
-  values (:G, 'credit', 'available', 400, 'admin_adjustment', 'p2 test top-up');
+  values (:G, 'credit', 'available', 800, 'admin_adjustment', 'p2 test top-up');   -- 800 so four wallet orders of up to 250 are all fully covered
 select pg_temp.mkorder(:G::uuid, 'p2_video', false) as g1 \gset
 select pg_temp.mkorder(:G::uuid, 'p2_notes500', true) as g2 \gset
 select pg_temp.chk('E1 a new checkout cancels the older unpaid order (even one with no wallet/discount)',
@@ -357,7 +375,7 @@ select pg_temp.attempt('service_role', null, format($$update public.orders set e
 select pg_temp.chk('E3 expires_at cannot be extended (immutable, even for the server)', :'r' like 'ERR:%immutable%', :'r');
 select pg_temp.attempt('authenticated', :G::uuid, format($$update public.orders set expires_at = now() + interval '1 year' where id = %L$$, :'g2'::jsonb->>'order_id')) as r \gset
 select pg_temp.chk('E3b ... nor by the student', :'r' like 'ERR:%', :'r');
-select pg_temp.mkorder(:G::uuid, 'p2_notes500', true) as g3 \gset
+select pg_temp.mkorder(:G::uuid, 'p2_notes500b', true) as g3 \gset
 select pg_temp.chk('E4 g2 (wallet 250) is now cancelled; g3 is the live order',
   (select status from public.orders where id = (:'g2'::jsonb->>'order_id')) = 'cancelled'
   and (:'g3'::jsonb->>'wallet_amount')::numeric = 250, :'g3');
@@ -366,45 +384,45 @@ select pg_temp.pay(:'g2'::jsonb->>'order_id');
 select pg_temp.chk('E5 cancelled order paid: access still granted (cash is real)',
   (select count(*) from public.purchases where order_id = (:'g2'::jsonb->>'order_id')) = 1
   and (select status from public.orders where id = (:'g2'::jsonb->>'order_id')) = 'paid');
-select pg_temp.chk('E6 ... but the wallet is NOT debited',
-  not exists (select 1 from public.wallet_ledger where order_id = (:'g2'::jsonb->>'order_id') and entry_type = 'debit')
-  and (select available from public.wallet_balance_of(:G::uuid)) = 400);
+select pg_temp.chk('E6 ... and the wallet amount IS debited (Batch 1 / F4: it used to be skipped)',
+  (select count(*) from public.wallet_ledger where order_id = (:'g2'::jsonb->>'order_id') and entry_type = 'debit' and amount = 250) = 1
+  and (select available from public.wallet_balance_of(:G::uuid)) = 550);
 select pg_temp.chk('E7 ... and it is flagged for admin review',
   (select count(*) from public.order_review_flags
     where order_id = (:'g2'::jsonb->>'order_id') and reason = 'stale_order_paid' and wallet_amount = 250 and resolved_at is null) = 1);
 select pg_temp.pay(:'g2'::jsonb->>'order_id');
-select pg_temp.chk('E8 replayed settlement of the flagged order still does not debit, still one flag',
-  not exists (select 1 from public.wallet_ledger where order_id = (:'g2'::jsonb->>'order_id') and entry_type = 'debit')
+select pg_temp.chk('E8 replayed settlement of the flagged order does not debit again, still one flag',
+  (select count(*) from public.wallet_ledger where order_id = (:'g2'::jsonb->>'order_id') and entry_type = 'debit') = 1
   and (select count(*) from public.order_review_flags where order_id = (:'g2'::jsonb->>'order_id')) = 1);
 select pg_temp.pay(:'g1'::jsonb->>'order_id');
 select pg_temp.chk('E9 cancelled order with no discount/wallet: granted, nothing to flag',
   (select count(*) from public.purchases where order_id = (:'g1'::jsonb->>'order_id')) = 1
   and not exists (select 1 from public.order_review_flags where order_id = (:'g1'::jsonb->>'order_id')));
 select pg_temp.pay(:'g3'::jsonb->>'order_id');
-select pg_temp.chk('E10 control: the live order debits normally (250) -> balance 150',
+select pg_temp.chk('E10 control: the live order debits normally (250) -> balance 300',
   (select count(*) from public.wallet_ledger where order_id = (:'g3'::jsonb->>'order_id') and entry_type = 'debit' and amount = 250) = 1
-  and (select available from public.wallet_balance_of(:G::uuid)) = 150);
+  and (select available from public.wallet_balance_of(:G::uuid)) = 300);
 -- expired: force expiry into the past (history is immutable, so lift the guard for the fixture only)
-select pg_temp.mkorder(:G::uuid, 'p2_notes500', true) as g4 \gset
+select pg_temp.mkorder(:G::uuid, 'p2_notes500c', true) as g4 \gset
 alter table public.orders disable trigger orders_01_immutable_columns;
 update public.orders set expires_at = now() - interval '1 hour' where id = (:'g4'::jsonb->>'order_id');
 alter table public.orders enable trigger orders_01_immutable_columns;
 select pg_temp.pay_at(:'g4'::jsonb->>'order_id', now());
-select pg_temp.chk('E11 payment STARTED after expiry: no wallet debit, flagged',
-  not exists (select 1 from public.wallet_ledger where order_id = (:'g4'::jsonb->>'order_id') and entry_type = 'debit')
+select pg_temp.chk('E11 payment STARTED after expiry: wallet debited (250), flagged',
+  (select count(*) from public.wallet_ledger where order_id = (:'g4'::jsonb->>'order_id') and entry_type = 'debit' and amount = 250) = 1
   and (select count(*) from public.order_review_flags where order_id = (:'g4'::jsonb->>'order_id')) = 1
-  and (select available from public.wallet_balance_of(:G::uuid)) = 150);
-select pg_temp.mkorder(:G::uuid, 'p2_notes500', true) as g5 \gset
+  and (select available from public.wallet_balance_of(:G::uuid)) = 50);
+select pg_temp.mkorder(:G::uuid, 'p2_notes500d', true) as g5 \gset
 alter table public.orders disable trigger orders_01_immutable_columns;
 update public.orders set expires_at = now() - interval '10 minutes' where id = (:'g5'::jsonb->>'order_id');
 alter table public.orders enable trigger orders_01_immutable_columns;
 select pg_temp.pay_at(:'g5'::jsonb->>'order_id', now() - interval '20 minutes');
-select pg_temp.chk('E12 payment started BEFORE expiry but captured late: valid, debited 150',
-  (select count(*) from public.wallet_ledger where order_id = (:'g5'::jsonb->>'order_id') and entry_type = 'debit' and amount = 150) = 1
+select pg_temp.chk('E12 payment started BEFORE expiry but captured late: valid, debited 50 (all that was left), not flagged',
+  (select count(*) from public.wallet_ledger where order_id = (:'g5'::jsonb->>'order_id') and entry_type = 'debit' and amount = 50) = 1
   and not exists (select 1 from public.order_review_flags where order_id = (:'g5'::jsonb->>'order_id')), '');
 -- refunds of flagged / normal wallet orders
 select public.handle_payment_refund('pay_' || (:'g2'::jsonb->>'order_id'), true) as r \gset
-select pg_temp.chk('E13 refunding the flagged order restores nothing (nothing was debited)', (:'r'::jsonb->>'wallet_restored')::numeric = 0, :'r');
+select pg_temp.chk('E13 refunding the flagged order restores the 250 it debited', (:'r'::jsonb->>'wallet_restored')::numeric = 250, :'r');
 select public.handle_payment_refund('pay_' || (:'g3'::jsonb->>'order_id'), true) as r \gset
 select pg_temp.chk('E14 refunding the normal wallet order restores its 250', (:'r'::jsonb->>'wallet_restored')::numeric = 250, :'r');
 -- access control on flags / settlement
@@ -444,7 +462,7 @@ update public.referral_settings set enabled = true where id = true;
 \set J '''b2000000-0000-0000-0000-0000000000b3'''
 
 select pg_temp.mkorder(:H::uuid, 'p2_notes500') as h1 \gset
-select pg_temp.mkorder(:H::uuid, 'p2_notes500') as h2 \gset
+select pg_temp.mkorder(:H::uuid, 'p2_notes500b') as h2 \gset
 select pg_temp.chk('U1 both open checkouts are priced with the discount (pricing alone cannot stop a second use)',
   (:'h1'::jsonb->>'referral_discount')::numeric = 50 and (:'h2'::jsonb->>'referral_discount')::numeric = 50, :'h1' || :'h2');
 select pg_temp.chk('U2 the newer checkout cancelled the older one',
@@ -490,7 +508,7 @@ select pg_temp.q('authenticated', :H::uuid, format($$select count(*)::text from 
 select pg_temp.chk('U10 the student cannot', :'r' = '0', :'r');
 
 select pg_temp.mkorder(:I::uuid, 'p2_notes500') as i1 \gset
-select pg_temp.mkorder(:I::uuid, 'p2_notes500') as i2 \gset
+select pg_temp.mkorder(:I::uuid, 'p2_notes500b') as i2 \gset
 select pg_temp.pay(:'i1'::jsonb->>'order_id');
 select pg_temp.chk('U11 a CANCELLED discounted checkout paid first wins the discount (granted; stale flag only)',
   (select count(*) from public.purchases where order_id = (:'i1'::jsonb->>'order_id')) = 1
@@ -502,7 +520,7 @@ select pg_temp.chk('U12 the live checkout paid afterwards is the second use: acc
   and (select count(*) from public.order_review_flags where order_id = (:'i2'::jsonb->>'order_id') and reason = 'discount_reused') = 1);
 
 select pg_temp.mkorder(:J::uuid, 'p2_notes500') as j1 \gset
-select pg_temp.mkorder(:J::uuid, 'p2_notes500') as j2 \gset
+select pg_temp.mkorder(:J::uuid, 'p2_notes500b') as j2 \gset
 select pg_temp.pay(:'j2'::jsonb->>'order_id');
 select pg_temp.chk('U13 control: only one of two checkouts paid -> granted, nothing flagged',
   (select count(*) from public.purchases where order_id = (:'j2'::jsonb->>'order_id')) = 1
@@ -514,14 +532,14 @@ insert into public.referrals(referrer_id, referred_id, code_used, status)
 insert into public.wallet_ledger(user_id, entry_type, status, amount, source, note)
   values (:K, 'credit', 'available', 400, 'admin_adjustment', 'p2 test top-up');
 select pg_temp.mkorder(:K::uuid, 'p2_notes500', false) as k1 \gset
-select pg_temp.mkorder(:K::uuid, 'p2_notes500', true) as k2 \gset
+select pg_temp.mkorder(:K::uuid, 'p2_notes500b', true) as k2 \gset
 select pg_temp.pay(:'k1'::jsonb->>'order_id');
 select pg_temp.pay(:'k2'::jsonb->>'order_id');
-select pg_temp.chk('U15 second use that asked for wallet: access granted, but NO wallet debit, balance untouched',
-  (:'k2'::jsonb->>'wallet_amount')::numeric > 0
+select pg_temp.chk('U15 second use that asked for wallet: access granted AND the wallet amount is debited (Batch 1 / F4)',
+  (:'k2'::jsonb->>'wallet_amount')::numeric = 225
   and (select count(*) from public.purchases where order_id = (:'k2'::jsonb->>'order_id')) = 1
-  and not exists (select 1 from public.wallet_ledger where order_id = (:'k2'::jsonb->>'order_id') and entry_type = 'debit')
-  and (select available from public.wallet_balance_of(:K::uuid)) = 400, :'k2');
+  and (select count(*) from public.wallet_ledger where order_id = (:'k2'::jsonb->>'order_id') and entry_type = 'debit' and amount = 225) = 1
+  and (select available from public.wallet_balance_of(:K::uuid)) = 175, :'k2');
 select pg_temp.chk('U16 ... flagged with the wallet amount and discount it tried to use; winner (k1) not flagged',
   (select count(*) from public.order_review_flags where order_id = (:'k2'::jsonb->>'order_id') and reason = 'discount_reused'
      and wallet_amount = (:'k2'::jsonb->>'wallet_amount')::numeric and referral_discount = 50) = 1

@@ -1,0 +1,167 @@
+diff --git a/mobile-app/app.json b/mobile-app/app.json
+index c1c0afc..12bf2af 100644
+--- a/mobile-app/app.json
++++ b/mobile-app/app.json
+@@ -2,7 +2,7 @@
+   "expo": {
+     "name": "MedVeda",
+     "slug": "ayurpulse",
+-    "version": "1.1.0",
++    "version": "1.2.0",
+     "orientation": "portrait",
+     "icon": "./assets/icon.png",
+     "userInterfaceStyle": "light",
+@@ -12,7 +12,7 @@
+     ],
+     "android": {
+       "package": "com.ayurpulse.app",
+-      "versionCode": 5,
++      "versionCode": 6,
+       "adaptiveIcon": {
+         "foregroundImage": "./assets/adaptive-icon.png",
+         "backgroundColor": "#2E7D32"
+diff --git a/mobile-app/src/repositories/videosRepository.ts b/mobile-app/src/repositories/videosRepository.ts
+index 2299574..ad07067 100644
+--- a/mobile-app/src/repositories/videosRepository.ts
++++ b/mobile-app/src/repositories/videosRepository.ts
+@@ -2,38 +2,28 @@ import { supabase } from "../config/supabase";
+ import { toCamelCase } from "../utils/caseConvert";
+ import { Video } from "../types/video";
+ 
+-export async function getVideosBySubject(subjectId: string): Promise<Video[]> {
+-  const { data, error } = await supabase
+-    .from("videos")
+-    // "videos" only stores subject_id/year_id - subjectTitle/yearTitle are
+-    // UI-only fields the admin panel never writes to the DB, so they must
+-    // be joined live here (otherwise they show blank wherever a Video is
+-    // listed outside its own Subject screen, e.g. Search, Downloads).
+-    .select("*, subjects ( title ), years ( title )")
+-    .eq("subject_id", subjectId)
+-    .eq("active", true);
++// Videos are listed through get_videos(): one row per lecture the student may see,
++// with a server-computed can_play flag and NO url (the url only comes from the
++// get-video-url Edge Function, which re-checks the purchase). Titles of the
++// subject/year are joined server-side, as the old table select did.
++async function listVideos(subjectId?: string, courseId?: string): Promise<Video[]> {
++  const { data, error } = await supabase.rpc("get_videos", {
++    p_subject_id: subjectId ?? null,
++    p_course_id: courseId ?? null,
++  });
+   if (error) throw error;
+-  return (data ?? []).map((row: any) => ({
+-    ...toCamelCase<Video>(row),
+-    subjectTitle: row.subjects?.title ?? "",
+-    yearTitle: row.years?.title ?? "",
+-  }));
++  return (data ?? []).map((row: any) => {
++    const v = toCamelCase<Video>(row);
++    return { ...v, subjectTitle: row.subject_title ?? "", yearTitle: row.year_title ?? "" };
++  });
++}
++
++export function getVideosBySubject(subjectId: string): Promise<Video[]> {
++  return listVideos(subjectId);
+ }
+ 
+ // Global Search System - every active video across every subject, for
+-// the search index. Same join as getVideosBySubject, just without the
+-// subject_id filter.
+-export async function getAllActiveVideos(courseId?: string): Promise<Video[]> {
+-  let query = supabase
+-    .from("videos")
+-    .select("*, subjects ( title ), years ( title )")
+-    .eq("active", true);
+-  if (courseId) query = query.eq("course_id", courseId);
+-  const { data, error } = await query;
+-  if (error) throw error;
+-  return (data ?? []).map((row: any) => ({
+-    ...toCamelCase<Video>(row),
+-    subjectTitle: row.subjects?.title ?? "",
+-    yearTitle: row.years?.title ?? "",
+-  }));
++// the search index.
++export function getAllActiveVideos(courseId?: string): Promise<Video[]> {
++  return listVideos(undefined, courseId);
+ }
+diff --git a/mobile-app/src/screens/videos/VideosScreen.tsx b/mobile-app/src/screens/videos/VideosScreen.tsx
+index e22819e..854dfea 100644
+--- a/mobile-app/src/screens/videos/VideosScreen.tsx
++++ b/mobile-app/src/screens/videos/VideosScreen.tsx
+@@ -20,10 +20,11 @@ import { FONT } from "../../theme/fonts";
+ import { SPACING } from "../../theme/spacing";
+ 
+ import { fetchVideosBySubject, Video } from "../../services/videosService";
++import { getSecureVideoUrl } from "../../services/secureVideosService";
+ 
+-// MedVeda 2.0: Video Lectures are always free for every student, for
+-// the whole Subject - only PDF Notes are paid (and chapter-scoped)
+-// content. No purchase check, no lock icons, no Unlock panel here.
++// Free-preview lectures open for everyone; the others are locked until the student
++// owns a purchase covering the subject/year/bundle. The server decides (canPlay);
++// the video URL is fetched from the get-video-url Edge Function on tap.
+ export default function VideosScreen() {
+   const route = useRoute<any>();
+   const { subjectId, subjectTitle } = route.params;
+@@ -58,14 +59,25 @@ export default function VideosScreen() {
+     item.title.toLowerCase().includes(search.toLowerCase())
+   );
+ 
+-  function handleVideoPress(item: Video) {
+-    Linking.openURL(item.youtubeUrl);
++  async function handleVideoPress(item: Video) {
++    if (!item.canPlay) {
++      Alert.alert(
++        "Locked lecture",
++        "This lecture is part of a paid pack. Buy the subject, year or bundle that includes it to watch."
++      );
++      return;
++    }
++    try {
++      Linking.openURL(await getSecureVideoUrl(item.id));
++    } catch (err: any) {
++      Alert.alert("Video unavailable", err?.message ?? "Please try again.");
++    }
+   }
+ 
+   return (
+     <View style={styles.container}>
+       <Text style={styles.title}>{subjectTitle}</Text>
+-      <Text style={styles.subtitle}>Video Lectures - Free</Text>
++      <Text style={styles.subtitle}>Video Lectures</Text>
+ 
+       <SearchBar
+         value={search}
+@@ -84,7 +96,7 @@ export default function VideosScreen() {
+           renderItem={({ item }) => (
+             <VideoCard
+               title={item.title}
+-              locked={false}
++              locked={!item.canPlay}
+               onPress={() => handleVideoPress(item)}
+             />
+           )}
+diff --git a/mobile-app/src/types/video.ts b/mobile-app/src/types/video.ts
+index 4f557bb..90aae13 100644
+--- a/mobile-app/src/types/video.ts
++++ b/mobile-app/src/types/video.ts
+@@ -1,12 +1,14 @@
+-// Firestore collection: "videos"
+-//
+-// Product-based split: Video Lectures are always free, so they no longer
+-// need a chapterId - they're organized (and fetched) at the Subject level
+-// only, same as the free/paid boundary described in the roadmap.
++// Table: "videos". Listed through the get_videos() RPC, which NEVER returns the
++// video URL: a lecture is opened by asking the get-video-url Edge Function
++// (services/secureVideosService.ts), which only answers when canPlay is true.
++// Lectures are organized (and fetched) at the Subject level.
+ export interface Video {
+   id: string;
+   title: string;
+-  youtubeUrl: string;
++  // Free-preview lectures are open to everyone; the rest need a purchase covering
++  // the subject/year/bundle. Decided by the server (user_can_access_video).
++  isFreePreview: boolean;
++  canPlay: boolean;
+   subjectId: string;
+   subjectTitle: string;
+   yearId: string;

@@ -147,6 +147,19 @@ export function fetchPayment(paymentId: string): Promise<RazorpayPayment> {
   return razorpayGet<RazorpayPayment>(`payments/${encodeURIComponent(paymentId)}`);
 }
 
+export type RazorpayDispute = {
+  id: string;
+  payment_id: string;
+  status: string; // "open" | "under_review" | "won" | "lost" | "closed"
+  phase?: string; // "chargeback" | "fraud" | ...
+  amount?: number;
+};
+
+// Authoritative, server-to-server fetch of a single dispute (chargeback).
+export function fetchDispute(disputeId: string): Promise<RazorpayDispute> {
+  return razorpayGet<RazorpayDispute>(`disputes/${encodeURIComponent(disputeId)}`);
+}
+
 export function fetchRazorpayOrder(
   razorpayOrderId: string
 ): Promise<{ id: string; amount: number; currency: string; status: string }> {
