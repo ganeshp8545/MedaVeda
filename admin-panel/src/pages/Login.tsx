@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 
 import { supabase } from "../config/supabase";
@@ -22,13 +22,34 @@ export default function Login() {
   const [code, setCode] = useState("");
   const [canSkipEnroll, setCanSkipEnroll] = useState(false);
 
+  // Single-flight guard: the mount effect (getSession) and handleSubmit (signInWithPassword) can both
+  // ask to continue sign-in. Only one MFA flow may run, and once it has reached the challenge/enroll
+  // screen it is not restarted (a second run would unenrol the factor whose QR code is on screen).
+  const flowRef = useRef<Promise<void> | null>(null);
+  const stepRef = useRef<"password" | "challenge" | "enroll">("password");
+
+  function goToStep(next: "password" | "challenge" | "enroll") {
+    stepRef.current = next;
+    setStep(next);
+  }
+
+  function runFlow(): Promise<void> {
+    if (flowRef.current) return flowRef.current;
+    if (stepRef.current !== "password") return Promise.resolve();
+    const p = continueAfterPassword().finally(() => {
+      flowRef.current = null;
+    });
+    flowRef.current = p;
+    return p;
+  }
+
   function done() {
     navigate(location.state?.from || "/", { replace: true });
   }
 
   async function reject(message: string) {
     await supabase.auth.signOut();
-    setStep("password");
+    goToStep("password");
     setError(message);
   }
 
@@ -50,7 +71,7 @@ export default function Login() {
       if (!totp) throw new Error("No verified authenticator found.");
       setFactorId(totp.id);
       setCode("");
-      setStep("challenge");
+      goToStep("challenge");
       return;
     }
 
@@ -75,7 +96,7 @@ export default function Login() {
     setQr(data.totp.qr_code);
     setSecret(data.totp.secret);
     setCode("");
-    setStep("enroll");
+    goToStep("enroll");
   }
 
   async function handleCode(e: React.FormEvent) {
@@ -101,7 +122,7 @@ export default function Login() {
     let cancelled = false;
     supabase.auth.getSession().then(({ data }) => {
       if (cancelled || !data.session) return;
-      continueAfterPassword().catch(() => setError("Could not continue sign-in. Please sign in again."));
+      runFlow().catch(() => setError("Could not continue sign-in. Please sign in again."));
     });
     return () => {
       cancelled = true;
@@ -121,7 +142,7 @@ export default function Login() {
       });
       if (signInError) throw signInError;
       setPassword("");
-      await continueAfterPassword();
+      await runFlow();
     } catch (err: any) {
       const message =
         err.message?.includes("Invalid login credentials")
