@@ -1,6 +1,7 @@
 import { getUserDoc, setUserDoc } from "../repositories/usersRepository";
 import { UserProfile, UserRole } from "../types/user";
 import { supabase } from "../config/supabase";
+import { performSignOut } from "./authState";
 
 export type { UserProfile, UserRole } from "../types/user";
 
@@ -57,18 +58,26 @@ export async function setMyCourseYear(courseId: string, yearId: string | null): 
   if (error) throw new Error(error.message || "Could not update your course. Please try again.");
 }
 
+export type ChangePhoneResult = "ok" | "invalid" | "unavailable" | "rate_limited";
+
+// The only allowed way to change the phone number: profiles has a guard trigger that
+// rejects direct writes to phone, and change_my_phone() is rate limited and gives the
+// same "unavailable" answer whether a number is taken or refused (no probing).
+export async function changeMyPhone(phone: string): Promise<ChangePhoneResult> {
+  const { data, error } = await supabase.rpc("change_my_phone", { p_phone: phone });
+  if (error) throw new Error("Could not update your mobile number. Please try again.");
+  const result = data as { ok?: boolean; code?: string } | null;
+  if (result?.ok) return "ok";
+  if (result?.code === "invalid" || result?.code === "rate_limited") return result.code;
+  return "unavailable";
+}
+
 export async function updateUserProfile(
   uid: string,
-  data: Partial<Pick<UserProfile, "name" | "mobile" | "emailVerified" | "mobileVerified">>
+  data: Partial<Pick<UserProfile, "name" | "emailVerified" | "mobileVerified">>
 ): Promise<void> {
-  // The DB column is "phone", not "mobile". Translate here so every
-  // screen can keep using the friendlier `mobile` name without knowing
-  // about the DB's naming.
-  const { mobile, ...rest } = data;
-  await setUserDoc(uid, {
-    ...rest,
-    ...(mobile !== undefined ? { phone: mobile } : {}),
-  });
+  // The phone number is deliberately not writable here: use changeMyPhone().
+  await setUserDoc(uid, data);
 }
 
 // Permanently deletes the signed-in student's account (Play Store account
@@ -100,5 +109,5 @@ export async function deleteAccount(): Promise<void> {
     throw new Error(data.error || "Failed to delete account. Please try again.");
   }
 
-  await supabase.auth.signOut();
+  await performSignOut();
 }

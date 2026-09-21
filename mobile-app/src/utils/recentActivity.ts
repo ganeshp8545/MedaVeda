@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logDebug } from "./logger";
 
 // Lightweight local (on-device) activity log used purely to power the
 // "Continue Learning" and "Recently Viewed" dashboard sections. This is
@@ -42,7 +43,7 @@ export async function recordChapterView(
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
     // Non-critical - never let activity tracking break navigation.
-    console.log("recordChapterView failed:", error);
+    logDebug("recordChapterView failed:", error);
   }
 }
 
@@ -57,7 +58,7 @@ export async function getRecentChapters(courseId?: string): Promise<RecentChapte
       ? parsed.filter((e: RecentChapterEntry) => !e.courseId || e.courseId === courseId)
       : parsed;
   } catch (error) {
-    console.log("getRecentChapters failed:", error);
+    logDebug("getRecentChapters failed:", error);
     return [];
   }
 }
@@ -72,6 +73,6 @@ export async function clearRecentChapters(): Promise<void> {
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
   } catch (error) {
-    console.log("clearRecentChapters failed:", error);
+    logDebug("clearRecentChapters failed:", error);
   }
 }

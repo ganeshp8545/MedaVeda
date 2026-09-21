@@ -25,6 +25,7 @@ import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { logError } from "../../utils/logger";
 
 export default function ChapterDetailsScreen() {
   const navigation = useNavigation<any>();
@@ -53,7 +54,7 @@ export default function ChapterDetailsScreen() {
   useEffect(() => {
     fetchBuyOptionsForChapter(chapterId, subjectId, yearId, getCourseYear().courseId)
       .then(setBuyOptions)
-      .catch((err) => console.error("Failed to load buy options:", err))
+      .catch((err) => logError("Failed to load buy options:", err))
       .finally(() => setLoading(false));
   }, [chapterId, subjectId, yearId]);
 

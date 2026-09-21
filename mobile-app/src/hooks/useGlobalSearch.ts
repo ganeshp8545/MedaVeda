@@ -23,6 +23,7 @@ import {
   RecentSearchEntry,
 } from "../utils/recentSearches";
 import { DEFAULT_FILTERS, ScoredResult, SearchFilters, SearchIndex, SearchSection } from "../types/search";
+import { logError } from "../utils/logger";
 
 export default function useGlobalSearch() {
   const navigation = useNavigation<any>();
@@ -54,7 +55,7 @@ export default function useGlobalSearch() {
       const built = await getSearchIndex(forceRefresh);
       setIndex(built);
     } catch (err) {
-      console.error("Failed to load search index:", err);
+      logError("Failed to load search index:", err);
       setError("Couldn't load search content. Pull down to try again.");
     } finally {
       setLoading(false);
@@ -214,7 +215,7 @@ export default function useGlobalSearch() {
             test: full,
           });
         } catch (err) {
-          console.error("Failed to open quiz from search:", err);
+          logError("Failed to open quiz from search:", err);
           Alert.alert("Error", "Could not open this test. Please try again.");
         } finally {
           setOpeningId(null);

@@ -28,6 +28,7 @@ import NetInfo from "@react-native-community/netinfo";
 import { getDb, OFFLINE_DB_SUPPORTED } from "../config/database";
 import { supabase } from "../config/supabase";
 import { SyncEntityType, SyncQueueItem } from "../types/offline";
+import { logDebug } from "../utils/logger";
 
 let syncInProgress = false;
 let unsubscribeNetInfo: (() => void) | null = null;
@@ -86,7 +87,7 @@ function getPendingItems(): SyncQueueItem[] {
       // Corrupted payload - can never sync as-is. Drop it from the queue
       // (same "give up" treatment as a row that failed 5 real sync
       // attempts) rather than let it block every row behind it forever.
-      console.log(`sync_queue row ${row?.queue_id} has corrupt payload JSON - dropping it`);
+      logDebug(`sync_queue row ${row?.queue_id} has corrupt payload JSON - dropping it`);
       markSynced(row.queue_id);
     }
   }

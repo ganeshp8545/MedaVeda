@@ -4,6 +4,7 @@ import { Alert } from "react-native";
 import * as downloadManager from "../utils/downloadManager";
 import { getCourseYear } from "../services/courseState";
 import { DownloadItem, DownloadRequest, StorageStats } from "../types/offline";
+import { logError } from "../utils/logger";
 
 /**
  * OFFLINE MODE - replaces the old notes-only useDownloads. Backs onto
@@ -27,7 +28,7 @@ export default function useDownloads() {
       setDownloads(downloadManager.getAllDownloads(getCourseYear().courseId));
       setStats(downloadManager.getStorageStats());
     } catch (err) {
-      console.error("Failed to load downloads:", err);
+      logError("Failed to load downloads:", err);
     } finally {
       setLoading(false);
     }

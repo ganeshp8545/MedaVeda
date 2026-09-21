@@ -12,7 +12,6 @@
     ],
     "android": {
       "package": "com.ayurpulse.app",
-      "versionCode": 5,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2E7D32"
@@ -20,6 +19,14 @@
       "permissions": [
         "INTERNET",
         "POST_NOTIFICATIONS"
+      ],
+      "allowBackup": false,
+      "blockedPermissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.DOWNLOAD_WITHOUT_NOTIFICATION"
       ]
     },
     "plugins": [

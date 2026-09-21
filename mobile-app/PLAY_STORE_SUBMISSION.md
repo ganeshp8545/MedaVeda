@@ -86,20 +86,33 @@ exam prep app, not aimed at children) — this also simplifies the Data
 Safety and Families Policy requirements, since you avoid the stricter
 child-directed rules entirely.
 
-**Data Safety form** — here's what to declare, matching what the app
-actually collects (from `PrivacyPolicyPage.tsx`):
+**Data Safety form** - declare what the release build actually collects (kept in step with
+the website privacy policy, `website/_src/pages/privacy-policy.html`, and with
+`app.json` -> `android.blockedPermissions`):
 
-| Data type | Collected? | Shared? | Purpose |
+| Data type (Play category) | Collected? | Shared? | Purpose |
 |---|---|---|---|
 | Name | Yes | No | Account management |
-| Email address | Yes | No | Account management, authentication |
-| Phone number | Yes (optional) | No | Account management |
-| Purchase history | Yes | Yes — with Razorpay (payment processor) | App functionality (payments) |
-| App activity (quiz scores, interactions) | Yes | No | Analytics, app functionality |
+| Email address | Yes | No | Account management, authentication, account emails |
+| Phone number | Yes (optional) | No | Account management, sign-in and password reset by number |
+| User IDs (account id, referral code) | Yes | No | Account management, referral programme, fraud prevention |
+| Purchase history | Yes | Yes - Razorpay (payment processor) | App functionality (payments) |
+| Payment info (card / UPI / bank) | **No** - entered on Razorpay's checkout, never seen or stored by MedVeda | - | - |
+| App interactions (quiz scores, screens, study events) | Yes | No | Analytics, app functionality |
+| Crash logs and diagnostics | Yes, only if a Sentry DSN is set in the build | Yes - Sentry (service provider) | Fix bugs; personal data is scrubbed before sending |
+| Device or other IDs (Expo push token, platform) | Yes, if notifications are allowed | Yes - Expo push service (service provider) | Deliver push notifications |
+| Photos, files, contacts, location, microphone, camera | **No** | - | - |
 
-Mark data as **encrypted in transit** (Firebase uses HTTPS)
-and confirm you provide a way to **request data deletion** (link to
-`/delete-account`) — Play Console has a dedicated field for this URL.
+Declare: data **encrypted in transit** (HTTPS everywhere), a way to **request deletion**
+(in-app Profile -> Delete Account, and the `/delete-account` page - enter that URL in Play
+Console), and that data is **not sold**. Downloaded notes are stored in app-private storage,
+excluded from Android backups (`allowBackup: false`) and deleted when the student signs out.
+
+Permissions the release manifest requests: `INTERNET`, `POST_NOTIFICATIONS`, `VIBRATE`,
+plus the library-provided `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`, `WAKE_LOCK`,
+`RECEIVE_BOOT_COMPLETED` (study reminders) and `DETECT_SCREEN_CAPTURE`. Storage, media,
+overlay (`SYSTEM_ALERT_WINDOW`) and `DOWNLOAD_WITHOUT_NOTIFICATION` are blocked. After each
+build, check the "Permissions" list in Play Console -> App bundle explorer matches this.
 
 **Financial features declaration**: Since real payments happen (even via
 browser checkout), declare "Digital purchases through a payment

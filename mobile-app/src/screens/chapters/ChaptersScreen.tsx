@@ -18,6 +18,7 @@ import usePurchases from "../../hooks/usePurchases";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 export default function ChaptersScreen() {
   const route = useRoute<any>();
@@ -34,7 +35,7 @@ export default function ChaptersScreen() {
   useEffect(() => {
     fetchChaptersBySubject(subjectId)
       .then(setChapters)
-      .catch((err) => console.error("Failed to load chapters:", err))
+      .catch((err) => logError("Failed to load chapters:", err))
       .finally(() => setLoading(false));
   }, [subjectId]);
 

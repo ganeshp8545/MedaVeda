@@ -5,9 +5,54 @@
 // `getCurrentUser()` instead with no other changes to their logic.
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "../config/supabase";
-import { registerForPushNotifications } from "./pushNotifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { registerForPushNotifications, unregisterCurrentDeviceToken } from "./pushNotifications";
+import { logDebug } from "../utils/logger";
 
 let currentUser: User | null = null;
+
+// Paid notes are saved on the device for offline reading. They belong to whoever downloaded
+// them: they are wiped on every sign-out (Logout, blocked, session ended, account deletion),
+// and also when a DIFFERENT account signs in on a device that still has another account's
+// files (e.g. after a reinstall-less session loss), so a second student on a shared phone
+// can never open the first student's purchases.
+const OFFLINE_OWNER_KEY = "medveda:offline-owner";
+
+async function purgeOfflineContent(): Promise<void> {
+  try {
+    // Loaded lazily: downloadManager pulls in course state, which imports this module.
+    const { clearAllDownloads } = await import("../utils/downloadManager");
+    await clearAllDownloads();
+  } catch (err) {
+    logDebug("purgeOfflineContent failed:", err);
+  }
+}
+
+async function claimOfflineStorage(user: User): Promise<void> {
+  try {
+    const owner = await AsyncStorage.getItem(OFFLINE_OWNER_KEY);
+    if (owner && owner !== user.id) await purgeOfflineContent();
+    if (owner !== user.id) await AsyncStorage.setItem(OFFLINE_OWNER_KEY, user.id);
+  } catch {
+    // storage unavailable: nothing to protect or claim
+  }
+}
+
+/**
+ * The one way the app signs a student out: stops pushes to this device for them, ends the
+ * session, then deletes the offline copies of paid content.
+ */
+export async function performSignOut(): Promise<void> {
+  try {
+    await unregisterCurrentDeviceToken(); // needs the session, so before signOut
+  } catch {
+    // never block a logout on push cleanup
+  }
+  currentUser = null;
+  await supabase.auth.signOut();
+  await purgeOfflineContent();
+  await AsyncStorage.removeItem(OFFLINE_OWNER_KEY).catch(() => {});
+}
 
 // BUG FIX: registerForPushNotifications() existed in pushNotifications.ts
 // but was never actually called from anywhere in the app, so no device
@@ -53,8 +98,7 @@ async function enforceNotBlocked(user: User): Promise<void> {
   // blocked user will be caught again on their next session refresh.
   if (error || !profile?.blocked) return;
 
-  currentUser = null;
-  await supabase.auth.signOut();
+  await performSignOut();
   blockedListeners.forEach((fn) => fn());
 }
 
@@ -62,14 +106,21 @@ supabase.auth
   .getSession()
   .then(({ data }) => {
     currentUser = data.session?.user ?? null;
-    if (currentUser) enforceNotBlocked(currentUser).catch(() => {});
+    if (currentUser) {
+      claimOfflineStorage(currentUser);
+      enforceNotBlocked(currentUser).catch(() => {});
+    }
     maybeRegisterForPush(currentUser);
   })
-  .catch((err) => console.warn("getSession failed:", err));
+  .catch((err) => logDebug("getSession failed:", err));
 
-supabase.auth.onAuthStateChange((_event, session) => {
+supabase.auth.onAuthStateChange((event, session) => {
   currentUser = session?.user ?? null;
-  if (currentUser) enforceNotBlocked(currentUser).catch(() => {});
+  if (event === "SIGNED_OUT") purgeOfflineContent();
+  if (currentUser) {
+    claimOfflineStorage(currentUser);
+    enforceNotBlocked(currentUser).catch(() => {});
+  }
   maybeRegisterForPush(currentUser);
 });
 

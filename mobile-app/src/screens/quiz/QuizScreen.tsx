@@ -60,7 +60,7 @@ export default function QuizScreen() {
         if (isMounted) setTest(data);
       })
       .catch((err) => {
-        console.error("Failed to load offline quiz:", err);
+        logError("Failed to load offline quiz:", err);
       })
       .finally(() => {
         if (isMounted) setLoadingOffline(false);

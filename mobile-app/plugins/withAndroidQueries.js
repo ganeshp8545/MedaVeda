@@ -51,6 +51,9 @@ const withAndroidQueries = (config) => {
       "http",
       "android.intent.category.BROWSABLE"
     );
+    // Lets Linking.canOpenURL("upi://...") succeed on Android 11+ so the checkout
+    // opens an installed UPI app instead of always falling back to the Play Store.
+    addQueriesIntent(androidManifest, "android.intent.action.VIEW", "upi");
     // Fixes mailto: on ContactScreen for the same underlying reason
     addQueriesIntent(androidManifest, "android.intent.action.SENDTO", "mailto");
 

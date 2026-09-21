@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import { supabase } from "../config/supabase";
 import { getCurrentUser } from "../services/authState";
+import { logError } from "../utils/logger";
 
 export default function useQuizStats() {
   const [loading, setLoading] = useState(true);
@@ -64,7 +65,7 @@ export default function useQuizStats() {
 
       setLoading(false);
     } catch (err: any) {
-      console.error("useQuizStats: failed to load stats", err);
+      logError("useQuizStats: failed to load stats", err);
       setError("Could not load your progress. Pull down to try again.");
       setLoading(false);
     }

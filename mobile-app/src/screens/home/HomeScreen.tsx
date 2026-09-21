@@ -49,6 +49,7 @@ import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { logError } from "../../utils/logger";
 
 // Each dashboard section owns its own loading state and fetches
 // independently, so a slow/failing section never blocks the rest of the
@@ -113,7 +114,7 @@ export default function HomeScreen() {
     return fetchYears(courseId)
       .then(setYears)
       .catch((err) => {
-        console.error("Failed to load years:", err);
+        logError("Failed to load years:", err);
         setYearsError(
           err?.code === "failed-precondition"
             ? "Setup needed: open the browser console and click the Firestore index link Firebase gives you, then reload."
@@ -136,7 +137,7 @@ export default function HomeScreen() {
         );
         setYearProducts(results);
       })
-      .catch((err) => console.error("Failed to load year notes products:", err))
+      .catch((err) => logError("Failed to load year notes products:", err))
       .finally(() => setYearProductsLoading(false));
   }, [courseId]);
 
@@ -144,7 +145,7 @@ export default function HomeScreen() {
     setPurchasesLoading(true);
     return fetchMyPurchases()
       .then(setPurchases)
-      .catch((err) => console.error("Failed to load purchases:", err))
+      .catch((err) => logError("Failed to load purchases:", err))
       .finally(() => setPurchasesLoading(false));
   }, []);
 
@@ -158,14 +159,14 @@ export default function HomeScreen() {
   const loadUnreadNotificationCount = useCallback(() => {
     return getUnreadNotificationCount()
       .then(setUnreadNotificationCount)
-      .catch((err) => console.error("Failed to load unread notification count:", err));
+      .catch((err) => logError("Failed to load unread notification count:", err));
   }, []);
 
   const loadLatest = useCallback(() => {
     setLatestLoading(true);
     return fetchLatestChapters(6, courseId)
       .then(setLatestChapters)
-      .catch((err) => console.error("Failed to load latest updates:", err))
+      .catch((err) => logError("Failed to load latest updates:", err))
       .finally(() => setLatestLoading(false));
   }, [courseId]);
 
@@ -173,7 +174,7 @@ export default function HomeScreen() {
     setRecommendedLoading(true);
     return fetchRecommendedChapters(new Set(), yearId ?? years[0]?.id, 6, courseId)
       .then(setRecommended)
-      .catch((err) => console.error("Failed to load recommendations:", err))
+      .catch((err) => logError("Failed to load recommendations:", err))
       .finally(() => setRecommendedLoading(false));
   }, [years, courseId, yearId]);
 

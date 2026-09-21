@@ -4,6 +4,7 @@ import {
   getChaptersOrderedByCreatedAt,
   getActiveChapters,
 } from "../repositories/chaptersRepository";
+import { logDebug } from "../utils/logger";
 
 export type { Chapter } from "../types/chapter";
 
@@ -25,7 +26,7 @@ export async function fetchLatestChapters(max = 6, courseId?: string) {
   try {
     return await getChaptersOrderedByCreatedAt(max, courseId);
   } catch (error) {
-    console.log("fetchLatestChapters: falling back to unordered query", error);
+    logDebug("fetchLatestChapters: falling back to unordered query", error);
     return getActiveChapters(max, courseId);
   }
 }

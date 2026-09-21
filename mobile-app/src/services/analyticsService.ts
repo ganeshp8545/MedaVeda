@@ -2,6 +2,7 @@ import { Platform } from "react-native";
 import * as Application from "expo-application";
 import { supabase } from "../config/supabase";
 import { getCurrentUser } from "./authState";
+import { logDebug } from "../utils/logger";
 
 export type AnalyticsEventName =
   | "app_open"
@@ -32,7 +33,7 @@ export async function logEvent({ name, params }: AnalyticsEvent): Promise<void> 
     });
     if (error) throw error;
   } catch (error) {
-    console.log(`analyticsService.logEvent(${name}) failed:`, error);
+    logDebug(`analyticsService.logEvent(${name}) failed:`, error);
   }
 }
 

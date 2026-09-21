@@ -7,6 +7,7 @@ import {
   OwnedScope,
 } from "../services/purchasesService";
 import { Product } from "../services/productsService";
+import { logError } from "../utils/logger";
 
 /**
  * Tracks everything the current user owns (as purchase "scopes" - chapter,
@@ -22,7 +23,7 @@ export default function usePurchases() {
       const scopes = await fetchOwnedScopes();
       setOwnedScopes(scopes);
     } catch (err) {
-      console.error("Failed to load purchases:", err);
+      logError("Failed to load purchases:", err);
     } finally {
       setLoading(false);
     }

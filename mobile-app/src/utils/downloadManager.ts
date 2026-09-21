@@ -35,6 +35,7 @@ import {
   DownloadStatus,
   StorageStats,
 } from "../types/offline";
+import { logDebug } from "./logger";
 
 const ROOT_DIR = `${FileSystem.documentDirectory}medveda/`;
 const RESUME_STATE_PREFIX = "medveda:resume:"; // AsyncStorage key per in-flight download
@@ -279,7 +280,7 @@ export async function resumeDownload(id: string): Promise<void> {
       // Corrupted resume-state JSON (e.g. app was killed mid-write) -
       // treat exactly like "no resumable state" below rather than
       // throwing and leaving the Resume button permanently broken.
-      console.log(`Resume state for download ${id} is corrupt JSON - restarting instead`);
+      logDebug(`Resume state for download ${id} is corrupt JSON - restarting instead`);
       await AsyncStorage.removeItem(RESUME_STATE_PREFIX + id);
     }
   }

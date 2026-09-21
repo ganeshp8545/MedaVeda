@@ -29,6 +29,7 @@ import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 import { RADIUS } from "../../theme/radius";
+import { logError } from "../../utils/logger";
 
 type YearBlock = {
   year: Year;
@@ -86,7 +87,7 @@ export default function StoreScreen() {
 
         setBlocks(loaded);
       })
-      .catch((err) => console.error("Failed to load Store:", err))
+      .catch((err) => logError("Failed to load Store:", err))
       .finally(() => setLoading(false));
   }, [ready, courseId]);
 

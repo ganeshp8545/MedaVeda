@@ -24,6 +24,11 @@ import { markOrderStatus } from "../../services/ordersService";
 // Razorpay checkout.js script comes from Razorpay's own CDN, not from
 // Supabase, so none of the above applies. create-order only ever returns JSON
 // (see supabase/functions/create-order/index.ts).
+// App-link schemes Razorpay Checkout may open for UPI / wallet apps.
+const ALLOWED_APP_SCHEMES = new Set([
+  "upi", "tez", "gpay", "phonepe", "paytmmp", "paytm", "bhim", "credpay", "amazonpay", "mobikwik", "whatsapp",
+]);
+
 export default function PaymentCheckoutScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -320,49 +325,60 @@ export default function PaymentCheckoutScreen() {
   // URI (the standard scheme every UPI app registers as a handler for).
   // Try that first via Linking.canOpenURL/openURL - if and only if no app
   // can handle it, THEN fall back to S.browser_fallback_url (Play Store).
+  // Only these app-link schemes are ever handed to the OS from the checkout page, and the
+  // Play Store fallback is only followed when it really is a Play Store link. Anything else
+  // (sms:, tel:, file:, javascript:, an arbitrary https fallback...) is blocked, so a
+  // tampered/compromised checkout page cannot launch other apps or arbitrary sites.
   const handleShouldStartLoad = useCallback((request: { url: string }) => {
     const url = request.url;
     const isWebUrl = url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:");
 
     if (isWebUrl) return true;
 
-    if (Platform.OS === "android" && url.startsWith("intent://")) {
-      // "intent://pay?pa=...&pn=...#Intent;scheme=upi;package=...;end"
-      // -> "upi://pay?pa=...&pn=..."
-      const upiPart = url.replace(/^intent:\/\//, "").split("#Intent")[0];
-      const directUpiUrl = `upi://${upiPart}`;
-      const fallbackMatch = url.match(/S\.browser_fallback_url=([^;]+)/);
-      const fallbackUrl = fallbackMatch ? decodeURIComponent(fallbackMatch[1]) : null;
-
-      Linking.canOpenURL(directUpiUrl)
-        .then((supported) => {
-          if (supported) {
-            return Linking.openURL(directUpiUrl);
-          }
-          if (fallbackUrl) {
-            return Linking.openURL(fallbackUrl);
-          }
-          throw new Error("No handler for UPI URL and no fallback available.");
-        })
-        .catch(() => {
-          Alert.alert(
-            "App not found",
-            "The selected UPI app isn't installed on this device. Please choose another payment method."
-          );
-        });
-
-      return false;
-    }
-
-    // Non-Android app deep links (tez://, phonepe://, paytmmp:// etc.) -
-    // hand straight to the OS.
-    Linking.openURL(url).catch(() => {
+    const scheme = (url.match(/^([a-z][a-z0-9+.-]*):/i)?.[1] ?? "").toLowerCase();
+    const notInstalled = () =>
       Alert.alert(
         "App not found",
         "The selected UPI app isn't installed on this device. Please choose another payment method."
       );
-    });
 
+    if (Platform.OS === "android" && scheme === "intent") {
+      // "intent://pay?pa=...&pn=...#Intent;scheme=upi;package=...;end"
+      // -> "upi://pay?pa=...&pn=..."
+      const intentScheme = url.match(/#Intent;(?:[^#]*;)?scheme=([a-z0-9+.-]+);/i)?.[1]?.toLowerCase();
+      if (intentScheme !== "upi") return false;
+      const upiPart = url.replace(/^intent:\/\//i, "").split("#Intent")[0];
+      const directUpiUrl = `upi://${upiPart}`;
+      const fallbackMatch = url.match(/S\.browser_fallback_url=([^;]+)/);
+      let fallbackUrl: string | null = null;
+      if (fallbackMatch) {
+        try {
+          const candidate = decodeURIComponent(fallbackMatch[1]);
+          const parsed = new URL(candidate);
+          const isPlayStore =
+            parsed.protocol === "https:" &&
+            (parsed.hostname === "play.google.com" || parsed.hostname === "market.android.com");
+          fallbackUrl = isPlayStore ? candidate : null;
+        } catch {
+          fallbackUrl = null;
+        }
+      }
+
+      Linking.canOpenURL(directUpiUrl)
+        .then((supported) => {
+          if (supported) return Linking.openURL(directUpiUrl);
+          if (fallbackUrl) return Linking.openURL(fallbackUrl);
+          throw new Error("No handler for UPI URL and no fallback available.");
+        })
+        .catch(notInstalled);
+
+      return false;
+    }
+
+    // Direct UPI / wallet app links only.
+    if (ALLOWED_APP_SCHEMES.has(scheme)) {
+      Linking.openURL(url).catch(notInstalled);
+    }
     return false;
   }, []);
 

@@ -17,6 +17,7 @@ import {
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/typography";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 // Roadmap change 9 - Notification Center: a single screen for every
 // broadcast notification (New Notes, App Updates, Offers, Payment
@@ -44,7 +45,7 @@ export default function NotificationsScreen() {
         }
       })
       .catch((err) => {
-        console.error("Failed to load notifications:", err);
+        logError("Failed to load notifications:", err);
         setError("Could not load notifications. Please try again.");
       })
       .finally(() => setLoading(false));

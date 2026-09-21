@@ -17,7 +17,7 @@ import {
 
 import { useNavigation } from "@react-navigation/native";
 import { supabase } from "../config/supabase";
-import { getCurrentUser, getCurrentUserDisplayName } from "../services/authState";
+import { getCurrentUser, getCurrentUserDisplayName, performSignOut } from "../services/authState";
 
 // Real brand glyphs for the "Follow us" row (Instagram/Facebook/YouTube/
 // Telegram/WhatsApp icons, not emoji lookalikes). `@expo/vector-icons`
@@ -34,6 +34,7 @@ import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
 
 import { fetchUserProfile, UserProfile } from "../services/usersService";
+import { logError } from "../utils/logger";
 
 const PANEL_WIDTH = Math.min(300, Dimensions.get("window").width * 0.8);
 
@@ -82,7 +83,7 @@ export default function SideDrawer({ visible, onClose }: Props) {
       if (user) {
         fetchUserProfile(user.id)
           .then(setProfile)
-          .catch((err) => console.error("Failed to load profile:", err));
+          .catch((err) => logError("Failed to load profile:", err));
       }
 
       Animated.parallel([
@@ -129,7 +130,7 @@ export default function SideDrawer({ visible, onClose }: Props) {
           "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
       });
     } catch (error) {
-      console.error(error);
+      logError("Screen action failed", error);
     }
   }
 
@@ -137,10 +138,10 @@ export default function SideDrawer({ visible, onClose }: Props) {
     setLogoutDialogVisible(false);
     onClose();
     try {
-      await supabase.auth.signOut();
+      await performSignOut();
       navigation.replace("Login");
     } catch (error) {
-      console.error("Logout failed:", error);
+      logError("Logout failed:", error);
       Alert.alert("Logout Failed", "Please try again.");
     }
   }
@@ -158,7 +159,7 @@ export default function SideDrawer({ visible, onClose }: Props) {
         Alert.alert("Error", "Could not open the link.");
       }
     } catch (error) {
-      console.error(error);
+      logError("Screen action failed", error);
     }
   }
 

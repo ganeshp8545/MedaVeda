@@ -21,10 +21,11 @@ import BottomNav from "../../components/BottomNav";
 import useQuizStats from "../../hooks/useQuizStats";
 
 import { supabase } from "../../config/supabase";
-import { getCurrentUser } from "../../services/authState";
+import { getCurrentUser, performSignOut } from "../../services/authState";
 import { fetchUserProfile, UserProfile } from "../../services/usersService";
 import { fetchReferralSettings } from "../../services/referralsService";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 export default function ProfileScreen() {
   const navigation = useNavigation<any>();
@@ -43,7 +44,7 @@ export default function ProfileScreen() {
       if (!user) return;
       fetchUserProfile(user.id)
         .then(setProfile)
-        .catch((err) => console.error("Failed to load profile:", err));
+        .catch((err) => logError("Failed to load profile:", err));
       fetchReferralSettings()
         .then((s) => setReferralsEnabled(!!s?.enabled))
         .catch(() => setReferralsEnabled(false));
@@ -54,10 +55,10 @@ export default function ProfileScreen() {
     setLogoutDialogVisible(false);
 
     try {
-      await supabase.auth.signOut();
+      await performSignOut();
       navigation.replace("Login");
     } catch (error) {
-      console.error("Logout failed:", error);
+      logError("Logout failed:", error);
       Alert.alert("Logout Failed", "Please try again.");
     }
   };
@@ -71,7 +72,7 @@ export default function ProfileScreen() {
           "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
       });
     } catch (error) {
-      console.error(error);
+      logError("Screen action failed", error);
     }
   };
 

@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logDebug } from "./logger";
 
 // Global Search System - recent search terms. Same local-only, per-device
 // model as utils/recentActivity.ts (no backend table, nothing to sync) -
@@ -20,7 +21,7 @@ export async function getRecentSearches(): Promise<RecentSearchEntry[]> {
     const parsed = JSON.parse(raw);
     return Array.isArray(parsed) ? parsed : [];
   } catch (error) {
-    console.log("getRecentSearches failed:", error);
+    logDebug("getRecentSearches failed:", error);
     return [];
   }
 }
@@ -45,7 +46,7 @@ export async function recordSearch(query: string): Promise<void> {
 
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
-    console.log("recordSearch failed:", error);
+    logDebug("recordSearch failed:", error);
   }
 }
 
@@ -55,7 +56,7 @@ export async function removeRecentSearch(query: string): Promise<void> {
     const updated = existing.filter((entry) => entry.query !== query);
     await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
   } catch (error) {
-    console.log("removeRecentSearch failed:", error);
+    logDebug("removeRecentSearch failed:", error);
   }
 }
 
@@ -63,6 +64,6 @@ export async function clearRecentSearches(): Promise<void> {
   try {
     await AsyncStorage.removeItem(STORAGE_KEY);
   } catch (error) {
-    console.log("clearRecentSearches failed:", error);
+    logDebug("clearRecentSearches failed:", error);
   }
 }
