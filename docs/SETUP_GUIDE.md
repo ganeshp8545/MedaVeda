@@ -228,7 +228,7 @@ If email confirmation is enabled, configure the required email provider/SMTP bef
 The source contains:
 
 ```text
-mobile-app/supabase/functions/login-with-identifier/index.ts
+supabase/functions/login-with-mobile/index.ts
 ```
 
 This function handles phone-number/password login by:
@@ -242,7 +242,7 @@ This function handles phone-number/password login by:
 Deploy it if your app uses phone/password login:
 
 ```bash
-npx supabase functions deploy login-with-identifier
+npx supabase functions deploy login-with-mobile
 ```
 
 If this function is not intended to be used in your current build, it does not need to be deployed.
@@ -623,14 +623,14 @@ The admin panel contains authentication/security logic.
 The project also contains:
 
 ```text
-admin-panel/AUTH-SETUP.md
+admin-panel/README.md
 ```
 
 Follow that file for the exact admin-account setup used by the current codebase.
 
 If the deployed version uses Supabase admin authorization, configure the appropriate admin role/records in Supabase.
 
-If a specific customer deployment still uses Firebase for the admin authentication portion, follow the Firebase setup already documented in `AUTH-SETUP.md` and do not remove it without first checking the current code path.
+The admin panel signs in with Supabase Auth only; the old Firebase setup notes were removed (see `admin-panel/README.md`).
 
 ---
 
@@ -1033,7 +1033,7 @@ npx supabase db push
 Deploy functions:
 
 ```bash
-npx supabase functions deploy login-with-identifier
+npx supabase functions deploy login-with-mobile
 npx supabase functions deploy create-payment-session
 npx supabase functions deploy pay
 npx supabase functions deploy verify-payment
@@ -1505,7 +1505,7 @@ mobile-app/src/services/paymentService.ts
 ```text
 admin-panel/package.json
 admin-panel/src/config/supabase.ts
-admin-panel/AUTH-SETUP.md
+admin-panel/README.md
 ```
 
 ### Supabase
