@@ -1,141 +1,127 @@
-// NOTIFICATIONS SYSTEM - send-push-notification Edge Function.
+// POST /functions/v1/send-push-notification      (admin only)
+// Header: Authorization: Bearer <admin's access token>
 //
-// Deploy: supabase functions deploy send-push-notification
+// verify_jwt is OFF in config.toml on purpose: the admin panel calls this from a
+// browser, and a gateway-level 401 carries no CORS headers (the browser would
+// report it as a CORS failure). Authentication is done here instead: the caller's
+// JWT is verified with Supabase Auth and the resulting user id must be in
+// public.admins (same rule as public.am_i_admin()).
 //
-// Call this from the admin panel (once it has a broadcast composer UI)
-// or manually via curl/Postman for now. It does two things:
-//   1. Sends the push via Expo's push API to every matching device token.
-//   2. Inserts a row into the existing `notifications` table, so the
-//      message also shows up in the in-app Notification Center (and
-//      counts toward the unread badge) for users who don't have push
-//      permission granted or are on a device without a token yet.
-//
-// Request body:
-//   {
-//     "title": "New Notes Available",
-//     "body": "Anatomy Chapter 5 notes are now live.",
-//     "type": "new_notes",              // matches NotificationType in notificationsService.ts
-//     "targetUserIds": ["uuid1", ...],  // omit for a full broadcast
-//     "data": { "screen": "ChapterDetails", "params": { "chapterId": "..." } }
-//   }
+// Body: { title, body, type?, targetUserIds?: uuid[], data?: { screen?: string, params?: object } }
+//   1. inserts a row into `notifications` (in-app notification centre), then
+//   2. sends the push through Expo to the matching device tokens.
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { getUserFromAuthHeader, supabaseAdmin } from "../_shared/supabaseAdmin.ts";
+import { withinLimit } from "../_shared/rateLimit.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const EXPO_TOKEN = /^Expo(nent)?PushToken\[[A-Za-z0-9_-]{10,}\]$/;
+const TYPES = new Set(["announcement", "new_notes", "new_video", "quiz", "offer", "app_update", "exam_reminder", "payment_success"]);
+const MAX_TITLE = 100;
+const MAX_BODY = 500;
+const MAX_TARGETS = 1000;
+const MAX_DATA_BYTES = 1024;
+const PAGE = 1000;
 
 Deno.serve(async (req: Request) => {
-  // BUG FIX: this function had no CORS headers and no OPTIONS handler at
-  // all. It's meant to be called from the admin panel's browser (per the
-  // header comment above), and a browser blocks the whole request client
-  // side without an Access-Control-Allow-Origin response header - it
-  // would have failed the instant a broadcast composer UI tried to call
-  // it, with nothing more helpful than a generic "Failed to fetch" in
-  // the browser console. Switched every response below to the shared
-  // jsonResponse() helper so this can't regress the same way again.
   const preflight = handleOptions(req);
   if (preflight) return preflight;
+  if (req.method !== "POST") return jsonResponse({ error: "Method not allowed" }, 405);
 
   try {
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")! // service role - bypasses RLS, reads all tokens
-    );
+    const user = await getUserFromAuthHeader(req);
+    if (!user) return jsonResponse({ error: "Invalid or expired session" }, 401);
 
-    // SECURITY FIX (already applied before this pass): admin-only check,
-    // same "admins by email" pattern the admin panel's AuthContext.tsx
-    // uses (via the am_i_admin() RPC) - here queried directly since this
-    // function runs as the service role, not as the calling user, so the
-    // RPC's auth.email() context isn't available the way it is in the
-    // admin panel's own client.
-    const authHeader = req.headers.get("Authorization") ?? "";
-    const token = authHeader.replace(/^Bearer\s+/i, "");
-    if (!token) {
-      return jsonResponse({ error: "Missing authorization header" }, 401);
-    }
-
-    const { data: userData, error: userErr } = await supabase.auth.getUser(token);
-    if (userErr || !userData.user?.email) {
-      return jsonResponse({ error: "Invalid or expired session" }, 401);
-    }
-
-    const { data: adminRow } = await supabase
+    const { data: adminRow, error: adminErr } = await supabaseAdmin
       .from("admins")
-      .select("email")
-      .eq("email", userData.user.email)
+      .select("id")
+      .eq("id", user.id)
       .maybeSingle();
+    if (adminErr) {
+      console.error("send-push-notification: admin lookup failed", adminErr.code);
+      return jsonResponse({ error: "Something went wrong." }, 500);
+    }
+    if (!adminRow) return jsonResponse({ error: "Admin access required" }, 403);
 
-    if (!adminRow) {
-      return jsonResponse({ error: "Admin access required" }, 403);
+    if (!(await withinLimit(`push-send:${user.id}`, 10, 3600))) {
+      return jsonResponse({ error: "Too many notifications sent recently. Try again later." }, 429);
     }
 
-    const { title, body, type, targetUserIds, data } = await req.json().catch(() => ({}));
+    const input = (await req.json().catch(() => null)) as Record<string, unknown> | null;
+    if (!input || typeof input !== "object") return jsonResponse({ error: "Invalid request body" }, 400);
 
-    if (!title || !body) {
-      return jsonResponse({ error: "title and body are required" }, 400);
+    const title = typeof input.title === "string" ? input.title.trim() : "";
+    const body = typeof input.body === "string" ? input.body.trim() : "";
+    if (!title || title.length > MAX_TITLE) return jsonResponse({ error: `title is required (max ${MAX_TITLE} characters)` }, 400);
+    if (!body || body.length > MAX_BODY) return jsonResponse({ error: `body is required (max ${MAX_BODY} characters)` }, 400);
+
+    const type = input.type === undefined || input.type === null ? "app_update" : input.type;
+    if (typeof type !== "string" || !TYPES.has(type)) return jsonResponse({ error: "Unknown notification type" }, 400);
+
+    let targets: string[] | null = null;
+    if (input.targetUserIds !== undefined && input.targetUserIds !== null) {
+      const ids = input.targetUserIds;
+      if (!Array.isArray(ids) || ids.length > MAX_TARGETS || !ids.every((v) => typeof v === "string" && UUID.test(v))) {
+        return jsonResponse({ error: `targetUserIds must be up to ${MAX_TARGETS} user ids` }, 400);
+      }
+      targets = ids.length > 0 ? (ids as string[]) : null;
     }
 
-    // 1. Mirror into the notifications table (powers the in-app center
-    // regardless of whether push actually reaches the device).
-    const { error: insertError } = await supabase.from("notifications").insert({
-      title,
-      body,
-      type: type ?? "app_update",
-      active: true,
-    });
-    if (insertError) console.error("Failed to insert notification row:", insertError);
-
-    // 2. Collect push tokens - either everyone, or a specific set of users.
-    let tokenQuery = supabase.from("push_tokens").select("expo_push_token");
-    if (Array.isArray(targetUserIds) && targetUserIds.length > 0) {
-      tokenQuery = tokenQuery.in("user_id", targetUserIds);
-    }
-    const { data: tokenRows, error: tokenError } = await tokenQuery;
-
-if (tokenError) {
-  console.error("TOKEN QUERY ERROR:", tokenError);
-  throw tokenError;
-}
-
-console.log("TOKEN ROWS:", tokenRows);
-console.log("TOKEN COUNT:", tokenRows?.length);
-
-const tokens = (tokenRows ?? [])
-  .map((r: any) => r.expo_push_token)
-  .filter(Boolean);
-
-console.log("EXPO TOKENS:", tokens);
-
-    if (tokens.length === 0) {
-      return jsonResponse({ success: true, pushed: 0, note: "No registered devices matched." });
+    let data: Record<string, unknown> = {};
+    if (input.data !== undefined && input.data !== null) {
+      if (typeof input.data !== "object" || Array.isArray(input.data)) return jsonResponse({ error: "data must be an object" }, 400);
+      const raw = input.data as Record<string, unknown>;
+      if (raw.screen !== undefined && (typeof raw.screen !== "string" || raw.screen.length > 64)) {
+        return jsonResponse({ error: "data.screen must be a short string" }, 400);
+      }
+      if (new TextEncoder().encode(JSON.stringify(raw)).length > MAX_DATA_BYTES) {
+        return jsonResponse({ error: "data is too large" }, 400);
+      }
+      data = raw;
     }
 
-    // Expo's push API accepts up to 100 messages per request - chunk it.
-    const chunks: string[][] = [];
-    for (let i = 0; i < tokens.length; i += 100) chunks.push(tokens.slice(i, i + 100));
+    // In-app notification centre (shown even where push is not granted).
+    const { error: insertError } = await supabaseAdmin
+      .from("notifications")
+      .insert({ title, body, type, active: true });
+    if (insertError) console.error("send-push-notification: notification row insert failed", insertError.code);
 
+    // Collect device tokens page by page (PostgREST returns at most 1000 rows per request).
+    const tokens: string[] = [];
+    for (let from = 0; ; from += PAGE) {
+      let query = supabaseAdmin.from("push_tokens").select("expo_push_token").order("expo_push_token").range(from, from + PAGE - 1);
+      if (targets) query = query.in("user_id", targets);
+      const { data: rows, error } = await query;
+      if (error) {
+        console.error("send-push-notification: token query failed", error.code);
+        return jsonResponse({ error: "Something went wrong." }, 500);
+      }
+      for (const r of rows ?? []) {
+        if (typeof r.expo_push_token === "string" && EXPO_TOKEN.test(r.expo_push_token)) tokens.push(r.expo_push_token);
+      }
+      if (!rows || rows.length < PAGE) break;
+    }
+
+    if (tokens.length === 0) return jsonResponse({ success: true, pushed: 0, note: "No registered devices matched." });
+
+    // Expo accepts up to 100 messages per request.
     let sent = 0;
-    for (const chunk of chunks) {
-      const messages = chunk.map((token) => ({
-        to: token,
-        title,
-        body,
-        data: data ?? {},
-        sound: "default",
-      }));
-
+    for (let i = 0; i < tokens.length; i += 100) {
+      const chunk = tokens.slice(i, i + 100);
       const res = await fetch(EXPO_PUSH_URL, {
+        signal: AbortSignal.timeout(15_000),
         method: "POST",
         headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify(messages),
+        body: JSON.stringify(chunk.map((to) => ({ to, title, body, data, sound: "default" }))),
       });
-
       if (res.ok) sent += chunk.length;
-      else console.error("Expo push send failed for a chunk:", await res.text());
+      else console.error("send-push-notification: Expo rejected a chunk", res.status);
     }
 
     return jsonResponse({ success: true, pushed: sent });
   } catch (err) {
-    console.error("send-push-notification error:", err);
-    return jsonResponse({ error: String(err) }, 500);
+    console.error("send-push-notification: unhandled error", String(err));
+    return jsonResponse({ error: "Something went wrong." }, 500);
   }
 });

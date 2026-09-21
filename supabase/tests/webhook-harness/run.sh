@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# usage: supabase/tests/webhook-harness/run.sh   (needs the scratch Postgres on :54329 with all migrations applied to a DB named by TEMPLATE_DB)
+# usage: supabase/tests/webhook-harness/run.sh   (needs a Postgres reachable via PGHOST/PGPORT/PGUSER (default 127.0.0.1:54329) with all migrations applied to a DB named by TEMPLATE_DB)
 set -euo pipefail
 root=$(cd "$(dirname "$0")/../../.." && pwd)
-P="psql -h 127.0.0.1 -p 54329 -U postgres -w -At"
+P="psql -h ${PGHOST:-127.0.0.1} -p ${PGPORT:-54329} -U ${PGUSER:-postgres} -w -At"
 TEMPLATE_DB=${TEMPLATE_DB:-ap_b1}; export WH_DB=ap_wh
 $P -d postgres -c "drop database if exists $WH_DB" -c "create database $WH_DB template $TEMPLATE_DB" >/dev/null
 $P -d $WH_DB -q <<'SQL' >/dev/null

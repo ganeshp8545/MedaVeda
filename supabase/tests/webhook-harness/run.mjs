@@ -7,7 +7,7 @@ let handler; globalThis.Deno = { serve: (h) => { handler = h; }, env: { get: (k)
 globalThis.__rzp = { payments: {}, disputes: {}, orders: {} };
 await import("./razorpay-webhook/index.ts");
 const db = process.env.WH_DB ?? "ap_wh";
-const q = (s) => execFileSync("psql", ["-h", "127.0.0.1", "-p", "54329", "-U", "postgres", "-w", "-d", db, "-Atc", s]).toString().trim();
+const q = (s) => execFileSync("psql", ["-h", process.env.PGHOST ?? "127.0.0.1", "-p", process.env.PGPORT ?? "54329", "-U", process.env.PGUSER ?? "postgres", "-w", "-d", db, "-Atc", s]).toString().trim();
 const ok = (c, m) => { console.log(c ? "PASS" : "FAIL", m); if (!c) process.exitCode = 1; };
 let n = 0;
 const send = async (body, { sign = true, sig } = {}) => {

@@ -108,7 +108,7 @@ select pg_temp.chk('N5 control: both verified at purchase -> the referrer gets a
   and (select status from public.referrals where referred_id = :FV) = 'qualified');
 -- F2 applies while verified, then changes their phone (verification is dropped) and buys
 select pg_temp.apply(:F2::uuid, :'rv_code') as r \gset
-select pg_temp.attempt('authenticated', :F2::uuid, format($$update public.profiles set phone = '+919822200001' where id = %L$$, :F2)) as r2 \gset
+select pg_temp.attempt('authenticated', :F2::uuid, format($$select public.change_my_phone('+919822200001') /* the only client path since 20260929100000 */ where %L is not null$$, :F2)) as r2 \gset
 select pg_temp.chk('N6a (setup) changing the phone dropped the friend''s verification', not (select mobile_verified from public.profiles where id = :F2), :'r2');
 select pg_temp.mkorder(:F2::uuid, 'bp2') as o2 \gset
 select pg_temp.pay(:'o2'::jsonb->>'order_id');

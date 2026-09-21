@@ -67,7 +67,7 @@ select pg_temp.chk('F2 anon can still read courses / app_config', pg_temp.dml('a
 select pg_temp.chk('F3 anon still cannot write anything else', pg_temp.dml('anon', null, $$insert into public.profiles(id, email) values (gen_random_uuid(), 'x@x')$$) like 'ERR:%');
 select pg_temp.chk('F4 a student can still update their own profile', pg_temp.dml('authenticated', :STU::uuid, format($$update public.profiles set name = 'N' where id = %L$$, :STU)) = '1');
 select pg_temp.chk('F5 a student can still register a push token',
-  pg_temp.dml('authenticated', :STU::uuid, format($$insert into public.push_tokens(user_id, expo_push_token, platform) values (%L, 'ExponentPushToken[f8]', 'android')$$, :STU)) = '1');
+  pg_temp.dml('authenticated', :STU::uuid, format($$insert into public.push_tokens(user_id, expo_push_token, platform) values (%L, 'ExponentPushToken[f8-test-token-01]', 'android')$$, :STU)) = '1');
 select pg_temp.chk('F6 a student can still save a quiz score',
   pg_temp.dml('authenticated', :STU::uuid, format($$insert into public.quiz_scores(id, user_id, score, total, percentage) values ('f8q', %L, 1, 2, 50)$$, :STU)) = '1');
 select pg_temp.chk('F7 a student can still log an event as themselves',

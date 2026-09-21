@@ -1,5 +1,0 @@
-# Phone/password login is an unauthenticated entry point. The function itself
-# validates its request and delegates password verification to Supabase Auth;
-# JWT verification cannot run before a user has logged in.
-[functions.login-with-identifier]
-verify_jwt = false

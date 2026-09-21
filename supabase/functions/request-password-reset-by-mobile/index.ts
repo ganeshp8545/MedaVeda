@@ -37,8 +37,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   if (!phone) return generic();
 
-  if (!(await withinLimit(`reset-ip:${clientIp(req)}`, 10, 3600))
-      || !(await withinLimit(`reset-phone:${phone}`, 3, 3600))) {
+  // Per IP, per IP+number, and a per-number ceiling across IPs (bounds mail-bombing a
+  // victim's inbox without letting one client exhaust the number's whole budget).
+  const ip = clientIp(req);
+  if (!(await withinLimit(`reset-ip:${ip}`, 10, 3600))
+      || !(await withinLimit(`reset-ip-phone:${ip}:${phone}`, 3, 3600))
+      || !(await withinLimit(`reset-phone:${phone}`, 6, 3600))) {
     return generic();
   }
 

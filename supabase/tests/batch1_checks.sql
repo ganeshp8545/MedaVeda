@@ -420,8 +420,10 @@ select pg_temp.chk('P1 a student cannot edit profiles.email', :'r' like 'ERR:%pr
 select pg_temp.attempt('authenticated', :H::uuid, format($$update public.profiles set name = 'New Name', phone = '+919811100001' where id = %L$$, :H)) as r \gset
 select pg_temp.chk('P2 name still editable; saving the SAME phone keeps mobile_verified',
   :'r' = 'OK' and (select mobile_verified from public.profiles where id = :H), :'r');
-select pg_temp.attempt('authenticated', :H::uuid, format($$update public.profiles set phone = '+919811100002' where id = %L$$, :H)) as r \gset
-select pg_temp.chk('P3 changing the phone resets mobile_verified',
+select pg_temp.attempt('authenticated', :H::uuid, format($$update public.profiles set phone = '+919811100003' where id = %L$$, :H)) as r0 \gset
+select pg_temp.chk('P3a a direct UPDATE of the phone is refused (change_my_phone() is the only way)', :'r0' like 'ERR:%change_my_phone%', :'r0');
+select pg_temp.attempt('authenticated', :H::uuid, format($$select public.change_my_phone('+919811100002') /* %L */$$, :H)) as r \gset
+select pg_temp.chk('P3 changing the phone (through change_my_phone) resets mobile_verified',
   :'r' = 'OK' and not (select mobile_verified from public.profiles where id = :H), :'r');
 select pg_temp.attempt('authenticated', :H::uuid, format($$update public.profiles set mobile_verified = true where id = %L$$, :H)) as r \gset
 select pg_temp.chk('P4 ... and the student cannot set it back', :'r' like 'ERR:%protected%', :'r');
