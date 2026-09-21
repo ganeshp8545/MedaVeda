@@ -1,4 +1,4 @@
-# MedVeda website (medveda.in)
+# MedVeda website (www.medveda.in)
 
 Static HTML/CSS/JS, deployed on Vercel (`vercel.json`, `cleanUrls`). No framework.
 

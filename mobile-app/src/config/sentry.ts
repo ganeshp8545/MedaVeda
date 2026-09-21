@@ -34,13 +34,18 @@ Sentry.init({
     ? `${Application.applicationId}@${Application.nativeApplicationVersion}+${Application.nativeBuildVersion ?? "0"}`
     : undefined,
   sendDefaultPii: false,
-  tracesSampleRate: 0.1,
+  // Performance tracing is off: span names are full request URLs (REST filters carry user ids / emails).
+  tracesSampleRate: 0,
   maxBreadcrumbs: 30,
   attachScreenshot: false,
   attachViewHierarchy: false,
   beforeBreadcrumb(breadcrumb) {
     // console output and navigation params can contain personal data
     if (breadcrumb.category === "console" || breadcrumb.category === "navigation") return null;
+    // network breadcrumbs: keep host + path, drop the query string (PostgREST filters carry ids/emails)
+    if ((breadcrumb.category === "xhr" || breadcrumb.category === "fetch") && typeof breadcrumb.data?.url === "string") {
+      breadcrumb.data.url = breadcrumb.data.url.split("?")[0].split("#")[0];
+    }
     return breadcrumb;
   },
   beforeSend(event) {

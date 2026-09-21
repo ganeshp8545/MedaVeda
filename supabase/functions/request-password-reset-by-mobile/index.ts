@@ -20,7 +20,7 @@ import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { clientIp, withinLimit } from "../_shared/rateLimit.ts";
 
 // Must also be in Supabase Auth -> URL Configuration -> Redirect URLs.
-const PASSWORD_RESET_REDIRECT_URL = "https://medveda.in/reset-password";
+const PASSWORD_RESET_REDIRECT_URL = "https://www.medveda.in/reset-password";
 
 const generic = () => jsonResponse({ ok: true });
 

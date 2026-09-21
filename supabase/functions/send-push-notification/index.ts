@@ -11,7 +11,7 @@
 //   1. inserts a row into `notifications` (in-app notification centre), then
 //   2. sends the push through Expo to the matching device tokens.
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
-import { getUserFromAuthHeader, supabaseAdmin } from "../_shared/supabaseAdmin.ts";
+import { aalFromAuthHeader, getUserFromAuthHeader, supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { withinLimit } from "../_shared/rateLimit.ts";
 
 const EXPO_PUSH_URL = "https://exp.host/--/api/v2/push/send";
@@ -43,6 +43,13 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Something went wrong." }, 500);
     }
     if (!adminRow) return jsonResponse({ error: "Admin access required" }, 403);
+
+    // Same rule as am_i_admin(): once the owner switches admin MFA on, a password-only (aal1) session is not enough.
+    const { data: mfa, error: mfaErr } = await supabaseAdmin.from("admin_settings").select("require_mfa").eq("id", true).maybeSingle();
+    if (mfaErr) return jsonResponse({ error: "Something went wrong." }, 500);   // fail closed
+    if (mfa?.require_mfa && aalFromAuthHeader(req) !== "aal2") {
+      return jsonResponse({ error: "Multi-factor authentication required" }, 403);
+    }
 
     if (!(await withinLimit(`push-send:${user.id}`, 10, 3600))) {
       return jsonResponse({ error: "Too many notifications sent recently. Try again later." }, 429);

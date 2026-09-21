@@ -29,6 +29,7 @@ jobs:
       - run: npm ci
       - run: npx tsc --noEmit
       - run: node --experimental-strip-types scripts/checkout-html-selftest.mjs
+      - run: node --experimental-strip-types scripts/password-policy-selftest.mjs
       - run: node scripts/verify-signature-selftest.js
 
   website:

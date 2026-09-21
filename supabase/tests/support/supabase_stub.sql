@@ -36,6 +36,10 @@ create table if not exists auth.sessions (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz default now(), updated_at timestamptz default now(), ip inet, user_agent text
 );
+create table if not exists auth.mfa_factors (
+  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
+  factor_type text not null default 'totp', status text not null default 'unverified', created_at timestamptz default now()
+);
 create table if not exists auth.identities (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
   provider text not null default 'email', identity_data jsonb default '{}', created_at timestamptz default now()

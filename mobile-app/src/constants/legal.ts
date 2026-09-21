@@ -13,7 +13,7 @@ export const LEGAL = {
   effectiveDate: "20 September 2026",
 } as const;
 
-const SITE = "https://medveda.in";
+const SITE = "https://www.medveda.in";
 export const WEB = {
   privacy: `${SITE}/privacy-policy`,
   terms: `${SITE}/terms`,

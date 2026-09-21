@@ -59,3 +59,14 @@ verify_jwt = false
 
 [functions.request-password-reset-by-mobile]
 verify_jwt = false
+
+# Auth password policy. Supabase Auth (GoTrue) enforces this on EVERY path that sets a
+# password (signUp, updateUser, recovery, admin API), so a direct API call cannot bypass
+# the app's client-side form. Only the properties declared here are pushed by
+# `supabase config push`; run `supabase config diff` first and review it.
+# NOT expressible in Supabase: a maximum length (GoTrue only caps at bcrypt's 72 bytes).
+# The 32-character maximum therefore stays a client-side rule (docs/security/PASSWORD_POLICY.md).
+# Leaked-password (HIBP) protection is a Pro-plan dashboard toggle, not a config.toml key.
+[auth]
+minimum_password_length = 8
+password_requirements = "lower_upper_letters_digits_symbols"
