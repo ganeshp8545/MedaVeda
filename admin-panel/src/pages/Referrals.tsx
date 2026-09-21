@@ -7,7 +7,19 @@ import Button from "../components/Button";
 import Input from "../components/Input";
 import Modal from "../components/Modal";
 
-import type { Referral, ReferralSettingsInput, ReferralStatus } from "../types/referral";
+import {
+  confirmationReasons,
+  validateReferralSettings,
+  SAMPLE_ORDER_PRICE,
+  type FieldErrors,
+} from "../utils/referralLimits";
+
+import type {
+  Referral,
+  ReferralSettingsAuditEntry,
+  ReferralSettingsInput,
+  ReferralStatus,
+} from "../types/referral";
 
 const STATUS_STYLES: Record<ReferralStatus, string> = {
   pending: "bg-amber-100 text-amber-700",
@@ -28,26 +40,49 @@ function formatDate(value: any) {
   });
 }
 
-const defaultSettings: ReferralSettingsInput = {
-  enabled: false,
-  friendDiscountPercent: 10,
-  friendDiscountMax: 100,
-  referrerCreditAmount: 50,
-  creditHoldDays: 7,
-  creditExpiryDays: null,
-  walletMaxPercent: 50,
-  walletProductTypes: ["notes", "notes_bundle"],
-  applyWindowDays: 2,
-  termsUrl: null,
+// Column -> label for the change log (database names, as stored in the audit rows).
+const AUDIT_LABELS: Record<string, string> = {
+  enabled: "Program enabled",
+  friend_discount_percent: "Friend discount %",
+  friend_discount_max: "Friend discount cap (₹)",
+  referrer_credit_amount: "Referrer credit (₹)",
+  credit_hold_days: "Hold days",
+  credit_expiry_days: "Credit expiry (days)",
+  wallet_max_percent: "Wallet max %",
+  wallet_product_types: "Wallet product types",
+  apply_window_days: "Code window (days)",
+  max_referrals_per_user: "Max referrals per user",
+  checkout_expiry_minutes: "Checkout expiry (min)",
+  terms_url: "Terms URL",
 };
+
+function formatAuditValue(v: unknown) {
+  if (v === null || v === undefined || v === "") return "blank";
+  if (Array.isArray(v)) return v.join(", ");
+  if (typeof v === "boolean") return v ? "on" : "off";
+  return String(v);
+}
+
+function formatDateTime(value: string) {
+  return new Date(value).toLocaleString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
 export default function Referrals() {
   const [statusFilter, setStatusFilter] = useState<ReferralStatus | "">("");
-  const { referrals, settings, loading, error, saveSettings, reject } = useReferrals(
+  const { referrals, settings, audit, loading, error, saveSettings, reject } = useReferrals(
     statusFilter || undefined
   );
 
-  const [form, setForm] = useState<ReferralSettingsInput>(defaultSettings);
+  // null until the row is loaded from referral_settings: the form never shows
+  // (or saves) numbers the admin did not set.
+  const [form, setForm] = useState<ReferralSettingsInput | null>(null);
+  const [confirmReasons, setConfirmReasons] = useState<string[] | null>(null);
   const [savingSettings, setSavingSettings] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState<{ ok: boolean; text: string } | null>(
     null
@@ -77,37 +112,21 @@ export default function Referrals() {
     );
   }, [referrals, search]);
 
-  function validateSettings(): string | null {
-    const pct = (label: string, v: number) =>
-      !Number.isFinite(v) || v < 0 || v > 100 ? `${label} must be between 0 and 100.` : null;
-    return (
-      pct("Friend discount %", form.friendDiscountPercent) ||
-      pct("Wallet max %", form.walletMaxPercent) ||
-      (form.friendDiscountMax != null && form.friendDiscountMax < 0
-        ? "Friend discount cap cannot be negative."
-        : null) ||
-      (!(form.referrerCreditAmount >= 0) ? "Referrer credit cannot be negative." : null) ||
-      (!Number.isInteger(form.creditHoldDays) || form.creditHoldDays < 0 || form.creditHoldDays > 365
-        ? "Hold days must be a whole number between 0 and 365."
-        : null) ||
-      (form.creditExpiryDays != null && (!Number.isInteger(form.creditExpiryDays) || form.creditExpiryDays < 1)
-        ? "Expiry must be at least 1 day (or leave blank for no expiry)."
-        : null) ||
-      (!Number.isInteger(form.applyWindowDays) || form.applyWindowDays < 1 || form.applyWindowDays > 30
-        ? "Code window must be between 1 and 30 days."
-        : null) ||
-      (form.maxReferralsPerUser !== undefined && form.maxReferralsPerUser !== null && form.maxReferralsPerUser < 1
-        ? "Max referrals per user must be at least 1 (or leave it blank for no limit)."
-        : null)
-    );
+  const errors: FieldErrors = useMemo(() => (form ? validateReferralSettings(form) : {}), [form]);
+  const hasErrors = Object.keys(errors).length > 0;
+
+  function handleSaveClick() {
+    if (!form) return;
+    if (hasErrors) return;
+    setSettingsMessage(null);
+    const reasons = confirmationReasons(form);
+    if (reasons.length > 0) setConfirmReasons(reasons);
+    else void persistSettings();
   }
 
-  async function handleSaveSettings() {
-    const problem = validateSettings();
-    if (problem) {
-      setSettingsMessage({ ok: false, text: problem });
-      return;
-    }
+  async function persistSettings() {
+    if (!form) return;
+    setConfirmReasons(null);
     try {
       setSavingSettings(true);
       await saveSettings(form);
@@ -134,13 +153,12 @@ export default function Referrals() {
     }
   }
 
-  const numberValue = (v: number | undefined | null) => (v === undefined || v === null ? "" : v);
-  const toNumber = (raw: string) => (raw === "" ? undefined : Number(raw));
+  const numberValue = (v: number | undefined | null) =>
+    v === undefined || v === null || Number.isNaN(v) ? "" : v;
+  // Blank required field -> NaN (fails validation, shown as blank); blank optional field -> null.
   const toNumberOrNull = (raw: string) => (raw === "" ? null : Number(raw));
-  const toInt = (raw: string) => (raw === "" ? NaN : Number(raw));
-
-  const cap =
-    form.friendDiscountMax != null ? ` (up to ₹${form.friendDiscountMax})` : "";
+  const toRequired = (raw: string) => (raw === "" ? NaN : Number(raw));
+  const fieldError = (name: keyof FieldErrors) => errors[name];
 
   return (
     <div>
@@ -154,11 +172,15 @@ export default function Referrals() {
       <div className="mb-8 rounded-xl bg-white p-6 shadow">
         <h2 className="mb-1 text-lg font-semibold text-gray-800">Settings</h2>
         <p className="mb-4 text-xs text-gray-500">
-          These values are read by the server at checkout and settlement; the app never hardcodes
-          them. Changes apply to new orders immediately. Rewards are issued automatically after the
+          These values are read by the server at checkout and settlement, and shown live in the
+          app; nothing is hardcoded. Changes apply to new orders immediately. Rewards are issued automatically after the
           friend's first paid purchase.
         </p>
 
+        {!form ? (
+          <p className="text-sm text-gray-400">{loading ? "Loading settings..." : "Settings could not be loaded."}</p>
+        ) : (
+        <>
         <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
           <input
             type="checkbox"
@@ -174,14 +196,19 @@ export default function Referrals() {
             label="Discount on first purchase (%)"
             type="number"
             min={0}
-            max={100}
+            max={50}
+            step="any"
+            error={fieldError("friendDiscountPercent")}
             value={numberValue(form.friendDiscountPercent)}
-            onChange={(e) => setForm({ ...form, friendDiscountPercent: toInt(e.target.value) })}
+            onChange={(e) => setForm({ ...form, friendDiscountPercent: toRequired(e.target.value) })}
           />
           <Input
             label="Max discount (₹, blank = no cap)"
             type="number"
-            min={0}
+            min={1}
+            max={10000}
+            step="any"
+            error={fieldError("friendDiscountMax")}
             value={numberValue(form.friendDiscountMax)}
             onChange={(e) => setForm({ ...form, friendDiscountMax: toNumberOrNull(e.target.value) })}
           />
@@ -190,8 +217,9 @@ export default function Referrals() {
             type="number"
             min={1}
             max={30}
+            error={fieldError("applyWindowDays")}
             value={numberValue(form.applyWindowDays)}
-            onChange={(e) => setForm({ ...form, applyWindowDays: toInt(e.target.value) })}
+            onChange={(e) => setForm({ ...form, applyWindowDays: toRequired(e.target.value) })}
           />
         </div>
 
@@ -201,16 +229,20 @@ export default function Referrals() {
             label="Credit per friend's first purchase (₹)"
             type="number"
             min={0}
+            max={10000}
+            step="any"
+            error={fieldError("referrerCreditAmount")}
             value={numberValue(form.referrerCreditAmount)}
-            onChange={(e) => setForm({ ...form, referrerCreditAmount: toInt(e.target.value) })}
+            onChange={(e) => setForm({ ...form, referrerCreditAmount: toRequired(e.target.value) })}
           />
           <Input
             label="Hold before credit is available (days)"
             type="number"
             min={0}
-            max={365}
+            max={90}
+            error={fieldError("creditHoldDays")}
             value={numberValue(form.creditHoldDays)}
-            onChange={(e) => setForm({ ...form, creditHoldDays: toInt(e.target.value) })}
+            onChange={(e) => setForm({ ...form, creditHoldDays: toRequired(e.target.value) })}
           />
           <Input
             label="Credit expires after (days, blank = never)"
@@ -223,8 +255,10 @@ export default function Referrals() {
             label="Max referrals per user (blank = unlimited)"
             type="number"
             min={1}
+            max={1000}
+            error={fieldError("maxReferralsPerUser")}
             value={numberValue(form.maxReferralsPerUser)}
-            onChange={(e) => setForm({ ...form, maxReferralsPerUser: toNumber(e.target.value) })}
+            onChange={(e) => setForm({ ...form, maxReferralsPerUser: toNumberOrNull(e.target.value) })}
           />
         </div>
 
@@ -233,10 +267,12 @@ export default function Referrals() {
           <Input
             label="Max share of an order payable with wallet (%)"
             type="number"
-            min={0}
+            min={1}
             max={100}
+            step="any"
+            error={fieldError("walletMaxPercent")}
             value={numberValue(form.walletMaxPercent)}
-            onChange={(e) => setForm({ ...form, walletMaxPercent: toInt(e.target.value) })}
+            onChange={(e) => setForm({ ...form, walletMaxPercent: toRequired(e.target.value) })}
           />
           <Input
             label="Referral terms URL (blank = built-in terms screen)"
@@ -249,11 +285,15 @@ export default function Referrals() {
           Products page). Videos and untagged products never accept it.
         </p>
 
-        <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">
-          Students will see: “Invite friends, earn ₹{form.referrerCreditAmount}” · “Your friend gets{" "}
-          {form.friendDiscountPercent}% off{cap}” · credit available after {form.creditHoldDays} days ·
-          wallet up to {form.walletMaxPercent}% of the price, notes only.
-        </div>
+        {!hasErrors && (
+          <div className="mb-4 rounded-lg bg-green-50 p-3 text-sm text-green-800">
+            Students will see: “Invite friends, earn ₹{form.referrerCreditAmount}” · “Your friend gets{" "}
+            {form.friendDiscountPercent}% off
+            {form.friendDiscountMax != null ? ` (up to ₹${form.friendDiscountMax})` : ""}” · credit available
+            after {form.creditHoldDays} days · wallet up to {form.walletMaxPercent}% of the price, notes only.
+            On a ₹{SAMPLE_ORDER_PRICE} order the friend discount is applied first, then the wallet share.
+          </div>
+        )}
 
         {settingsMessage && (
           <p className={`mb-3 text-sm ${settingsMessage.ok ? "text-green-700" : "text-red-500"}`}>
@@ -261,10 +301,59 @@ export default function Referrals() {
           </p>
         )}
 
-        <Button onClick={handleSaveSettings} loading={savingSettings} disabled={loading}>
+        <Button onClick={handleSaveClick} loading={savingSettings} disabled={loading || hasErrors}>
           Save settings
         </Button>
+        {hasErrors && (
+          <p className="mt-2 text-xs text-red-500">Fix the fields marked in red to enable Save.</p>
+        )}
+        </>
+        )}
+
+        <h3 className="mb-2 mt-8 text-sm font-semibold text-gray-700">Recent changes (last 10)</h3>
+        {audit.length === 0 ? (
+          <p className="text-xs text-gray-400">No changes recorded yet.</p>
+        ) : (
+          <ul className="divide-y rounded-lg border text-xs text-gray-700">
+            {audit.map((a) => (
+              <li key={a.id} className="p-3">
+                <div className="mb-1 text-gray-500">
+                  {formatDateTime(a.changedAt)} · {a.changedByEmail ?? "database (no signed-in admin)"}
+                </div>
+                {Object.keys(a.newValues).map((k) => (
+                  <div key={k}>
+                    <span className="font-medium">{AUDIT_LABELS[k] ?? k}:</span>{" "}
+                    {formatAuditValue(a.oldValues[k])} → {formatAuditValue(a.newValues[k])}
+                  </div>
+                ))}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
+
+      <Modal
+        open={!!confirmReasons}
+        title="Confirm these settings"
+        onClose={() => setConfirmReasons(null)}
+      >
+        <p className="mb-3 text-sm text-gray-700">
+          These values are higher than usual. Saving applies them to new orders immediately.
+        </p>
+        <ul className="mb-4 list-disc space-y-2 pl-5 text-sm text-gray-800">
+          {confirmReasons?.map((r) => (
+            <li key={r}>{r}</li>
+          ))}
+        </ul>
+        <div className="flex justify-end gap-3">
+          <Button variant="secondary" onClick={() => setConfirmReasons(null)}>
+            Go back
+          </Button>
+          <Button onClick={persistSettings} loading={savingSettings}>
+            Save anyway
+          </Button>
+        </div>
+      </Modal>
 
       <div className="mb-4 flex flex-wrap gap-3">
         <SearchBar

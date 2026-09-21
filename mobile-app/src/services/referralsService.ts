@@ -29,10 +29,25 @@ export {
   quoteOrder as fetchOrderQuote,
 };
 
-// "₹50" / "₹49.50" - whole rupees without decimals.
+// "₹49" / "₹49.50" - whole rupees without decimals.
 export function formatRupees(value: number | null | undefined): string {
   const n = Number(value ?? 0);
   return `₹${Number.isInteger(n) ? n : n.toFixed(2)}`;
+}
+
+// "notes" / "notes and videos" - which purchases referral balance may pay for,
+// straight from referral_settings.wallet_product_types (never hardcoded).
+const WALLET_PRODUCT_LABEL: Record<string, string> = {
+  notes: "notes",
+  notes_bundle: "notes",
+  video: "videos",
+  other: "other items",
+};
+
+export function walletProductsText(types: string[] | null | undefined): string {
+  const labels = Array.from(new Set((types ?? []).map((t) => WALLET_PRODUCT_LABEL[t] ?? t)));
+  if (labels.length === 0) return "no products";
+  return labels.length === 1 ? labels[0] : `${labels.slice(0, -1).join(", ")} and ${labels[labels.length - 1]}`;
 }
 
 // Referral codes are uppercase A-Z/2-9 (see generate_unique_referral_code

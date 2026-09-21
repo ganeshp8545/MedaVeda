@@ -2,14 +2,14 @@ import React, { useEffect, useState } from "react";
 import { ScrollView, Text, StyleSheet, ActivityIndicator, Linking, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 
-import { fetchReferralSettings, formatRupees, ReferralSettings } from "../../services/referralsService";
+import { fetchReferralSettings, formatRupees, walletProductsText, ReferralSettings } from "../../services/referralsService";
 
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 
-// Every number below is read from referral_settings so these terms can never
-// drift from what the server actually applies. If the admin sets a terms_url,
+// Every number below is read from referral_settings (fetched fresh each time this
+// screen opens) so these terms can never drift from what the server applies. If the admin sets a terms_url,
 // that page is opened instead.
 export default function ReferralTermsScreen() {
   const navigation = useNavigation<any>();
@@ -46,7 +46,7 @@ export default function ReferralTermsScreen() {
     `The friend gets ${s.friendDiscountPercent}% off${cap} on their first purchase. The discount is calculated on the selling price shown in the app.`,
     `You get ${formatRupees(s.referrerCreditAmount)} of referral balance after your friend's first successful payment. One reward per friend.`,
     `Rewards are held for ${s.creditHoldDays} days and then become available. If your friend's payment is refunded during that time, the reward is cancelled.`,
-    `Referral balance can be used on notes purchases only (not on videos or other items), and pays up to ${s.walletMaxPercent}% of an order's price. The rest is paid normally.`,
+    `Referral balance can be used on ${walletProductsText(s.walletProductTypes)} purchases only, and pays up to ${s.walletMaxPercent}% of an order's price. The rest is paid normally.`,
     `Referral balance has no cash value and cannot be withdrawn or transferred.${s.creditExpiryDays ? ` It expires ${s.creditExpiryDays} days after it becomes available.` : ""}`,
     `Accounts found abusing the program (fake accounts, self-referrals) may lose rewards or be suspended. MedVeda may change or end the program at any time; balance already earned is not affected.`,
   ];

@@ -3,6 +3,7 @@ import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type {
   Referral,
   ReferralSettings,
+  ReferralSettingsAuditEntry,
   ReferralSettingsInput,
   ReferralStatus,
 } from "../types/referral";
@@ -31,6 +32,18 @@ export async function saveReferralSettings(data: ReferralSettingsInput) {
     .update(toSnakeCase(payload))
     .eq("id", true);
   if (error) throw error;
+}
+
+// Admin-only table (RLS); the database writes it from a trigger, so every
+// change is logged no matter where it came from.
+export async function getReferralSettingsAudit(limit = 10): Promise<ReferralSettingsAuditEntry[]> {
+  const { data, error } = await supabase
+    .from("referral_settings_audit")
+    .select("*")
+    .order("changed_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data ?? []).map((row: any) => toCamelCase<ReferralSettingsAuditEntry>(row));
 }
 
 // Admins can read every profile (profiles_select_own_or_admin), so the

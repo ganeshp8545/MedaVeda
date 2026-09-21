@@ -14,6 +14,7 @@ import {
   fetchMyWallet,
   fetchReferralSettings,
   formatRupees,
+  walletProductsText,
   ReferralListItem,
   ReferralListStatus,
   ReferralSettings,
@@ -49,7 +50,7 @@ function formatDate(value: unknown): string {
     : date.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-// "10% off (up to ₹100)" / "10% off" when the admin has set no cap.
+// "<percent>% off (up to ₹<cap>)", or just "<percent>% off" when the admin has set no cap.
 function friendOfferText(s: ReferralSettings): string {
   const cap = s.friendDiscountMax != null ? ` (up to ${formatRupees(s.friendDiscountMax)})` : "";
   return `${s.friendDiscountPercent}% off${cap}`;
@@ -183,7 +184,7 @@ export default function ReferralScreen() {
             <Text style={styles.statValue}>{formatRupees(wallet?.pending ?? 0)}</Text>
             <Text style={styles.statLabel}>Pending</Text>
             <Text style={styles.statNote}>
-              {settings ? `available after ${settings.creditHoldDays} days` : ""}
+              {settings?.enabled ? `available after ${settings.creditHoldDays} days` : ""}
             </Text>
           </View>
           <View style={styles.statDivider} />
@@ -192,10 +193,11 @@ export default function ReferralScreen() {
             <Text style={styles.statLabel}>Total earned</Text>
           </View>
         </View>
-        {settings && (
+        {settings?.enabled && (
           <View style={styles.badge}>
             <Text style={styles.badgeText}>
-              Usable on notes purchases only, up to {settings.walletMaxPercent}% of the price
+              Usable on {walletProductsText(settings.walletProductTypes)} purchases only, up to{" "}
+              {settings.walletMaxPercent}% of the price
             </Text>
           </View>
         )}

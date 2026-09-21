@@ -5,7 +5,14 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import CustomButton from "../../components/CustomButton";
 import ErrorState from "../../components/ErrorState";
 
-import { fetchOrderQuote, formatRupees, OrderQuote } from "../../services/referralsService";
+import {
+  fetchOrderQuote,
+  fetchReferralSettings,
+  formatRupees,
+  walletProductsText,
+  OrderQuote,
+  ReferralSettings,
+} from "../../services/referralsService";
 import { purchaseProduct } from "../../services/paymentService";
 
 import { COLORS } from "../../theme/colors";
@@ -15,8 +22,8 @@ import { SPACING } from "../../theme/spacing";
 
 // Shown between "Buy" and Razorpay. Every number here comes from the server
 // (quote_my_order); the client sends no amounts. The wallet toggle is only
-// rendered when the server says this product is wallet-eligible (notes
-// products) and there is a balance to use.
+// rendered when the program is enabled (referral_settings), the server says
+// this product is wallet-eligible and there is a balance to use.
 export default function OrderSummaryScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
@@ -24,6 +31,9 @@ export default function OrderSummaryScreen() {
 
   const [useWallet, setUseWallet] = useState(false);
   const [quote, setQuote] = useState<OrderQuote | null>(null);
+  // Read fresh every time this screen opens (no cache), so an admin change is
+  // picked up on the next order. Null (not loaded / failed) is treated as off.
+  const [settings, setSettings] = useState<ReferralSettings | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [paying, setPaying] = useState(false);
@@ -56,6 +66,12 @@ export default function OrderSummaryScreen() {
   useEffect(() => {
     loadQuote(false);
   }, [loadQuote]);
+
+  useEffect(() => {
+    fetchReferralSettings()
+      .then(setSettings)
+      .catch(() => setSettings(null));
+  }, []);
 
   const onToggleWallet = (next: boolean) => {
     setUseWallet(next);
@@ -93,7 +109,8 @@ export default function OrderSummaryScreen() {
     );
   }
 
-  const showWallet = !!quote?.walletEligible && (quote?.walletAvailable ?? 0) > 0;
+  // Program switched off (or settings unreadable): no wallet toggle at all.
+  const showWallet = !!settings?.enabled && !!quote?.walletEligible && (quote?.walletAvailable ?? 0) > 0;
 
   return (
     <View style={styles.container}>
@@ -114,7 +131,8 @@ export default function OrderSummaryScreen() {
                     Use referral balance ({formatRupees(quote.walletAvailable)} available)
                   </Text>
                   <Text style={styles.walletNote}>
-                    Notes purchases only · up to {formatRupees(quote.walletMaxUsable)} on this order
+                    {walletProductsText(settings?.walletProductTypes)} purchases only · up to{" "}
+                    {formatRupees(quote.walletMaxUsable)} on this order
                   </Text>
                 </View>
                 <Switch

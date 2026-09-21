@@ -9,7 +9,7 @@ export interface ReferralSettings {
   referrerRewardValue?: number;
   refereeRewardValue?: number;
   qualifyOn?: ReferralQualifyOn;
-  maxReferralsPerUser?: number;
+  maxReferralsPerUser?: number | null; // blank = no limit
 
   // Phase 2 reward config. Legacy fields above (rewardType, referrerRewardValue,
   // refereeRewardValue, qualifyOn) are kept for old app builds and are no
@@ -52,4 +52,15 @@ export interface Referral {
   createdAt?: any;
   qualifiedAt?: any;
   rewardedAt?: any;
+}
+
+// One row of referral_settings_audit: only the columns that changed, keyed by
+// their database (snake_case) names.
+export interface ReferralSettingsAuditEntry {
+  id: number;
+  changedAt: string;
+  changedBy: string | null;
+  changedByEmail: string | null;
+  oldValues: Record<string, unknown>;
+  newValues: Record<string, unknown>;
 }
