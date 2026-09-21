@@ -1,32 +1,21 @@
-# React + TypeScript + Vite
+# MedVeda admin panel
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + TypeScript + Vite + Tailwind. Signs in with Supabase Auth; only accounts listed in `public.admins`
+get past `ProtectedRoute` (checked with the `am_i_admin()` RPC, and again by row-level security on every table).
 
-Currently, two official plugins are available:
-
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cp .env.example .env.local     # VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY (publishable key only)
+npm install
+npm run dev                    # http://localhost:5173
+npm run build                  # type-check + production bundle in dist/
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Deploying (Vercel)
+Framework Vite, build `npm run build`, output `dist`. `vercel.json` provides the SPA rewrite, the security
+headers (CSP limited to this project's Supabase URL, HSTS, frame-ancestors none) and `noindex`. If the Supabase
+project URL changes, update `connect-src` in `vercel.json`.
+
+## Adding an admin
+There is deliberately no UI. Create the user in Supabase Auth (email confirmed), then in the SQL editor:
+`insert into public.admins (id, email) select id, email from auth.users where email = 'person@example.com';`
+Enable MFA for admin accounts in the Supabase dashboard.

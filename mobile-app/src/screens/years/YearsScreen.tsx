@@ -11,6 +11,7 @@ import useCourseYear from "../../hooks/useCourseYear";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 const MODE_LABEL: Record<string, string> = {
   notes: "📚 Notes",
@@ -46,7 +47,7 @@ export default function YearsScreen() {
     fetchYears(courseId)
       .then(setYears)
       .catch((err) => {
-        console.error("Failed to load years:", err);
+        logError("Failed to load years:", err);
         setError("Could not load years. Please try again.");
       })
       .finally(() => setLoading(false));

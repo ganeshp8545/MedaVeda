@@ -19,8 +19,8 @@ import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
 import { SPACING } from "../../theme/spacing";
+import { PASSWORD_POLICY_MESSAGE, PASSWORD_POLICY_PATTERN } from "../../validation/passwordPolicy";
 
-const MIN_PASSWORD_LENGTH = 8;
 
 export default function ChangePasswordScreen() {
   const navigation = useNavigation<any>();
@@ -47,10 +47,8 @@ export default function ChangePasswordScreen() {
       valid = false;
     }
 
-    if (!newPassword || newPassword.length < MIN_PASSWORD_LENGTH) {
-      setNewPasswordError(
-        `New password must be at least ${MIN_PASSWORD_LENGTH} characters`
-      );
+    if (!newPassword || !PASSWORD_POLICY_PATTERN.test(newPassword)) {
+      setNewPasswordError(PASSWORD_POLICY_MESSAGE);
       valid = false;
     } else if (newPassword === currentPassword) {
       setNewPasswordError(

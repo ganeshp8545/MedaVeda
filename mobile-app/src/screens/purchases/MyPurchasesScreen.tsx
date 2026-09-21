@@ -21,6 +21,7 @@ import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { logError } from "../../utils/logger";
 
 // SRS Part 4, section 4 - Orders & Purchase History:
 // Order ID, Package Name, Amount, Payment Date, Payment Status.
@@ -67,7 +68,7 @@ export default function MyPurchasesScreen() {
     fetchMyPurchases()
       .then(setPurchases)
       .catch((err) => {
-        console.error("Failed to load purchase history:", err);
+        logError("Failed to load purchase history:", err);
         setError("Could not load your purchase history. Please try again.");
       })
       .finally(() => setLoading(false));

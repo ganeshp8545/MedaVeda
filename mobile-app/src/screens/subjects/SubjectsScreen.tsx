@@ -16,6 +16,7 @@ import { fetchSubjectsByYear, Subject } from "../../services/subjectsService";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 export default function SubjectsScreen() {
   const route = useRoute<any>();
@@ -30,7 +31,7 @@ export default function SubjectsScreen() {
   useEffect(() => {
     fetchSubjectsByYear(yearId)
       .then(setSubjects)
-      .catch((err) => console.error("Failed to load subjects:", err))
+      .catch((err) => logError("Failed to load subjects:", err))
       .finally(() => setLoading(false));
   }, [yearId]);
 

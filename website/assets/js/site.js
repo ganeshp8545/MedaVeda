@@ -18,7 +18,7 @@
   }
 
   // Home-page redirect: Supabase's signup / recovery links land on the Site URL
-  // (https://medveda.in/) with tokens in the URL fragment. Forward them,
+  // (https://www.medveda.in/) with tokens in the URL fragment. Forward them,
   // fragment intact, to the right page.
   var p = location.pathname.replace(/\/index\.html$/, "/");
   if (p === "/" && location.hash.length > 1) {

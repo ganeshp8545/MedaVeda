@@ -45,7 +45,13 @@ supabase db push                                    # apply supabase/migrations
 cp supabase/functions/.env.example supabase/functions/.env
 supabase functions serve --env-file supabase/functions/.env
 ```
-SQL checks live in `supabase/tests/`.
+SQL checks live in `supabase/tests/`. To run everything against a scratch Postgres (builds a database from
+`support/supabase_stub.sql` + every migration + `support/seed.sql`, then runs all suites and the webhook harness):
+```bash
+PGHOST=127.0.0.1 PGPORT=5432 PGUSER=postgres supabase/tests/run-all.sh   # prints ALL SUITES PASSED
+```
+The same script runs in CI (`.github/workflows/ci.yml`) together with the admin/mobile/website builds,
+`deno check` of every edge function, `npm audit` and a secrets scan.
 
 ## Environment variables (names only)
 

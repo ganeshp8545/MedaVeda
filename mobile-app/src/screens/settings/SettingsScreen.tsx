@@ -17,6 +17,8 @@ import { SPACING } from "../../theme/spacing";
 
 import { supabase } from "../../config/supabase";
 import { deleteAccount } from "../../services/usersService";
+import { performSignOut } from "../../services/authState";
+import { logError } from "../../utils/logger";
 
 
 export default function SettingsScreen() {
@@ -32,7 +34,7 @@ export default function SettingsScreen() {
           "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
       });
     } catch (error) {
-      console.error(error);
+      logError("Screen action failed", error);
     }
   };
 
@@ -70,14 +72,14 @@ export default function SettingsScreen() {
     setLogoutDialogVisible(false);
 
     try {
-      await supabase.auth.signOut();
+      await performSignOut();
       // Previously missing: without this, the user was left on this
       // screen after signing out (no global auth-state listener exists
       // to redirect them), able to keep tapping into screens with no
       // valid session.
       navigation.replace("Login");
     } catch (error) {
-      console.error(error);
+      logError("Screen action failed", error);
 
       Alert.alert(
         "Logout Failed",
@@ -97,7 +99,7 @@ export default function SettingsScreen() {
       // Logout above does it explicitly), so navigate away manually.
       navigation.replace("Login");
     } catch (error: any) {
-      console.error("Delete account failed:", error);
+      logError("Delete account failed:", error);
       setDeleteDialogVisible(false);
 
       Alert.alert(

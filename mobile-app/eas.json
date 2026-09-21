@@ -37,6 +37,18 @@
         "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fXCKukdHR8Yy05Er-t47wQ_fxHuYMZD"
       },
       "channel": "production"
+    },
+    "shrink-test": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "shrink-test",
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://xbvenkfmesugrbjuufyw.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fXCKukdHR8Yy05Er-t47wQ_fxHuYMZD",
+        "ANDROID_SHRINK": "1"
+      }
     }
   },
   "submit": {

@@ -33,3 +33,17 @@ export async function getUserFromAuthHeader(
 
   return { id: data.user.id, email: data.user.email ?? undefined };
 }
+
+// The session's authentication assurance level ("aal1" = password only, "aal2" = MFA done).
+// Only call this AFTER getUserFromAuthHeader() accepted the same token: it decodes the payload
+// without re-verifying the signature.
+export function aalFromAuthHeader(req: Request): string {
+  const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer\s+/i, "");
+  try {
+    const b64 = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const claims = JSON.parse(atob(b64.padEnd(Math.ceil(b64.length / 4) * 4, "=")));
+    return typeof claims.aal === "string" ? claims.aal : "";
+  } catch {
+    return "";
+  }
+}

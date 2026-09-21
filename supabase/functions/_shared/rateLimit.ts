@@ -13,9 +13,16 @@ export function clientIp(req: Request): string {
   return forwarded.trim() || "unknown";
 }
 
-// true = within limit. Fails OPEN on a database error for availability of the
-// endpoint, but the auth provider's own limits still apply behind it.
-export async function withinLimit(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+// true = within limit. By default fails OPEN on a database error (availability of the
+// endpoint; the auth provider's own limits still apply behind it). Pass failClosed for
+// brute-force-sensitive endpoints (password login) where "limiter down" must not mean
+// "no limit".
+export async function withinLimit(
+  key: string,
+  limit: number,
+  windowSeconds: number,
+  failClosed = false,
+): Promise<boolean> {
   const { data, error } = await supabaseAdmin.rpc("rate_limit_hit", {
     p_key: await sha256Hex(key),
     p_limit: limit,
@@ -23,7 +30,7 @@ export async function withinLimit(key: string, limit: number, windowSeconds: num
   });
   if (error) {
     console.error("rateLimit: rpc failed", error.code);
-    return true;
+    return !failClosed;
   }
   return data === true;
 }

@@ -1,3 +1,4 @@
+import { lazy } from "react";
 import {
   BrowserRouter,
   Routes,
@@ -11,20 +12,21 @@ import AdminLayout from "./layouts/AdminLayout";
 
 import Login from "./pages/Login";
 import Dashboard from "./pages/Dashboard";
-import Years from "./pages/Years";
-import Subjects from "./pages/Subjects";
-import Chapters from "./pages/Chapters";
-import Users from "./pages/Users";
-import Notes from "./pages/Notes";
-import Videos from "./pages/Videos";
-import Quiz from "./pages/Quiz";
-import Notifications from "./pages/Notifications";
-import Analytics from "./pages/Analytics";
-import Settings from "./pages/Settings";
-import Products from "./pages/Products";
-import Orders from "./pages/Orders";
-import Courses from "./pages/Courses";
-import Referrals from "./pages/Referrals";
+const Years = lazy(() => import("./pages/Years"));
+const Subjects = lazy(() => import("./pages/Subjects"));
+const Chapters = lazy(() => import("./pages/Chapters"));
+const Users = lazy(() => import("./pages/Users"));
+const Notes = lazy(() => import("./pages/Notes"));
+const Videos = lazy(() => import("./pages/Videos"));
+const Quiz = lazy(() => import("./pages/Quiz"));
+const Notifications = lazy(() => import("./pages/Notifications"));
+const Analytics = lazy(() => import("./pages/Analytics"));
+const Settings = lazy(() => import("./pages/Settings"));
+const Products = lazy(() => import("./pages/Products"));
+const Orders = lazy(() => import("./pages/Orders"));
+const Courses = lazy(() => import("./pages/Courses"));
+const Referrals = lazy(() => import("./pages/Referrals"));
+const ReviewFlags = lazy(() => import("./pages/ReviewFlags"));
 
 export default function App() {
   return (
@@ -43,6 +45,7 @@ export default function App() {
               <Route path="/chapters" element={<Chapters />} />
               <Route path="/users" element={<Users />} />
               <Route path="/referrals" element={<Referrals />} />
+              <Route path="/review-flags" element={<ReviewFlags />} />
               <Route path="/notes" element={<Notes />} />
               <Route path="/videos" element={<Videos />} />
               <Route path="/quiz" element={<Quiz />} />

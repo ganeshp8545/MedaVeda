@@ -14,12 +14,29 @@
 //   { type: "failed", reason }
 //   { type: "cancelled" }
 
-function escapeJsString(value: string): string {
-  // These values only ever end up inside JSON.stringify(...) calls
-  // below, so they're already safely escaped for use as JS string
-  // literals - this just guards against a stray "</script>" in a
-  // product title prematurely closing the script tag.
-  return value.replace(/<\/script/gi, "<\\/script");
+// The page is built from strings that are NOT all fixed: the product title comes from the
+// database and the prefill name is typed by the student. Both used to be interpolated with
+// only a "</script" guard, so a title like `<img src=x onerror=...>` ran as script inside a
+// WebView that has a postMessage bridge to the app. Everything variable is now escaped for the
+// context it lands in.
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+// JSON that is safe to place inside an inline <script>: no "<", ">" or "&" (so neither
+// "</script>" nor "<!--" can appear) and no U+2028 / U+2029 line terminators.
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
 }
 
 export function buildCheckoutHtml(params: {
@@ -31,10 +48,10 @@ export function buildCheckoutHtml(params: {
   prefillName?: string;
   prefillEmail?: string;
 }): string {
-  const rupees = (params.amountPaise / 100).toFixed(2);
+  const rupees = (Number(params.amountPaise) / 100).toFixed(2);
 
-  const optionsJson = escapeJsString(
-    JSON.stringify({
+  const optionsJson = jsonForScript(
+    {
       key: params.keyId,
       amount: params.amountPaise,
       currency: "INR",
@@ -68,7 +85,7 @@ export function buildCheckoutHtml(params: {
           preferences: { show_default_blocks: false },
         },
       },
-    })
+    }
   );
 
   return `<!DOCTYPE html>
@@ -110,7 +127,7 @@ export function buildCheckoutHtml(params: {
 <body>
   <div class="card">
     <div class="icon">🌿</div>
-    <h1>${escapeJsString(params.productTitle)}</h1>
+    <h1>${escapeHtml(params.productTitle)}</h1>
     <div class="price">₹${rupees}</div>
     <div class="status" id="status">Opening secure payment...</div>
   </div>

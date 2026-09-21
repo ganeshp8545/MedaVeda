@@ -6,7 +6,7 @@ export const supabaseAdmin: any = {
   rpc: async (fn: string, args: Record<string, unknown>) => {
     const named = Object.entries(args).map(([k, v]) => `${k} => ${lit(v)}`).join(", ");
     try {
-      const out = execFileSync("psql", ["-h", "127.0.0.1", "-p", "54329", "-U", "postgres", "-w", "-d", db, "-Atc", `select public.${fn}(${named})::text`]).toString().trim();
+      const out = execFileSync("psql", ["-h", process.env.PGHOST ?? "127.0.0.1", "-p", process.env.PGPORT ?? "54329", "-U", process.env.PGUSER ?? "postgres", "-w", "-d", db, "-Atc", `select public.${fn}(${named})::text`]).toString().trim();
       return { data: out ? JSON.parse(out) : null, error: null };
     } catch (e: any) {
       return { data: null, error: { code: "PSQL", message: String(e.stderr ?? e.message) } };

@@ -13,6 +13,7 @@ const menus = [
   { name: "Orders", path: "/orders" },
   { name: "Users", path: "/users" },
   { name: "Referrals", path: "/referrals" },
+  { name: "Review Flags", path: "/review-flags" },
   { name: "Notifications", path: "/notifications" },
   { name: "Analytics", path: "/analytics" },
   { name: "Settings", path: "/settings" },

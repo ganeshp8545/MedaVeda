@@ -39,3 +39,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+code-signing-keys/
+*.pem.key
+private-key.pem

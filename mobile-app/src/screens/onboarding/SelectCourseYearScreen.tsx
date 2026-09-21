@@ -15,6 +15,7 @@ import useCourseYear from "../../hooks/useCourseYear";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 // Step 1: pick a course. Step 2: pick a year of that course. Shown as the
 // post-login gate (onboarding, no way back until both are chosen) and from
@@ -45,7 +46,7 @@ export default function SelectCourseYearScreen() {
     fetchCourses()
       .then(setCourses)
       .catch((err) => {
-        console.error("Failed to load courses:", err);
+        logError("Failed to load courses:", err);
         setCoursesError("Could not load courses. Please check your connection.");
       })
       .finally(() => setCoursesLoading(false));
@@ -72,7 +73,7 @@ export default function SelectCourseYearScreen() {
     fetchYears(forCourseId)
       .then(setYears)
       .catch((err) => {
-        console.error("Failed to load years:", err);
+        logError("Failed to load years:", err);
         setYearsError("Could not load years. Please try again.");
       })
       .finally(() => setYearsLoading(false));
@@ -97,7 +98,7 @@ export default function SelectCourseYearScreen() {
       if (mode === "change") navigation.goBack();
       else navigation.replace("Home");
     } catch (err: any) {
-      console.error("Failed to save course/year:", err);
+      logError("Failed to save course/year:", err);
       Alert.alert("Could not save", err?.message || "Please try again.");
     } finally {
       setSaving(false);

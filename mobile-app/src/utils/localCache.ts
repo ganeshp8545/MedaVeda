@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { logDebug } from "./logger";
 
 // This is a lightweight offline cache: every read through this helper is
 // cached to AsyncStorage, and callers fall back to that cache when the
@@ -16,7 +17,7 @@ export async function readCache<T>(key: string): Promise<T | null> {
     if (!raw) return null;
     return JSON.parse(raw) as T;
   } catch (error) {
-    console.log(`readCache(${key}) failed:`, error);
+    logDebug(`readCache(${key}) failed:`, error);
     return null;
   }
 }
@@ -27,7 +28,7 @@ export async function writeCache<T>(key: string, value: T): Promise<void> {
   } catch (error) {
     // Caching is a best-effort optimization - never let a write failure
     // (e.g. storage full) break the screen that's showing live data.
-    console.log(`writeCache(${key}) failed:`, error);
+    logDebug(`writeCache(${key}) failed:`, error);
   }
 }
 
@@ -47,7 +48,7 @@ export async function fetchWithCacheFallback<T>(
   } catch (error) {
     const cached = await readCache<T>(key);
     if (cached !== null) {
-      console.log(`fetchWithCacheFallback(${key}): offline, using cached copy`);
+      logDebug(`fetchWithCacheFallback(${key}): offline, using cached copy`);
       return cached;
     }
     throw error;
@@ -63,6 +64,6 @@ export async function clearCache(): Promise<void> {
     const ours = keys.filter((k) => k.startsWith(NAMESPACE));
     if (ours.length > 0) await AsyncStorage.multiRemove(ours);
   } catch (error) {
-    console.log("clearCache failed:", error);
+    logDebug("clearCache failed:", error);
   }
 }

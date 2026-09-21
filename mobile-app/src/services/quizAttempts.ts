@@ -12,6 +12,7 @@
 
 import { getDb, OFFLINE_DB_SUPPORTED } from "../config/database";
 import { queueForSync } from "./syncEngine";
+import { logDebug } from "../utils/logger";
 
 export interface QuizAttemptInput {
   quizId: string;
@@ -84,7 +85,7 @@ export function getLocalQuizAttempts(quizId?: string) {
       // Corrupted local row (e.g. app killed mid-write) - surface it as
       // an empty answer set rather than throwing and taking the whole
       // attempt history screen down with it.
-      console.log(`quiz_attempts_local row ${row?.attempt_id} has corrupt answers_json`);
+      logDebug(`quiz_attempts_local row ${row?.attempt_id} has corrupt answers_json`);
     }
     return {
       attemptId: row.attempt_id,

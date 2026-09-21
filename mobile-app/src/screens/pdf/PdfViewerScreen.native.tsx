@@ -12,6 +12,7 @@ import { useNavigation, useRoute } from "@react-navigation/native";
 import ErrorState from "../../components/ErrorState";
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
+import { logError } from "../../utils/logger";
 
 export default function PdfViewerScreen() {
   const route = useRoute<any>();
@@ -78,7 +79,7 @@ export default function PdfViewerScreen() {
           setPage(currentPage);
         }}
         onError={(error) => {
-          console.error("PDF load error:", error);
+          logError("PDF load error:", error);
           setLoadError(true);
         }}
         renderActivityIndicator={() => (

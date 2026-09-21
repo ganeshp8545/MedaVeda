@@ -19,6 +19,7 @@ import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { RADIUS } from "../../theme/radius";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 // Shown between "Buy" and Razorpay. Every number here comes from the server
 // (quote_my_order); the client sends no amounts. The wallet toggle is only
@@ -54,7 +55,7 @@ export default function OrderSummaryScreen() {
         setQuote(q);
       } catch (err) {
         if (id !== requestId.current) return;
-        console.error("quote failed:", err);
+        logError("quote failed:", err);
         setError("Could not load the price. Please try again.");
       } finally {
         if (id === requestId.current) setLoading(false);

@@ -2,6 +2,7 @@ import * as Application from "expo-application";
 
 import { supabase } from "../config/supabase";
 import { compareVersions, parseVersion } from "../utils/version";
+import { logDebug } from "../utils/logger";
 
 // Force-update gate. Reads min_app_version / store_url from the publicly
 // readable app_config table (see supabase/migrations/20260920130000_app_config.sql).
@@ -63,7 +64,7 @@ async function fetchStatus(): Promise<{ status: UpdateStatus; cacheable: boolean
     // cmp === null: missing/malformed min_app_version -> fail open.
     return { status: { required: cmp === -1, storeUrl }, cacheable: true };
   } catch (err) {
-    console.warn("Update check failed (continuing):", err);
+    logDebug("Update check failed (continuing):", err);
     return { status: OPEN, cacheable: false };
   }
 }

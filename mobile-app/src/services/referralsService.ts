@@ -10,6 +10,7 @@ import {
 } from "../repositories/referralsRepository";
 
 import type { ApplyReferralCodeResult } from "../types/referral";
+import { logDebug } from "../utils/logger";
 
 export type {
   ReferralSettings,
@@ -82,7 +83,7 @@ export async function applyPendingReferralCode(): Promise<ApplyReferralCodeResul
     await clearPendingReferral();
     return result;
   } catch (error) {
-    console.log("applyPendingReferralCode failed, will retry later:", error);
+    logDebug("applyPendingReferralCode failed, will retry later:", error);
     return null;
   }
 }

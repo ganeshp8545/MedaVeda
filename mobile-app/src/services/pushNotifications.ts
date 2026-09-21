@@ -18,6 +18,7 @@ import type * as ExpoNotifications from "expo-notifications";
 
 import { supabase } from "../config/supabase";
 import type { User } from "@supabase/supabase-js";
+import { logDebug, logError } from "../utils/logger";
 
 // Push is unsupported in Expo Go (SDK 53+) and on web (no vapidPublicKey).
 const isExpoGo =
@@ -37,7 +38,7 @@ if (!isExpoGo) {
  */
 export async function registerForPushNotifications(user: User | null): Promise<string | null> {
   if (isExpoGo || !Notifications) {
-    console.log("Push notifications unavailable in Expo Go/web - skipping registration.");
+    logDebug("Push notifications unavailable in Expo Go/web - skipping registration.");
     return null;
   }
 
@@ -53,7 +54,7 @@ export async function registerForPushNotifications(user: User | null): Promise<s
     }
 
     if (finalStatus !== "granted") {
-      console.log("Push notification permission denied.");
+      logDebug("Push notification permission denied.");
       return null;
     }
 
@@ -70,20 +71,17 @@ export async function registerForPushNotifications(user: User | null): Promise<s
     );
     const token = tokenResponse.data;
 
-    const { error } = await supabase.from("push_tokens").upsert(
-      {
-        user_id: user.id,
-        expo_push_token: token,
-        platform: Platform.OS,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "expo_push_token" }
-    );
+    // register_push_token() moves the token to whoever is signed in on this device (a plain
+    // upsert cannot take over a row that belongs to the previous user of a shared phone).
+    const { error } = await supabase.rpc("register_push_token", {
+      p_token: token,
+      p_platform: Platform.OS,
+    });
     if (error) throw error;
 
     return token;
   } catch (err) {
-    console.error("Failed to register for push notifications:", err);
+    logError("Failed to register for push notifications:", err);
     return null;
   }
 }
@@ -99,7 +97,7 @@ export async function unregisterCurrentDeviceToken(): Promise<void> {
     );
     await supabase.from("push_tokens").delete().eq("expo_push_token", tokenResponse.data);
   } catch (err) {
-    console.error("Failed to unregister push token:", err);
+    logError("Failed to unregister push token:", err);
   }
 }
 

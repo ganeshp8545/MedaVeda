@@ -28,7 +28,7 @@ begin
   insert into public.payment_sessions (id, order_id, user_id, product_id, expires_at)
     values (gen_random_uuid(), 'ord-a2', a, v_prod, now() + interval '10 min');
   insert into public.quiz_scores (user_id, email, score, total, percentage) values (a, 'del.a@example.test', 3, 5, 60), (b, 'del.b@example.test', 4, 5, 80);
-  insert into public.push_tokens (user_id, expo_push_token, platform) values (a, 'tok-a', 'android'), (b, 'tok-b', 'android');
+  insert into public.push_tokens (user_id, expo_push_token, platform) values (a, 'ExponentPushToken[tok-a-0123456789]', 'android'), (b, 'ExponentPushToken[tok-b-0123456789]', 'android');
   insert into public.analytics_events (name, params, user_id) values ('search', '{"q":"secret"}', a), ('search', '{"q":"other"}', b);
   -- referrals: A referred B (A = referrer); C referred A (A = referred); B->? none
   insert into public.referrals (referrer_id, referred_id, code_used) values (a, b, 'X'), (c, a, 'Y');

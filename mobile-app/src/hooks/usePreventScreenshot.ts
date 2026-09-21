@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Platform } from "react-native";
 import * as ScreenCapture from "expo-screen-capture";
+import { logDebug } from "../utils/logger";
 
 // Anti-piracy protection for paid Notes content.
 //
@@ -32,7 +33,7 @@ export default function usePreventScreenshot() {
     if (Platform.OS === "web") return;
 
     ScreenCapture.preventScreenCaptureAsync().catch((err) => {
-      console.log(`preventScreenCaptureAsync failed (${Platform.OS}):`, err);
+      logDebug(`preventScreenCaptureAsync failed (${Platform.OS}):`, err);
     });
 
     return () => {

@@ -20,7 +20,7 @@ import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { clientIp, withinLimit } from "../_shared/rateLimit.ts";
 
 // Must also be in Supabase Auth -> URL Configuration -> Redirect URLs.
-const PASSWORD_RESET_REDIRECT_URL = "https://medveda.in/reset-password";
+const PASSWORD_RESET_REDIRECT_URL = "https://www.medveda.in/reset-password";
 
 const generic = () => jsonResponse({ ok: true });
 
@@ -37,8 +37,12 @@ Deno.serve(async (req: Request): Promise<Response> => {
   }
   if (!phone) return generic();
 
-  if (!(await withinLimit(`reset-ip:${clientIp(req)}`, 10, 3600))
-      || !(await withinLimit(`reset-phone:${phone}`, 3, 3600))) {
+  // Per IP, per IP+number, and a per-number ceiling across IPs (bounds mail-bombing a
+  // victim's inbox without letting one client exhaust the number's whole budget).
+  const ip = clientIp(req);
+  if (!(await withinLimit(`reset-ip:${ip}`, 10, 3600))
+      || !(await withinLimit(`reset-ip-phone:${ip}:${phone}`, 3, 3600))
+      || !(await withinLimit(`reset-phone:${phone}`, 6, 3600))) {
     return generic();
   }
 

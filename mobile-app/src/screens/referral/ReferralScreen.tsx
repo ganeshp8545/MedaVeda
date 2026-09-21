@@ -25,6 +25,7 @@ import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
 import { RADIUS } from "../../theme/radius";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.ayurpulse.app";
 
@@ -81,7 +82,7 @@ export default function ReferralScreen() {
       setWallet(w);
       setHistory(list);
     } catch (err) {
-      console.error("Failed to load referrals:", err);
+      logError("Failed to load referrals:", err);
       setError("Could not load your referral details. Please try again.");
     } finally {
       setLoading(false);
@@ -100,7 +101,7 @@ export default function ReferralScreen() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.error("Copy failed:", err);
+      logError("Copy failed:", err);
       Alert.alert("Could not copy", "Please long-press the code or use Share instead.");
     }
   };
@@ -115,7 +116,7 @@ export default function ReferralScreen() {
           PLAY_STORE_URL,
       });
     } catch (err) {
-      console.error("Share failed:", err);
+      logError("Share failed:", err);
     }
   };
 

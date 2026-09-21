@@ -3,6 +3,10 @@
 // more in a Deno Edge Function than it did in the old Node/Firebase
 // backend, where npm packages were the natural choice.
 
+// Every call to Razorpay is bounded so a stalled connection fails fast (create-order answers 502,
+// the webhook answers 5xx and Razorpay retries) instead of hanging until the platform kills the function.
+const RAZORPAY_TIMEOUT_MS = 15_000;
+
 function getKeys(): { keyId: string; keySecret: string } {
   const keyId = Deno.env.get("RAZORPAY_KEY_ID");
   const keySecret = Deno.env.get("RAZORPAY_KEY_SECRET");
@@ -70,6 +74,7 @@ export async function createRazorpayOrder(params: {
   const { keyId, keySecret } = getKeys();
 
   const res = await fetch("https://api.razorpay.com/v1/orders", {
+    signal: AbortSignal.timeout(RAZORPAY_TIMEOUT_MS),
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -104,6 +109,7 @@ export async function fetchCapturedPaymentForOrder(
   const { keyId, keySecret } = getKeys();
 
   const res = await fetch(`https://api.razorpay.com/v1/orders/${razorpayOrderId}/payments`, {
+    signal: AbortSignal.timeout(RAZORPAY_TIMEOUT_MS),
     headers: { Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) },
   });
 
@@ -133,6 +139,7 @@ export type RazorpayPayment = {
 async function razorpayGet<T>(path: string): Promise<T> {
   const { keyId, keySecret } = getKeys();
   const res = await fetch(`https://api.razorpay.com/v1/${path}`, {
+    signal: AbortSignal.timeout(RAZORPAY_TIMEOUT_MS),
     headers: { Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) },
   });
   if (!res.ok) {

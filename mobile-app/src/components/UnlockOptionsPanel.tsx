@@ -10,6 +10,7 @@ import { FONT } from "../theme/fonts";
 import { SPACING } from "../theme/spacing";
 import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
+import { logError } from "../utils/logger";
 
 type Props = {
   chapterId: string;
@@ -49,7 +50,7 @@ export default function UnlockOptionsPanel({
       .then((data) => {
         if (isMounted) setOptions(data);
       })
-      .catch((err) => console.error("Failed to load buy options:", err))
+      .catch((err) => logError("Failed to load buy options:", err))
       .finally(() => {
         if (isMounted) setLoading(false);
       });

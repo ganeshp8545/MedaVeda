@@ -5,6 +5,7 @@ import Constants, { ExecutionEnvironment } from "expo-constants";
 // an actual `require("expo-notifications")` at runtime - safe to keep
 // unconditional even though the value import below is not.
 import type * as ExpoNotifications from "expo-notifications";
+import { logError } from "../utils/logger";
 
 // Fully on-device: a daily repeating LOCAL notification scheduled by the
 // OS itself (Notifications.scheduleNotificationAsync with a
@@ -84,7 +85,7 @@ export async function getStudyReminderSettings(): Promise<StudyReminderSettings>
     if (!raw) return DEFAULT_SETTINGS;
     return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
   } catch (err) {
-    console.error("Failed to read study reminder settings:", err);
+    logError("Failed to read study reminder settings:", err);
     return DEFAULT_SETTINGS;
   }
 }

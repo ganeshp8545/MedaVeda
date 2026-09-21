@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { supabase } from "../config/supabase";
 import { isCategoryEnabled } from "../utils/notificationPreferences";
+import { logDebug } from "../utils/logger";
 
 export type NotificationType =
   | "new_notes"
@@ -47,7 +48,7 @@ export async function fetchNotifications(): Promise<AppNotification[]> {
     const enabledFlags = await Promise.all(all.map((item) => isCategoryEnabled(item.type)));
     return all.filter((_, i) => enabledFlags[i]);
   } catch (error) {
-    console.log("fetchNotifications: no notifications available yet", error);
+    logDebug("fetchNotifications: no notifications available yet", error);
     return [];
   }
 }
@@ -82,7 +83,7 @@ async function getReadIds(): Promise<Set<string>> {
     if (!raw) return new Set();
     return new Set(JSON.parse(raw) as string[]);
   } catch (error) {
-    console.log("getReadIds failed:", error);
+    logDebug("getReadIds failed:", error);
     return new Set();
   }
 }

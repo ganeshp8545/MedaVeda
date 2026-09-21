@@ -22,6 +22,7 @@ import { SPACING } from "../../theme/spacing";
 import { fetchNotesByChapter, Note } from "../../services/notesService";
 import { getSecureNoteUrl } from "../../services/secureNotesService";
 import useDownloads from "../../hooks/useDownloads";
+import { logError } from "../../utils/logger";
 
 // Business rule (SRS 4 - PDF Notes System): only the first PDF of every
 // chapter is free to preview; every PDF after that requires the chapter
@@ -80,7 +81,7 @@ export default function NotesScreen() {
         if (isMounted) setNotes(data);
       })
       .catch((err) => {
-        console.error("Failed to load notes:", err);
+        logError("Failed to load notes:", err);
         if (isMounted) {
           Alert.alert("Error", "Could not load notes. Please try again.");
         }
@@ -126,7 +127,7 @@ export default function NotesScreen() {
       const signedUrl = await getSecureNoteUrl(item.id);
       navigation.navigate("PdfViewer", { pdfUrl: signedUrl });
     } catch (err) {
-      console.error("Failed to resolve note URL:", err);
+      logError("Failed to resolve note URL:", err);
       Alert.alert(
         "Couldn't open note",
         "This note isn't available right now. Please try again, or contact support if this continues."
@@ -153,7 +154,7 @@ export default function NotesScreen() {
         yearTitle,
       });
     } catch (err) {
-      console.error("Failed to start download:", err);
+      logError("Failed to start download:", err);
       Alert.alert(
         "Couldn't download note",
         "This note isn't available right now. Please try again, or contact support if this continues."

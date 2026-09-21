@@ -16,12 +16,12 @@
     lowercase: function (p) { return /[a-z]/.test(p); },
     uppercase: function (p) { return /[A-Z]/.test(p); },
     number: function (p) { return /\d/.test(p); },
-    special: function (p) { return /[^A-Za-z0-9]/.test(p); }
+    special: function (p) { return /[!@#$%^&*()_+\-=\[\]{};':"\\|<>?,./`~]/.test(p); }
   };
   var LABELS = ["Weak", "Weak", "Fair", "Good", "Strong"];
   var COLORS = ["#c0392b", "#c0392b", "#e0a857", "#3e8e7e", "#4c9a6b"];
   // Identical to mobile-app/src/validation/resetPasswordSchema.ts
-  var POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,32}$/;
+  var POLICY = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[!@#$%^&*()_+\-=\[\]{};':"\\|<>?,./`~]).{8,32}$/;
   var POLICY_MSG = "Password must be 8-32 characters and include an uppercase letter, a lowercase letter, a number, and a special character";
 
   function strength(p) {

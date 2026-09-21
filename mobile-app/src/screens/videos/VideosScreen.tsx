@@ -20,6 +20,7 @@ import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 
 import { fetchVideosBySubject, Video } from "../../services/videosService";
+import { logError } from "../../utils/logger";
 
 // MedVeda 2.0: Video Lectures are always free for every student, for
 // the whole Subject - only PDF Notes are paid (and chapter-scoped)
@@ -40,7 +41,7 @@ export default function VideosScreen() {
         if (isMounted) setVideos(data);
       })
       .catch((err) => {
-        console.error("Failed to load videos:", err);
+        logError("Failed to load videos:", err);
         if (isMounted) {
           Alert.alert("Error", "Could not load videos. Please try again.");
         }

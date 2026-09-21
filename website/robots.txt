@@ -3,4 +3,4 @@ Allow: /
 Disallow: /reset-password
 Disallow: /account-verified
 
-Sitemap: https://medveda.in/sitemap.xml
+Sitemap: https://www.medveda.in/sitemap.xml

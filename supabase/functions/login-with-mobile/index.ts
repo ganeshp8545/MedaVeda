@@ -10,7 +10,7 @@
 // - Every failure - bad input, unknown number, wrong password, unconfirmed
 //   email, blocked account - returns the same 401 "Invalid credentials", so the
 //   endpoint cannot be used to find out which numbers are registered.
-// - Rate limited per IP (20/10 min) and per mobile number (5/10 min), counted
+// - Rate limited per IP (20/10 min), per IP+number (5/10 min) and per number (30/10 min), counted
 //   BEFORE any lookup and whether or not the number exists, so the limiter
 //   itself reveals nothing. Exceeding it returns the same generic 429 for
 //   every input.
@@ -43,8 +43,16 @@ Deno.serve(async (req: Request): Promise<Response> => {
     return invalid();
   }
 
-  if (!(await withinLimit(`login-ip:${clientIp(req)}`, 20, 600))
-      || !(await withinLimit(`login-phone:${phone}`, 5, 600))) {
+  // Three counters, all incremented before any lookup:
+  //  - per IP (20 / 10 min): stops one client spraying many numbers;
+  //  - per IP + number (5 / 10 min): stops guessing one number from one client
+  //    WITHOUT letting a stranger lock the real owner out from another IP;
+  //  - per number across all IPs (30 / 10 min): a high ceiling that still bounds a
+  //    distributed guess at one account, but is too high to be a cheap lockout.
+  const ip = clientIp(req);
+  if (!(await withinLimit(`login-ip:${ip}`, 20, 600, true))
+      || !(await withinLimit(`login-ip-phone:${ip}:${phone}`, 5, 600, true))
+      || !(await withinLimit(`login-phone:${phone}`, 30, 600, true))) {
     return jsonResponse({ error: "Too many attempts. Please try again later." }, 429);
   }
 

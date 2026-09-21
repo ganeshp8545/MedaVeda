@@ -11,6 +11,7 @@ import { fetchUserProfile, setMyCourseYear } from "./usersService";
 import { clearRecentChapters } from "../utils/recentActivity";
 import { clearRecentSearches } from "../utils/recentSearches";
 import { clearCache } from "../utils/localCache";
+import { logDebug } from "../utils/logger";
 
 export interface CourseYearState {
   // idle: not loaded yet / signed out. ready: profile loaded (course/year may still be unset).
@@ -90,7 +91,7 @@ export async function loadCourseYear(force = false): Promise<CourseYearState> {
       return state;
     })
     .catch((err) => {
-      console.log("loadCourseYear failed:", err);
+      logDebug("loadCourseYear failed:", err);
       if (stateUserId === uid) setState({ ...state, status: state.courseId ? "ready" : "error" });
       return state;
     })

@@ -13,13 +13,14 @@ import { useNavigation } from "@react-navigation/native";
 
 import { supabase } from "../../config/supabase";
 import { getCurrentUser } from "../../services/authState";
-import { fetchUserProfile, updateUserProfile } from "../../services/usersService";
+import { changeMyPhone, fetchUserProfile, updateUserProfile } from "../../services/usersService";
 import { normalizePhoneNumber } from "../../utils/phone";
 
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
 import { SPACING } from "../../theme/spacing";
+import { logError } from "../../utils/logger";
 
 export default function EditProfileScreen() {
   const navigation = useNavigation<any>();
@@ -28,6 +29,7 @@ export default function EditProfileScreen() {
 
   const [name, setName] = useState(user?.user_metadata?.name || "");
   const [mobile, setMobile] = useState("");
+  const [originalMobile, setOriginalMobile] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -41,10 +43,13 @@ export default function EditProfileScreen() {
       .then((profile) => {
         if (profile) {
           if (profile.name) setName(profile.name);
-          if (profile.mobile) setMobile(profile.mobile);
+          if (profile.mobile) {
+            setMobile(profile.mobile);
+            setOriginalMobile(profile.mobile);
+          }
         }
       })
-      .catch((err) => console.error("Failed to load profile:", err))
+      .catch((err) => logError("Failed to load profile:", err))
       .finally(() => setLoading(false));
   }, [user]);
 
@@ -68,10 +73,22 @@ export default function EditProfileScreen() {
         data: { name },
       });
 
-      await updateUserProfile(user.id, {
-        name,
-        mobile: normalizedMobile,
-      });
+      await updateUserProfile(user.id, { name });
+
+      // The number goes through its own rate-limited server call, and only when it changed.
+      if (normalizedMobile && normalizedMobile !== originalMobile) {
+        const result = await changeMyPhone(normalizedMobile);
+        if (result !== "ok") {
+          const messages = {
+            invalid: "Use international format with country code, for example +919876543210.",
+            rate_limited: "You have changed your number too many times today. Please try again tomorrow.",
+            unavailable: "This mobile number can't be used. Please try a different number or contact support.",
+          } as const;
+          Alert.alert("Name saved, number not changed", messages[result]);
+          return;
+        }
+        setOriginalMobile(normalizedMobile);
+      }
 
       Alert.alert("Success", "Profile updated successfully.");
 

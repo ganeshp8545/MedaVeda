@@ -19,6 +19,7 @@ import { SPACING } from "../../theme/spacing";
 
 import { fetchQuizTestsBySubject, QuizTest } from "../../services/quizService";
 import useDownloads from "../../hooks/useDownloads";
+import { logError } from "../../utils/logger";
 
 // MedVeda 2.0: Quiz Tests are always free for every student, for the
 // whole Subject - only PDF Notes are paid (and chapter-scoped) content.
@@ -55,7 +56,7 @@ export default function TestListScreen() {
         if (isMounted) setTests(data);
       })
       .catch((err) => {
-        console.error("Failed to load quiz tests:", err);
+        logError("Failed to load quiz tests:", err);
         if (isMounted) {
           Alert.alert("Error", "Could not load tests. Please try again.");
         }

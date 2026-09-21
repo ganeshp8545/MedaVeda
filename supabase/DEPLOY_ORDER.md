@@ -82,3 +82,11 @@ server, after Stage 7, quotes as unavailable while the program is off).
 `batch1_checks`, `batch3_checks`, `batch3b_checks`, `referral_limits_checks`, `referral_off_wallet_checks`,
 `phase2_referral_wallet_checks`. Also `batch3_race.sh`, `batch3b_backfill.sh`, `webhook-harness/run.sh`,
 `delete-account-harness/`. Build the scratch database from the migrations in order (see the memory / README of each).
+
+## Release configuration that lives outside the repo (owner-only, set in dashboards / EAS)
+* **Sentry**: `npx eas-cli env:create --environment production --name EXPO_PUBLIC_SENTRY_DSN --value <DSN> --visibility plaintext`, then rebuild. Without it release builds report nothing.
+* **Android push**: put `google-services.json` in `mobile-app/` (or EAS file variable `GOOGLE_SERVICES_JSON`) and upload the FCM V1 service-account key with `eas credentials`.
+* **OTA code signing**: generate a certificate (steps at the top of `mobile-app/app.config.js`), keep the private key outside git, ship a new store build, then publish with `eas update --private-key-path`.
+* **Supabase Auth** (Authentication -> Sign In / Providers): Password requirements = min 8 with lower, upper, digit and symbol; leaked-password protection ON; email confirmation ON. Phone OTP needs an SMS provider (Twilio / MSG91 / ...) before the app can verify numbers; the database side (`sync_profile_mobile_verified`) is already in place.
+* **App versions**: the user-visible version lives in `mobile-app/app.json` (`expo.version`, kept equal to `package.json`); the Android `versionCode` is owned by EAS (`appVersionSource: remote`, `autoIncrement` on the production profile; `npx eas-cli build:version:get -p android -e production` shows it), so it is not set in the repo. `app_config.min_app_version` must never exceed the newest version that is live on Play.
+* **R8 / resource shrinking** is not on for production. Build the `shrink-test` profile (`eas build -p android --profile shrink-test`), test login, notes open + download, checkout, push, then ask for it to be enabled on `production`.

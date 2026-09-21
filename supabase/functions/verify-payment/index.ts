@@ -9,6 +9,9 @@ import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { verifyPaymentSignature, fetchCapturedPaymentForOrder } from "../_shared/razorpay.ts";
 import { settleCapturedPayment } from "../_shared/settle.ts";
+import { clientIp, withinLimit } from "../_shared/rateLimit.ts";
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function settle(razorpayOrderId: string, razorpayPaymentId: string): Promise<Response> {
   try {
@@ -48,7 +51,20 @@ Deno.serve(async (req: Request) => {
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>;
     const internalOrderId = typeof body.internalOrderId === "string" ? body.internalOrderId : "";
     const recover = body.recover === true;
-    if (!internalOrderId) return jsonResponse({ error: "Missing payment details for verification." }, 400);
+    if (!internalOrderId || !UUID.test(internalOrderId)) {
+      return jsonResponse({ error: "Missing payment details for verification." }, 400);
+    }
+
+    // This endpoint carries no user JWT (released app builds do not send one), so it is
+    // abuse-limited instead: every call can trigger Razorpay API requests. Limits are set
+    // well above the app's own retry/poll schedule (~90 calls per order over 10 minutes).
+    // The per-IP counter is skipped when no client IP is available, so unknown IPs
+    // cannot share (and exhaust) one bucket.
+    const ip = clientIp(req);
+    if (!(await withinLimit(`verify-order:${internalOrderId}`, 150, 600))
+        || (ip !== "unknown" && !(await withinLimit(`verify-ip:${ip}`, 600, 600)))) {
+      return jsonResponse({ error: "Too many requests. Please wait a moment." }, 429);
+    }
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
