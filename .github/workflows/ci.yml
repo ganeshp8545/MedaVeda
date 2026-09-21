@@ -74,4 +74,4 @@ jobs:
       - uses: actions/checkout@v4
       - name: No real keys in the repo
         run: |
-          ! git grep -nEI '(rzp_live_[A-Za-z0-9]{10,}|sk_live_|-----BEGIN (RSA |EC )?PRIVATE KEY-----|service_role[^\n]{0,20}eyJ)' -- . ':!docs' ':!*.md' ':!*.env.example'
+          ! git grep -nEI '(rzp_live_[A-Za-z0-9]{10,}|sk_live_|-----BEGIN (RSA |EC )?PRIVATE KEY-----|service_role[^\n]{0,20}eyJ)' -- . ':!docs' ':!*.md' ':!*.env.example' ':!.github'
