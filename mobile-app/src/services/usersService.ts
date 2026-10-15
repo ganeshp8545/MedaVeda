@@ -84,12 +84,12 @@ export async function updateUserProfile(
 // deletion requirement). The anon key used on the client can never delete
 // an auth.users row itself, so this calls a Supabase Edge Function
 // ("delete-account") that runs with the service-role key server-side to:
-//   1. erase/anonymise the student's data (payment and order records are
-//      kept, without personal details, for tax law), then
+//   1. erase/unlink selected account data (payment and order records are
+//      retained; newer account-linked records still need review), then
 //   2. delete the corresponding auth.users row via supabase.auth.admin.
-// The client only signs the local session out after the server confirms
-// success, so a failed/partial deletion never leaves the user stuck
-// logged-out with data still on the server.
+// The client signs the local session out only after an explicit server
+// success response. Server cleanup and provider-side retention still need
+// production verification.
 export async function deleteAccount(): Promise<void> {
   const { data, error } = await supabase.functions.invoke("delete-account");
 
@@ -105,8 +105,8 @@ export async function deleteAccount(): Promise<void> {
     }
     throw new Error(message || "Failed to delete account. Please try again.");
   }
-  if (data && data.ok === false) {
-    throw new Error(data.error || "Failed to delete account. Please try again.");
+  if (data?.ok !== true || (data.status !== "deleted" && data.status !== "already_deleted")) {
+    throw new Error(data?.error || "Deletion could not be confirmed. Please try again or contact support.");
   }
 
   await performSignOut();

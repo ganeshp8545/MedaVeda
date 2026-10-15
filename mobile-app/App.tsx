@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Platform } from "react-native";
+import { AppState, Platform } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
@@ -17,6 +17,9 @@ import {
 
 import { registerForPushNotifications } from "./src/services/pushNotifications";
 import { getCurrentUser } from "./src/services/authState";
+import { supabase } from "./src/config/supabase";
+import { restorePlayPurchases } from "./src/services/playBillingService";
+import { logError } from "./src/utils/logger";
 
 export default function App() {
   // Force-update gate: checked on launch and on every resume; fails open.
@@ -34,7 +37,7 @@ export default function App() {
         // Register this device for push notifications
         await registerForPushNotifications(getCurrentUser());
       } catch (err) {
-        console.error("App initialization error:", err);
+        logError("App initialization failed", err);
       }
     };
 
@@ -42,6 +45,24 @@ export default function App() {
 
     return () => {
       stopSyncEngine();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (Platform.OS !== "android") return;
+    // Play can complete a pending purchase after this screen or process is
+    // gone. Restore unconsumed purchases on login, launch and app resume.
+    const restore = () => { void restorePlayPurchases().catch(() => {}); };
+    restore();
+    const { data: auth } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "SIGNED_IN" || event === "INITIAL_SESSION") restore();
+    });
+    const app = AppState.addEventListener("change", (state) => {
+      if (state === "active") restore();
+    });
+    return () => {
+      auth.subscription.unsubscribe();
+      app.remove();
     };
   }, []);
 

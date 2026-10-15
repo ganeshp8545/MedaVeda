@@ -34,6 +34,7 @@ import { RADIUS } from "../theme/radius";
 import { SHADOW } from "../theme/shadows";
 
 import { fetchUserProfile, UserProfile } from "../services/usersService";
+import { fetchReferralSettings } from "../services/referralsService";
 import { logError } from "../utils/logger";
 
 const PANEL_WIDTH = Math.min(300, Dimensions.get("window").width * 0.8);
@@ -66,6 +67,9 @@ export default function SideDrawer({ visible, onClose }: Props) {
   const [modalVisible, setModalVisible] = useState(visible);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [logoutDialogVisible, setLogoutDialogVisible] = useState(false);
+  // Same gate as ProfileScreen's "Refer & Earn" entry - hidden unless the
+  // program is switched on.
+  const [referralsEnabled, setReferralsEnabled] = useState(false);
 
   const translateX = useRef(new Animated.Value(-PANEL_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
@@ -85,6 +89,9 @@ export default function SideDrawer({ visible, onClose }: Props) {
           .then(setProfile)
           .catch((err) => logError("Failed to load profile:", err));
       }
+      fetchReferralSettings()
+        .then((s) => setReferralsEnabled(!!s?.enabled))
+        .catch(() => setReferralsEnabled(false));
 
       Animated.parallel([
         Animated.timing(translateX, {
@@ -127,7 +134,7 @@ export default function SideDrawer({ visible, onClose }: Props) {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
+          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.medveda.app",
       });
     } catch (error) {
       logError("Screen action failed", error);
@@ -197,6 +204,9 @@ export default function SideDrawer({ visible, onClose }: Props) {
             <DrawerRow icon="🏠" label="Home" onPress={() => goTo("Home")} />
             <DrawerRow icon="📥" label="Downloads" onPress={() => goTo("Downloads")} />
             <DrawerRow icon="🧾" label="Purchases" onPress={() => goTo("MyPurchases")} />
+            {referralsEnabled && (
+              <DrawerRow icon="🎁" label="Refer & Earn" onPress={() => goTo("Referral")} />
+            )}
             <DrawerRow icon="⚙️" label="Settings" onPress={() => goTo("Settings")} />
             <DrawerRow icon="📞" label="Contact Us" onPress={() => goTo("Contact")} />
             <DrawerRow icon="📤" label="Share" onPress={handleShare} />

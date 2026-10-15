@@ -15,7 +15,7 @@ Mark each: PASS / FAIL / N/A, with a note or screenshot for FAIL.
 - [ ] Session persistence: kill and reopen the app → still signed in
 - [ ] Session expiry: after sign-out on another device / revoked session, the app returns to login without a crash
 - [ ] Forgot password (email and mobile) → mail → `https://www.medveda.in/reset-password` → "Open app" → new password → can log in; old password no longer works
-- [ ] Deep link `ayurpulse://reset-password#…` opens the app on the reset screen; an expired/used link shows a clear error
+- [ ] Deep link `medveda://reset-password#…` opens the app on the reset screen; an expired/used link shows a clear error
 - [ ] Account switching: log out, log in as another user → no data from the first user (profile, downloads, purchases, notes)
 
 ## Content
@@ -52,11 +52,11 @@ Mark each: PASS / FAIL / N/A, with a note or screenshot for FAIL.
 - [ ] Refund interaction: reward reversed, no double reversal
 
 ## Security
-- [ ] Deep links from a browser/other app cannot open screens that need login without logging in; malformed `ayurpulse://` links do not crash the app
+- [ ] Deep links from a browser/other app cannot open screens that need login without logging in; malformed `medveda://` links do not crash the app
 - [ ] After logout, screens behind login are unreachable
 - [ ] A student cannot see admin data or any other user's purchases/profile
 - [ ] Admin panel (browser): admin logs in with MFA; student account refused
 - [ ] Screenshot/recording of note PDFs is blocked (or behaves as designed)
 - [ ] Network loss mid-browse and mid-payment: friendly errors, no crash, recovers on reconnect
 - [ ] App restart during/after payment resumes correctly
-- [ ] `adb shell dumpsys package com.ayurpulse.app | grep -i "debuggable\|allowBackup"` → not debuggable, backup off
+- [ ] `adb shell dumpsys package com.medveda.app | grep -i "debuggable\|allowBackup"` → not debuggable, backup off

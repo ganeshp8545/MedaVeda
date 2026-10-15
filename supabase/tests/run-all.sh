@@ -28,7 +28,7 @@ $P -d $DB -f "$here/support/seed.sql" >/dev/null || { echo "seed failed"; exit 2
 
 # Suites that end with "N FAIL, M PASS" (or a "<n> FAIL" line): pass only at 0 FAIL and with tests present.
 for s in f7_checks f8_checks batch1_checks batch3_checks batch3b_checks phase2_referral_wallet_checks \
-         referral_limits_checks referral_off_wallet_checks high_phone_and_notes_checks medium_db_checks low_grants_checks admin_mfa_checks; do
+         referral_limits_checks referral_off_wallet_checks high_phone_and_notes_checks medium_db_checks low_grants_checks admin_mfa_checks ucb_checks; do
   out=$(psql -X -q -At -d $DB -f "$here/$s.sql" 2>&1)
   line=$(echo "$out" | grep -E '[0-9]+ FAIL, [0-9]+ PASS' | tail -1 | tr -d ' ')
   if [[ "$line" =~ ^0FAIL,[1-9][0-9]*PASS$ ]]; then printf "PASS  %-36s %s\n" "$s" "$line"
@@ -36,15 +36,33 @@ for s in f7_checks f8_checks batch1_checks batch3_checks batch3b_checks phase2_r
 done
 
 # Older suites: they RAISE (psql exits non-zero) or print a line starting with FAIL.
-for s in account_deletion_checks critical_fixes_checks app_config_checks null_year_fallback_checks; do
+for s in account_deletion_checks critical_fixes_checks app_config_checks null_year_fallback_checks \
+         payment_queue_checks referral_switch_off_paths; do
   out=$(psql -X -q -At -v ON_ERROR_STOP=1 -d $DB -f "$here/$s.sql" 2>&1); rc=$?
   if [ $rc -eq 0 ] && ! echo "$out" | grep -qE '(^|[^A-Za-z])FAIL'; then printf "PASS  %s\n" "$s"
   else printf "FAIL  %s (exit %s)\n" "$s" "$rc"; echo "$out" | tail -6; fail=1; fi
 done
 
 echo "== edge-function harnesses"
+export TEMPLATE_DB=$DB
+if out=$(bash "$here/wallet-concurrency.sh" 2>&1); then echo "$out";
+else echo "$out"; fail=1; fi
+if out=$(bash "$here/discount-concurrency.sh" 2>&1); then echo "$out";
+else echo "$out"; fail=1; fi
+if out=$(bash "$here/payment-concurrency.sh" 2>&1); then echo "$out";
+else echo "$out"; fail=1; fi
+for test in settle-timestamp-selftest.cjs f10-coverage-selftest.cjs google-reporting-selftest.cjs play-consumption-selftest.cjs recovery-selftest.cjs \
+            play-reconcile-fairness-selftest.cjs compensation-worker-selftest.cjs ucb-cron-config-selftest.cjs; do
+  if out=$(cd "$root" && node "$here/$test" 2>&1); then echo "$out" | grep '^PASS';
+  else echo "$out" | tail -8; fail=1; fi
+done
+if out=$(cd "$root" && deno run "$here/payment-gate-selftest.ts" 2>&1); then echo "$out" | grep '^PASS';
+else echo "$out" | tail -8; fail=1; fi
+for test in razorpay-env-selftest.ts razorpay-refund-selftest.ts payment-backlog-load-selftest.ts; do
+  if out=$(cd "$root" && deno run --allow-env "$here/$test" 2>&1); then echo "$out" | grep '^PASS';
+  else echo "$out" | tail -8; fail=1; fi
+done
 if command -v node >/dev/null && command -v deno >/dev/null; then
-  export TEMPLATE_DB=$DB
   out=$(bash "$here/webhook-harness/run.sh" 2>&1); n_fail=$(echo "$out" | grep -c '^FAIL'); n_pass=$(echo "$out" | grep -c '^PASS')
   if [ "$n_fail" -eq 0 ] && [ "$n_pass" -gt 0 ]; then echo "PASS  webhook-harness ($n_pass checks)"; else echo "FAIL  webhook-harness"; echo "$out" | tail -8; fail=1; fi
 else

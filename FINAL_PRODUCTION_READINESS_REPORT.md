@@ -61,16 +61,16 @@ Ledger, debit/credit idempotency, refund restore once-only, hold/flag paths: PAS
 Production AAB built by EAS from commit 1646373 (build `4e2f4d16-f95f-4598-90bf-c725b1488ebc`), **not submitted to Play Store**.
 | Check (from the built AAB manifest / bundle) | Result |
 |---|---|
-| package / versionName / versionCode | `com.ayurpulse.app` / `1.1.0` / `7` (remote counter 6→7) — PASS |
+| package / versionName / versionCode | `com.medveda.app` / `1.1.0` / `7` (remote counter 6→7) — PASS |
 | debuggable | attribute absent → false — PASS |
 | allowBackup / usesCleartextTraffic | `false` / `false` — PASS |
 | Supabase URL / key | project URL + `sb_publishable_…` only — PASS |
 | service-role key / Razorpay secret / `rzp_live_` / `rzp_test_` / `sb_secret_` / JWT-looking anon key | none found — PASS |
 | Permissions | INTERNET, POST_NOTIFICATIONS, VIBRATE, ACCESS_NETWORK_STATE, ACCESS_WIFI_STATE, WAKE_LOCK, RECEIVE_BOOT_COMPLETED, DETECT_SCREEN_CAPTURE, USE_BIOMETRIC, USE_FINGERPRINT, c2dm RECEIVE, launcher-badge and install-referrer perms from libraries. No storage/media/overlay/download perms — PASS. USE_BIOMETRIC/USE_FINGERPRINT come from a library and are unused by app code I could find: low, not removed |
-| Exported components | `MainActivity` (launcher + `ayurpulse://`), plus two **third-party receivers exported but permission-guarded**: Firebase `FirebaseInstanceIdReceiver` (`c2dm.SEND`) and androidx `ProfileInstallReceiver` (`android.permission.DUMP`). Earlier "only MainActivity" was imprecise — PASS with note |
+| Exported components | `MainActivity` (launcher + `medveda://`), plus two **third-party receivers exported but permission-guarded**: Firebase `FirebaseInstanceIdReceiver` (`c2dm.SEND`) and androidx `ProfileInstallReceiver` (`android.permission.DUMP`). Earlier "only MainActivity" was imprecise — PASS with note |
 | Localhost / `http://` strings | `localhost:9999` (supabase-js auth default), `:8969`/`:8081` (RN/dev-server defaults in libraries), `fb.me` (React dev message), w3.org XML namespace; all traced to libraries; every application endpoint is `https` — PASS |
 | `SENTRY_AUTH` string | Sentry Android SDK constant name in `classes3.dex`, not a token — PASS |
-| Deep links | scheme `ayurpulse` only; no https App Links — PASS |
+| Deep links | scheme `medveda` only; no https App Links — PASS |
 | FCM / OTA code signing | no `google-services.json`, no signing certificate → push and signed OTA not enabled — BLOCKED — OWNER ACTION REQUIRED |
 Mobile test suite: the app has no unit-test runner; executed `tsc --noEmit`, checkout self-test, password self-test, signature self-test. Everything else: NOT TESTED.
 

@@ -45,6 +45,10 @@ export interface Order {
 
   amount: number;
   status: OrderStatus;
+  provider?: "razorpay" | "play";
+  playSku?: string;
+  // Order rows do not currently store a title; optional for future server metadata.
+  productTitle?: string;
 
   razorpayOrderId?: string;
   razorpayPaymentId?: string;

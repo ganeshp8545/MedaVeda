@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
 
@@ -176,7 +177,7 @@ export default function StoreScreen() {
                             icon="📖"
                             onPress={() => openSubject(subject, block.year)}
                             onBuyPress={
-                              subjectProduct ? () => handleBuy(subjectProduct) : undefined
+                              subjectProduct && Platform.OS === "android" ? () => handleBuy(subjectProduct) : undefined
                             }
                             buying={purchasing}
                           />

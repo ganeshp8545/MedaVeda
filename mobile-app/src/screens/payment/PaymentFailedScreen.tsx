@@ -9,6 +9,7 @@ import { SPACING } from "../../theme/spacing";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
 import { recoverPayment } from "../../services/paymentService";
+import { recheckPlayOrder } from "../../services/playBillingService";
 
 // Reached via normal in-app navigation - either from
 // PaymentCheckoutScreen (Razorpay reported a failure, or verify-payment
@@ -36,7 +37,7 @@ export default function PaymentFailedScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
 
-  const { title, reason, pending, verifyUrl, internalOrderId, paymentId } = route.params ?? {};
+  const { title, reason, pending, provider, verifyUrl, internalOrderId, paymentId } = route.params ?? {};
 
   const [stillConfirming, setStillConfirming] = useState(!!pending);
   const resolvedRef = useRef(false);
@@ -52,14 +53,17 @@ export default function PaymentFailedScreen() {
   }
 
   const checkStatus = useCallback(async () => {
-    if (resolvedRef.current || !pending || !verifyUrl || !internalOrderId) return;
+    if (resolvedRef.current || !pending || !internalOrderId ||
+        (provider !== "play" && !verifyUrl)) return;
     // Give up quietly after MAX_POLL_MINUTES - the student can still see
     // it unlock on its own via My Purchases, or reach out to support with
     // the Payment ID shown below.
     if (pollCountRef.current * (POLL_INTERVAL_MS / 1000) > MAX_POLL_MINUTES * 60) return;
     pollCountRef.current += 1;
     try {
-      const result = await recoverPayment(verifyUrl, internalOrderId);
+      const result = provider === "play"
+        ? await recheckPlayOrder(internalOrderId)
+        : await recoverPayment(verifyUrl, internalOrderId);
       if (result.success && !resolvedRef.current) {
         resolvedRef.current = true;
         navigation.dispatch(
@@ -74,11 +78,14 @@ export default function PaymentFailedScreen() {
             ],
           })
         );
+      } else if (provider === "play" && "pending" in result && result.pending === false) {
+        resolvedRef.current = true;
+        setStillConfirming(false);
       }
     } catch {
       // Transient - the next interval tick or app-resume will try again.
     }
-  }, [pending, verifyUrl, internalOrderId, title, navigation]);
+  }, [pending, provider, verifyUrl, internalOrderId, title, navigation]);
 
   // Poll on an interval while this screen is focused.
   useFocusEffect(
@@ -119,14 +126,16 @@ export default function PaymentFailedScreen() {
           <Text style={styles.reasonLabel}>Details</Text>
           <Text style={styles.reasonText}>
             Payment may have succeeded but verification could not be confirmed yet
-            {paymentId ? `. Payment ID: ${paymentId}` : "."}
+            {provider === "play" && internalOrderId
+              ? `. Order ID: ${internalOrderId}`
+              : paymentId ? `. Payment ID: ${paymentId}` : "."}
           </Text>
         </View>
 
         <Text style={styles.note}>
-          No need to pay again. Check My Purchases in a few minutes - if it's
+          No need to pay again. Check My Purchases in a few minutes. If it is
           still locked after {MAX_POLL_MINUTES} minutes, contact support with
-          the Payment ID above.
+          {provider === "play" ? " the order ID" : " the payment ID"} above.
         </Text>
 
         <TouchableOpacity

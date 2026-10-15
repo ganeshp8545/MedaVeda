@@ -56,7 +56,11 @@ export default function TermsScreen() {
         Video lectures and MCQ tests are free. PDF notes are sold as
         paid packages. All prices are in Indian Rupees (INR) and are
         inclusive of applicable taxes, if any. Payments are processed
-        by Razorpay.{"\n\n"}
+        through Google Play Billing or, where Google Play offers the
+        choice, through Razorpay. The payment method, final price and
+        applicable terms are shown before you pay. Referral discounts
+        and wallet credit apply only to eligible Razorpay purchases;
+        Google Play purchases use the price shown by Google Play.{"\n\n"}
         Purchased content has no fixed expiry. Access continues for as
         long as your account is active and the content is offered on
         the platform.
@@ -65,17 +69,18 @@ export default function TermsScreen() {
         4. Refunds and Cancellation
       </Text>
       <Text style={styles.body}>
-        Because content is digital and unlocked instantly, purchases
-        are generally non-refundable once unlocked, except:{"\n"}
+        For Razorpay purchases, because content is digital and unlocked
+        instantly, purchases are generally non-refundable once
+        unlocked, except:{"\n"}
         (a) payment deducted but content not unlocked within 24 hours;{"\n"}
         (b) duplicate or multiple payments for the same purchase;{"\n"}
         (c) a technical fault on our side that prevents access and
         that we cannot fix within 7 days.{"\n\n"}
-        Raise refund requests within 7 days of the payment. We reply
-        within 48 hours, and approved refunds reach your original
-        payment method in 5–7 working days. You can cancel before
-        completing payment, but not after a successful payment except
-        in the cases above.
+        Raise Razorpay refund requests within 7 days of payment. We
+        reply within 48 hours; approved refunds normally reach the
+        original payment method in 5–7 working days. For Google Play
+        purchases, Google Play processes billing and refunds under its
+        applicable policies. Contact us if paid notes do not unlock.
       </Text>
       <WebLink label="Read refund policy" url={WEB.refund} />
       <Text style={styles.heading}>

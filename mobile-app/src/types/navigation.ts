@@ -118,13 +118,24 @@ export type RootStackParamList = {
   PaymentFailed: {
     title?: string;
     reason?: string;
+    pending?: boolean;
+    provider?: "razorpay" | "play";
+    internalOrderId?: string;
+    verifyUrl?: string;
+    paymentId?: string;
   };
   OrderSummary: {
+    productId: string;
+    productTitle: string;
+    ucbOrderId?: string;
+  };
+  PlayBilling: {
     productId: string;
     productTitle: string;
   };
   PaymentCheckout: {
     keyId: string;
+    isLiveMode?: boolean;
     razorpayOrderId: string;
     amountPaise: number;
     productTitle: string;

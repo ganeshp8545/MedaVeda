@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 import useDebounce from "./useDebounce";
@@ -87,8 +87,12 @@ export default function useGlobalSearch() {
 
   const sections: SearchSection[] = useMemo(() => {
     if (!index) return [];
-    if (isSearching) return searchResults(enriched, debouncedQuery, filters);
-    return discoverySections;
+    const found = isSearching ? searchResults(enriched, debouncedQuery, filters) : discoverySections;
+    if (Platform.OS === "android") return found;
+    return found.map((section) => ({
+      ...section,
+      data: section.data.filter((result) => result.type !== "product" || result.owned),
+    })).filter((section) => section.data.length > 0).map((section) => ({ ...section, totalCount: section.data.length }));
   }, [index, enriched, isSearching, debouncedQuery, filters, discoverySections]);
 
   // Discovery sections (Recently Viewed / Recommended / Recently Added)

@@ -1,0 +1,4 @@
+{
+  "comment": "TEMPORARY TEST ONLY: remove the INR 1.00 tier and replace with verified live prices before production.",
+  "tiers": [{ "priceInr": 1, "sku": "notes_1" }]
+}

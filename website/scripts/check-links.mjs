@@ -45,7 +45,7 @@ for (const f of files) {
   const ids = idsOf(html);
   for (const m of html.matchAll(/(?:href|src)="([^"]+)"/g)) {
     const u = m[1];
-    if (/^(https?:|mailto:|tel:|ayurpulse:|data:|#$)/.test(u)) continue;
+    if (/^(https?:|mailto:|tel:|medveda:|data:|#$)/.test(u)) continue;
     if (u === "#") continue;
     if (u.startsWith("#")) { if (!ids.has(u.slice(1))) err(f, `missing anchor ${u}`); continue; }
     const [path, hash] = u.split("#");

@@ -12,6 +12,9 @@ expo-env.d.ts
 # Native
 .kotlin/
 *.orig.*
+google-services.json
+google-play-service-account.json
+code-signing-keys/
 *.jks
 *.p8
 *.p12
@@ -39,6 +42,5 @@ yarn-error.*
 # generated native folders
 /ios
 /android
-code-signing-keys/
 *.pem.key
 private-key.pem

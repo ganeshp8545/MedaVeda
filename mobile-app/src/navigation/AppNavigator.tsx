@@ -54,6 +54,7 @@ import NotificationsScreen from "../screens/notifications/NotificationsScreen";
 import PaymentSuccessScreen from "../screens/payment/PaymentSuccessScreen";
 import PaymentFailedScreen from "../screens/payment/PaymentFailedScreen";
 import PaymentCheckoutScreen from "../screens/payment/PaymentCheckoutScreen";
+import PlayBillingScreen from "../screens/payment/PlayBillingScreen";
 import AboutScreen from "../screens/about/AboutScreen";
 import ContactScreen from "../screens/contact/ContactScreen";
 
@@ -83,13 +84,12 @@ const navigationTheme = {
 // later and this reverts to a browser based flow; harmless either way.
 //
 // ResetPassword IS live: Supabase's password-reset email links back to
-// "ayurpulse://reset-password" (see authService.PASSWORD_RESET_REDIRECT_URL).
+// "medveda://reset-password" (see authService.PASSWORD_RESET_REDIRECT_URL).
 //
 // NOTE: the prefix below must match app.json's "scheme" field exactly
-// ("ayurpulse", not "medveda" - that scheme was never actually
-// registered there) or none of these deep links will open the app.
+// ("medveda") or none of these deep links will open the app.
 const linking = {
-  prefixes: ["ayurpulse://"],
+  prefixes: ["medveda://"],
   config: {
     screens: {
       PaymentSuccess: "payment-success",
@@ -164,6 +164,7 @@ export default function AppNavigator() {
         <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
         <Stack.Screen name="PaymentFailed" component={PaymentFailedScreen} />
         <Stack.Screen name="OrderSummary" component={OrderSummaryScreen} />
+        <Stack.Screen name="PlayBilling" component={PlayBillingScreen} />
         <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="Contact" component={ContactScreen} />

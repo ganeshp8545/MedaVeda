@@ -9,7 +9,7 @@ import { ICONS } from "../_src/icons.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SITE = "https://www.medveda.in";
 const YEAR = new Date().getFullYear();
-const PLAY = "https://play.google.com/store/apps/details?id=com.ayurpulse.app";
+const PLAY = "https://play.google.com/store/apps/details?id=com.medveda.app";
 const EMAIL = "medvedaforu@gmail.com";
 const WHATSAPP = "https://wa.me/917620616068";
 

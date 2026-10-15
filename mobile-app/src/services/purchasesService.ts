@@ -10,7 +10,7 @@ export async function fetchOwnedScopes(): Promise<OwnedScope[]> {
   if (!uid) return [];
 
   const docs = await getPurchasesByUser(uid);
-  return docs as unknown as OwnedScope[];
+  return docs.filter((doc) => doc.status === "success") as unknown as OwnedScope[];
 }
 
 const SCOPE_FALLBACK_LABEL: Record<ProductScope, string> = {
@@ -59,6 +59,7 @@ export function isChapterUnlocked(
   chapter: { id: string; subjectId: string; yearId: string }
 ): boolean {
   return ownedScopes.some((owned) => {
+    if (owned.status !== "success") return false;
     if (owned.scope === "chapter") return owned.chapterId === chapter.id;
     if (owned.scope === "subject") return owned.subjectId === chapter.subjectId;
     if (owned.scope === "year") return owned.yearId === chapter.yearId;
@@ -80,6 +81,7 @@ export function isProductOwned(
   }
 ): boolean {
   return ownedScopes.some((owned) => {
+    if (owned.status !== "success") return false;
     if (product.scope === "chapter") {
       if (owned.scope === "chapter") return owned.chapterId === product.chapterId;
       if (owned.scope === "subject") return owned.subjectId === product.subjectId;

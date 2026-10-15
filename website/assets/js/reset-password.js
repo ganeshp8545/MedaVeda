@@ -36,7 +36,7 @@
   }
 
   function openInApp() {
-    var url = (A.cfg.appScheme || "ayurpulse://") + "reset-password" + (originalFragment ? "#" + originalFragment : "");
+    var url = (A.cfg.appScheme || "medveda://") + "reset-password" + (originalFragment ? "#" + originalFragment : "");
     location.href = url;
   }
 

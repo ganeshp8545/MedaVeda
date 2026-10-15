@@ -5,11 +5,6 @@ import { logDebug } from "../utils/logger";
 
 // Anti-piracy protection for paid Notes content.
 //
-// Requires `expo-screen-capture` as a dependency (not yet in package.json -
-// same source-only-patch situation as expo-file-system in
-// utils/downloadsManager.ts; add with `npx expo install expo-screen-capture`
-// and rebuild - this is a native module, a JS-only reload won't pick it up).
-//
 // Platform behavior is genuinely different here, and it's worth being
 // honest about that instead of overpromising:
 //   - Android: preventScreenCaptureAsync() sets FLAG_SECURE on the window.
@@ -30,7 +25,7 @@ import { logDebug } from "../utils/logger";
 export default function usePreventScreenshot() {
   useEffect(() => {
     // expo-screen-capture has no web implementation.
-    if (Platform.OS === "web") return;
+    if (Platform.OS === "web" || process.env.EXPO_PUBLIC_DISABLE_SCREENSHOT_BLOCK === "1") return;
 
     ScreenCapture.preventScreenCaptureAsync().catch((err) => {
       logDebug(`preventScreenCaptureAsync failed (${Platform.OS}):`, err);

@@ -9,6 +9,7 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
+  Platform,
 } from "react-native";
 
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
@@ -117,7 +118,7 @@ export default function HomeScreen() {
         logError("Failed to load years:", err);
         setYearsError(
           err?.code === "failed-precondition"
-            ? "Setup needed: open the browser console and click the Firestore index link Firebase gives you, then reload."
+            ? "Setup needed: please contact MedVeda support, then reload."
             : "Could not load years. Pull down to try again."
         );
       })
@@ -375,7 +376,7 @@ export default function HomeScreen() {
                       if (owned) navigation.navigate("MyPurchases");
                       else navigation.navigate("Subjects", { yearId: yp.year.id, yearTitle: yp.year.title });
                     }}
-                    onBuyPress={!owned ? () => buy(product) : undefined}
+                    onBuyPress={!owned && Platform.OS === "android" ? () => buy(product) : undefined}
                     buying={purchasing}
                   />
                 </StaggerItem>

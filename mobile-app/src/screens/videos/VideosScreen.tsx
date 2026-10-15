@@ -59,8 +59,22 @@ export default function VideosScreen() {
     item.title.toLowerCase().includes(search.toLowerCase())
   );
 
-  function handleVideoPress(item: Video) {
-    Linking.openURL(item.youtubeUrl);
+  // Same safe-open pattern as SideDrawer/ContactScreen's "Follow us" links:
+  // canOpenURL first (the AndroidQueries plugin makes this reliable on
+  // Android 11+), then openURL - which itself falls back to the browser
+  // when the YouTube app isn't installed, since this is a plain https URL.
+  async function handleVideoPress(item: Video) {
+    try {
+      const supported = await Linking.canOpenURL(item.youtubeUrl);
+      if (supported) {
+        await Linking.openURL(item.youtubeUrl);
+      } else {
+        Alert.alert("Error", "Could not open the link.");
+      }
+    } catch (error) {
+      logError("Failed to open video link", error);
+      Alert.alert("Error", "Could not open the link.");
+    }
   }
 
   return (

@@ -5,6 +5,7 @@ import { ProductScope } from "./product";
 // doc carries a copy of the product's scope fields, so the app can check
 // "do I own this?" with local comparisons instead of re-fetching the product.
 export interface OwnedScope {
+  status: string;
   scope: ProductScope;
   chapterId?: string;
   subjectId?: string;

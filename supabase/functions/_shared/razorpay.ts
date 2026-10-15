@@ -28,28 +28,15 @@ function getKeys(): { keyId: string; keySecret: string } {
   // auto-capture timing) - this was the actual root cause of intermittent
   // "payment succeeded but verification could not be confirmed" reports.
   //
-  // Test mode is still fine for staging - but it now requires a conscious,
-  // explicit opt-in secret (ALLOW_TEST_MODE=true) rather than being the
-  // silent default the moment a test key ends up deployed. Without that
-  // opt-in, a test key hard-fails every request instead of quietly
-  // accepting real student payments against a test-mode order.
+  // The independent APP_ENV marker is required. ALLOW_TEST_MODE is deliberately
+  // ignored: a production project must never accept test credentials.
+  const appEnv = Deno.env.get("APP_ENV");
+  if (appEnv !== "production" && appEnv !== "staging") {
+    throw new Error("APP_ENV must be explicitly set to production or staging");
+  }
   if (keyId.startsWith("rzp_test_")) {
-    const allowTestMode = Deno.env.get("ALLOW_TEST_MODE") === "true";
-    if (!allowTestMode) {
-      throw new Error(
-        "Refusing to run with a rzp_test_ Razorpay key: ALLOW_TEST_MODE is not set to 'true'. " +
-          "If this is staging and test mode is intentional, run " +
-          "`supabase secrets set ALLOW_TEST_MODE=true`. " +
-          "If this is production, you have the wrong key deployed - run " +
-          "`supabase secrets set RAZORPAY_KEY_ID=rzp_live_...` and " +
-          "`supabase secrets set RAZORPAY_KEY_SECRET=...` with your LIVE keys from " +
-          "the Razorpay Dashboard (Settings -> API Keys, Live mode toggle)."
-      );
-    }
-    console.warn(
-      "[razorpay] RUNNING IN TEST MODE (RAZORPAY_KEY_ID starts with rzp_test_, " +
-        "ALLOW_TEST_MODE=true). Real payments will NOT be processed."
-    );
+    if (appEnv !== "staging") throw new Error("Refusing test Razorpay key outside staging");
+    console.warn("[razorpay] RUNNING IN STAGING TEST MODE. Real payments will NOT be processed.");
   }
 
   return { keyId, keySecret };
@@ -152,6 +139,59 @@ async function razorpayGet<T>(path: string): Promise<T> {
 // Authoritative, server-to-server fetch of a single payment.
 export function fetchPayment(paymentId: string): Promise<RazorpayPayment> {
   return razorpayGet<RazorpayPayment>(`payments/${encodeURIComponent(paymentId)}`);
+}
+
+export type RazorpayRefund = {
+  id: string;
+  payment_id: string;
+  amount: number;
+  currency: string;
+  status: string;
+  created_at: number;
+};
+
+export function fetchRefund(refundId: string): Promise<RazorpayRefund> {
+  return razorpayGet<RazorpayRefund>(`refunds/${encodeURIComponent(refundId)}`);
+}
+
+// The stable request marker is sent in refund notes. Before every POST (also
+// after an ambiguous timeout), enumerate the payment's refunds and recover the
+// provider refund id. Razorpay limits aggregate refunds to the captured amount.
+export async function refundCapturedPayment(paymentId: string, amountPaise: number,
+  requestId: string, knownRefundId?: string | null): Promise<RazorpayRefund> {
+  if (knownRefundId) {
+    const known = await fetchRefund(knownRefundId);
+    if (known.payment_id !== paymentId || known.amount !== amountPaise || known.status !== "processed")
+      throw new Error("Known compensation refund is not processed");
+    return known;
+  }
+  for (let skip = 0; skip < 1000; skip += 100) {
+    const page = await razorpayGet<{ items: (RazorpayRefund & { notes?: Record<string,string> })[] }>(
+      `payments/${encodeURIComponent(paymentId)}/refunds?count=100&skip=${skip}`);
+    const match = page.items.find((item) => item.notes?.medveda_refund_request_id === requestId);
+    if (match) {
+      if (match.amount !== amountPaise || match.status !== "processed")
+        throw new Error("Compensation refund not yet processed or amount mismatch");
+      return match;
+    }
+    if (page.items.length < 100) break;
+  }
+  const payment = await fetchPayment(paymentId);
+  if (payment.amount_refunded && payment.amount_refunded > 0)
+    throw new Error("Payment already has an unmatched refund; manual review required");
+  if (payment.amount !== amountPaise || payment.currency !== "INR" || payment.status !== "captured")
+    throw new Error("Payment is no longer eligible for full automatic refund");
+  const { keyId, keySecret } = getKeys();
+  const response = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(paymentId)}/refund`, {
+    signal: AbortSignal.timeout(RAZORPAY_TIMEOUT_MS), method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: "Basic " + btoa(`${keyId}:${keySecret}`) },
+    body: JSON.stringify({ amount: amountPaise, notes: { medveda_refund_request_id: requestId } }),
+  });
+  if (!response.ok) throw new Error(`Razorpay compensation refund failed (${response.status})`);
+  const refund = await response.json() as RazorpayRefund;
+  if (refund.payment_id !== paymentId || refund.amount !== amountPaise || refund.status !== "processed")
+    throw new Error("Razorpay compensation refund response requires reconciliation");
+  return refund;
 }
 
 export type RazorpayDispute = {

@@ -11,7 +11,7 @@ import { logDebug } from "../utils/logger";
 // bad config value can never lock students out.
 
 export const DEFAULT_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.ayurpulse.app";
+  "https://play.google.com/store/apps/details?id=com.medveda.app";
 
 export type UpdateStatus = {
   required: boolean;

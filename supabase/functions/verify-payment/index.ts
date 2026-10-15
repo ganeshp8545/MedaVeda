@@ -6,10 +6,11 @@
 //   c) the grant is idempotent (unique razorpay_payment_id, one purchase/order).
 // The razorpay-webhook function uses the same settlement code as a backup path.
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
-import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
+import { supabaseAdmin, getUserFromAuthHeader } from "../_shared/supabaseAdmin.ts";
 import { verifyPaymentSignature, fetchCapturedPaymentForOrder } from "../_shared/razorpay.ts";
 import { settleCapturedPayment } from "../_shared/settle.ts";
 import { clientIp, withinLimit } from "../_shared/rateLimit.ts";
+import { paymentGate } from "../_shared/paymentGate.ts";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -54,24 +55,34 @@ Deno.serve(async (req: Request) => {
     if (!internalOrderId || !UUID.test(internalOrderId)) {
       return jsonResponse({ error: "Missing payment details for verification." }, 400);
     }
+    const recoveryUser = recover ? await getUserFromAuthHeader(req) : null;
+    if (recover && !recoveryUser) return jsonResponse({ error: "Please log in before recovering payment." }, 401);
 
-    // This endpoint carries no user JWT (released app builds do not send one), so it is
-    // abuse-limited instead: every call can trigger Razorpay API requests. Limits are set
+    // Signed callbacks remain signature-verified; unsigned recovery requires a
+    // verified user JWT below. Both paths are abuse-limited because they can
+    // trigger Razorpay API requests. Limits are set
     // well above the app's own retry/poll schedule (~90 calls per order over 10 minutes).
     // The per-IP counter is skipped when no client IP is available, so unknown IPs
     // cannot share (and exhaust) one bucket.
     const ip = clientIp(req);
-    if (!(await withinLimit(`verify-order:${internalOrderId}`, 150, 600))
-        || (ip !== "unknown" && !(await withinLimit(`verify-ip:${ip}`, 600, 600)))) {
+    if (!(await withinLimit(`verify-order:${internalOrderId}`, 150, 600, recover))
+        || (ip !== "unknown" && !(await withinLimit(`verify-ip:${ip}`, 600, 600, recover)))) {
       return jsonResponse({ error: "Too many requests. Please wait a moment." }, 429);
     }
 
     const { data: order, error: orderError } = await supabaseAdmin
       .from("orders")
-      .select("id, razorpay_order_id")
+      .select("id, user_id, razorpay_order_id, external_transaction_token")
       .eq("id", internalOrderId)
       .maybeSingle();
     if (orderError || !order) return jsonResponse({ error: "Order not found. Please contact support." }, 404);
+    if (recover && order.user_id !== recoveryUser?.id)
+      return jsonResponse({ error: "This order does not belong to you." }, 403);
+    const gate = await paymentGate(req, !!order.external_transaction_token);
+    if (gate !== "allow") return jsonResponse({ error: gate === "upgrade"
+      ? "Update the app before verifying payment." : gate === "choice"
+      ? "Billing choice is required." : "Billing configuration unavailable." },
+      gate === "unavailable" ? 503 : 403);
 
     if (recover) {
       // No client signature: we ask Razorpay ourselves which payment (if any)

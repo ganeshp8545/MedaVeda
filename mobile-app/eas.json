@@ -27,6 +27,18 @@
       },
       "channel": "preview"
     },
+    "screenshots": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_SUPABASE_URL": "https://xbvenkfmesugrbjuufyw.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fXCKukdHR8Yy05Er-t47wQ_fxHuYMZD",
+        "EXPO_PUBLIC_DISABLE_SCREENSHOT_BLOCK": "1"
+      },
+      "channel": "screenshots"
+    },
     "production": {
       "android": {
         "buildType": "app-bundle"
@@ -34,9 +46,30 @@
       "autoIncrement": true,
       "env": {
         "EXPO_PUBLIC_SUPABASE_URL": "https://xbvenkfmesugrbjuufyw.supabase.co",
-        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fXCKukdHR8Yy05Er-t47wQ_fxHuYMZD"
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "sb_publishable_fXCKukdHR8Yy05Er-t47wQ_fxHuYMZD",
+        "MEDVEDA_PAYMENT_PROVIDER": "play"
       },
       "channel": "production"
+    },
+    "internal-testing": {
+      "android": { "buildType": "app-bundle" },
+      "autoIncrement": true,
+      "environment": "preview",
+      "env": {
+        "MEDVEDA_BUILD_TARGET": "staging",
+        "MEDVEDA_PAYMENT_PROVIDER": "play"
+      },
+      "channel": "internal-testing"
+    },
+    "razorpay-distribution": {
+      "distribution": "internal",
+      "android": { "buildType": "apk" },
+      "environment": "preview",
+      "env": {
+        "MEDVEDA_BUILD_TARGET": "staging",
+        "MEDVEDA_PAYMENT_PROVIDER": "razorpay"
+      },
+      "channel": "razorpay-distribution"
     },
     "shrink-test": {
       "distribution": "internal",
@@ -52,6 +85,12 @@
     }
   },
   "submit": {
+    "internal-testing": {
+      "android": {
+        "serviceAccountKeyPath": "./google-play-service-account.json",
+        "track": "internal"
+      }
+    },
     "production": {
       "android": {
         "serviceAccountKeyPath": "./google-play-service-account.json",

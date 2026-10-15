@@ -2,16 +2,16 @@
   "expo": {
     "name": "MedVeda",
     "slug": "ayurpulse",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "scheme": "ayurpulse",
+    "scheme": "medveda",
     "assetBundlePatterns": [
       "**/*"
     ],
     "android": {
-      "package": "com.ayurpulse.app",
+      "package": "in.medveda.app",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2E7D32"
@@ -45,6 +45,7 @@
       "expo-status-bar",
       "expo-web-browser",
       "expo-sqlite",
+      "expo-iap",
       "./plugins/withAndroidQueries.js",
       "expo-font"
     ],
@@ -61,7 +62,7 @@
     },
     "owner": "ganeshp0305",
     "ios": {
-      "bundleIdentifier": "com.ayurpulse.app"
+      "bundleIdentifier": "com.medveda.app"
     }
   }
 }

@@ -2,7 +2,7 @@ import { Component, type ErrorInfo, type ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { COLORS } from "../theme/colors";
-import { logError } from "../utils/logger";
+import { logDebug, logError } from "../utils/logger";
 import AnimatedPressable from "./motion/AnimatedPressable";
 
 interface Props {
@@ -29,8 +29,7 @@ export default class ErrorBoundary extends Component<Props, State> {
     logError("ErrorBoundary caught a render error", error);
 
     if (__DEV__) {
-      // eslint-disable-next-line no-console
-      console.error(info.componentStack);
+      logDebug(info.componentStack);
     }
   }
 

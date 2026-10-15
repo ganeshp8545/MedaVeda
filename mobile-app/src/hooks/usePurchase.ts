@@ -1,6 +1,8 @@
 import { useNavigation } from "@react-navigation/native";
+import { Platform } from "react-native";
 
 import { Product } from "../services/productsService";
+import { paymentProvider } from "../config/paymentProvider";
 
 /**
  * Roadmap change 5 - Order -> Payment -> Purchase -> Unlock:
@@ -30,7 +32,11 @@ export default function usePurchase() {
   // The order itself is only created when the student taps Pay there, so
   // nothing is reserved or discounted by merely looking at the summary.
   function buy(product: Product) {
-    navigation.navigate("OrderSummary", { productId: product.id, productTitle: product.title });
+    if (Platform.OS !== "android") return;
+    navigation.navigate(paymentProvider === "play" ? "PlayBilling" : "OrderSummary", {
+      productId: product.id,
+      productTitle: product.title,
+    });
   }
 
   return { buy, purchasing };

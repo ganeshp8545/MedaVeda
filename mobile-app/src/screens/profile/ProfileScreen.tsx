@@ -69,7 +69,7 @@ export default function ProfileScreen() {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
+          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.medveda.app",
       });
     } catch (error) {
       logError("Screen action failed", error);

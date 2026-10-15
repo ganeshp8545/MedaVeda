@@ -19,6 +19,24 @@
 [functions.create-order]
 verify_jwt = true
 
+[functions.create-play-order]
+verify_jwt = true
+
+[functions.verify-play-purchase]
+verify_jwt = true
+
+[functions.attach-external-token]
+verify_jwt = true
+
+# Authenticated by UCB_REPORT_CRON_SECRET in x-ucb-cron-secret, not a user JWT.
+[functions.report-external-transaction]
+verify_jwt = false
+
+# Server cron only. The function checks PLAY_PAYMENT_CRON_SECRET in
+# x-play-payment-cron-secret; callers do not have a user JWT.
+[functions.play-payment-worker]
+verify_jwt = false
+
 [functions.get-note-url]
 verify_jwt = true
 

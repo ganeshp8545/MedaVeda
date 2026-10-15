@@ -1649,7 +1649,7 @@ create policy "app_config_admin_delete" on public.app_config
 -- store_url uses android.package from app.json.
 insert into public.app_config (key, value) values
   ('min_app_version', '1.0.0'),
-  ('store_url', 'https://play.google.com/store/apps/details?id=com.ayurpulse.app')
+  ('store_url', 'https://play.google.com/store/apps/details?id=com.medveda.app')
 on conflict (key) do nothing;
 
 -- ===== END folded: 20260920130000_app_config.sql =====

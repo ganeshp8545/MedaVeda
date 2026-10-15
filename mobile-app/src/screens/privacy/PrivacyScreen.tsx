@@ -35,12 +35,17 @@ export default function PrivacyScreen() {
       <Text style={styles.body}>
         • Account: full name, email address, mobile number{"\n"}
         • Study profile: course, academic year, referral code{"\n"}
-        • Purchases and payments: orders, products, amounts, Razorpay IDs{"\n"}
+        • Purchases and payments: orders, products, amounts, payment
+        provider, Razorpay IDs or Google Play purchase identifiers,
+        billing status, refunds and Indian billing state when you choose
+        Razorpay{"\n"}
         • Learning activity: quiz scores and usage events (screens, notes, videos, quizzes, searches){"\n"}
         • Notifications: push token, device platform and your preferences{"\n"}
         • Crash and error data: device model, OS and app version{"\n"}
         • Anything you send to support{"\n\n"}
-        We do not collect your location, contacts or photos.
+        We do not access device location, contacts or photos. We ask
+        for your billing state only when required for an eligible
+        Razorpay purchase.
       </Text>
       <Text style={styles.heading}>
         How We Use Your Information
@@ -57,8 +62,11 @@ export default function PrivacyScreen() {
         Payments
       </Text>
       <Text style={styles.body}>
-        Payments are processed by Razorpay. MedVeda does not store
-        your card numbers, UPI PIN or bank credentials.
+        Depending on your choice and eligibility, payments are
+        processed by Google Play or Razorpay. We verify purchases and
+        report eligible Razorpay transactions and refunds to Google
+        Play. We do not store your card numbers, UPI PIN or bank
+        credentials.
       </Text>
       <Text style={styles.heading}>
         Who We Share Data With
@@ -70,7 +78,8 @@ export default function PrivacyScreen() {
         • Resend – account emails (verification and password reset){"\n"}
         • Sentry – crash and error reports{"\n"}
         • Expo – push notifications{"\n"}
-        • Google Play – app distribution{"\n\n"}
+        • Google Play – app distribution, Google Play Billing, purchase
+        verification and alternative-billing reporting{"\n\n"}
         Each provider follows its own privacy policy. We may also
         disclose data where the law requires it.
       </Text>

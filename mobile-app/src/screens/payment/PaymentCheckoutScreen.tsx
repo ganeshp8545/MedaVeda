@@ -9,6 +9,7 @@ import { SPACING } from "../../theme/spacing";
 import { buildCheckoutHtml } from "./checkoutHtmlTemplate";
 import { verifyPayment, recoverPaymentWithRetry } from "../../services/paymentService";
 import { markOrderStatus } from "../../services/ordersService";
+import { CHECKOUT_ORIGIN_WHITELIST, isAllowedCheckoutWebUrl } from "./checkoutNavigation";
 
 // Replaces the old "open the hosted checkout page in the external
 // browser" flow (Linking.openURL). Supabase Edge Functions don't serve
@@ -331,9 +332,8 @@ export default function PaymentCheckoutScreen() {
   // tampered/compromised checkout page cannot launch other apps or arbitrary sites.
   const handleShouldStartLoad = useCallback((request: { url: string }) => {
     const url = request.url;
-    const isWebUrl = url.startsWith("http://") || url.startsWith("https://") || url.startsWith("about:");
-
-    if (isWebUrl) return true;
+    if (isAllowedCheckoutWebUrl(url)) return true;
+    if (/^(https?:|about:)/i.test(url)) return false;
 
     const scheme = (url.match(/^([a-z][a-z0-9+.-]*):/i)?.[1] ?? "").toLowerCase();
     const notInstalled = () =>
@@ -424,7 +424,7 @@ export default function PaymentCheckoutScreen() {
             <ActivityIndicator color={COLORS.accent} size="large" />
           </View>
         )}
-        originWhitelist={["*"]}
+        originWhitelist={CHECKOUT_ORIGIN_WHITELIST}
         javaScriptEnabled
         domStorageEnabled
       />

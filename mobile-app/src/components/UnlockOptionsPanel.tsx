@@ -1,6 +1,6 @@
 import { getCourseYear } from "../services/courseState";
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, Platform } from "react-native";
 
 import { fetchBuyOptionsForChapter, Product } from "../services/productsService";
 import usePurchase from "../hooks/usePurchase";
@@ -44,6 +44,7 @@ export default function UnlockOptionsPanel({
   const { buy, purchasing } = usePurchase();
 
   useEffect(() => {
+    if (Platform.OS !== "android") return;
     let isMounted = true;
 
     fetchBuyOptionsForChapter(chapterId, subjectId, yearId, getCourseYear().courseId)
@@ -65,6 +66,8 @@ export default function UnlockOptionsPanel({
     if (scope === "year" && yearTitle) return `Full Year: ${yearTitle}`;
     return SCOPE_LABEL[scope] ?? scope;
   }
+
+  if (Platform.OS !== "android") return null;
 
   return (
     <View style={styles.wrap}>

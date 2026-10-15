@@ -1,161 +1,172 @@
-# AyurPulse — Play Store Submission Guide
+# MedVeda — Play Store Submission Guide
 
-Everything below assumes the `backend/` payment/auth/deletion work from
-earlier is already deployed and working. This covers the remaining
-build + Play Console steps.
+This guide covers the remaining build and Google Play Console steps for the
+MedVeda release. Google Play currently reports that the app is not eligible
+for alternative billing. Therefore Play-distributed builds use Google Play
+Billing only; Razorpay checkout is disabled in those builds. Do not enroll or
+enable alternative billing unless eligibility and program requirements are
+confirmed.
+
+**Production release gate:** remove the ₹1 test tier and re-price all products before production.
 
 ## 1. Google Play Developer Account
 
-- $25 one-time fee, sign up at https://play.google.com/console
-- **Identity verification is mandatory** (government ID) and takes
-  24-48 hours — do this FIRST, before your build is ready, so it's not
-  the thing blocking your launch day.
+- $25 one-time fee; sign up at https://play.google.com/console.
+- Complete mandatory identity verification before the build is ready.
 
 ## 2. Assets you need to create
 
 | Asset | Size | Used for |
 |---|---|---|
 | App icon | 512×512 px, PNG | Play Store listing |
-| Adaptive icon foreground | 1024×1024 px, PNG, transparent bg | Android home screen |
-| Feature graphic | 1024×500 px | Top of your Play Store listing |
+| Adaptive icon foreground | 1024×1024 px, PNG, transparent background | Android home screen |
+| Feature graphic | 1024×500 px | Top of the Play Store listing |
 | Phone screenshots | min 2, max 8 (16:9 or 9:16) | Store listing |
 | Splash screen image | any, referenced in `app.json` | App launch |
 
-Put them at `mobile-app/assets/icon.png`, `adaptive-icon.png`,
-`splash.png` (paths already wired up in `app.json`). The feature graphic
-and screenshots are uploaded directly in Play Console, not bundled in
-the app.
+Put app assets in `mobile-app/assets/`. Upload the feature graphic and
+screenshots directly in Play Console.
 
-## 3. Fill in the placeholders
+## 3. Finalize configuration
 
-- `mobile-app/app.json` → `android.package` — pick your real package
-  name now (e.g. `com.ayurpulse.app`); **this cannot be changed after
-  your first release**, choose carefully
-- `mobile-app/app.json` → `extra.eas.projectId` — get this by running
-  `eas init` (see below)
-- `admin-panel/src/config/functionsBase.ts` and the `WEB_CHECKOUT_BASE_URL`
-  function param — should already be filled in from the earlier steps
+- `mobile-app/app.json` uses Android package `in.medveda.app`. Confirm that
+  this matches the intended Play Console app before building or uploading;
+  an existing Play listing's package cannot be changed.
+- Keep the linked EAS project ID, owner, and slug unchanged.
+- VERIFY MANUALLY: confirm the final package in Play Console before uploading
+  the first AAB.
 
-## 4. Build with EAS
+## 4. Push notifications: Firebase configuration
+
+Download `google-services.json` from Firebase Console for Android package
+`in.medveda.app`. Then either put it in the `mobile-app` project root locally,
+or create the EAS file secret:
+
+```bash
+eas env:create --name GOOGLE_SERVICES_JSON --type file --visibility secret --environment production
+```
+
+Rebuild after adding it. The file must not be committed. The app config reads
+either `./google-services.json` or the `GOOGLE_SERVICES_JSON` environment
+variable.
+
+## 5. Build with EAS
+
+`expo-iap` adds native Android code. Rebuild after installing/changing it;
+Expo Go cannot test billing. Install the Play test-track build for final
+billing tests. The development APK helps with native integration but does not
+replace a Play-installed licensed-tester run.
 
 ```bash
 cd mobile-app
 npm install -g eas-cli
 eas login
-eas init                    # links this project, fills in projectId
-eas build:configure         # confirms eas.json (already included)
+eas build:configure
 
-# Test build first (installable APK, not for Play Store):
+# Test APK:
 eas build --platform android --profile preview
 
-# Real submission build (AAB, what Play Store actually wants):
+# Native development APK:
+eas build --platform android --profile development
+
+# APK that permits store screenshots:
+eas build --platform android --profile screenshots
+
+# Play Store AAB:
 eas build --platform android --profile production
 ```
 
-EAS **generates and manages your signing keystore automatically** — you
-don't need to create or store one yourself unless you want to (Play App
-Signing is the modern recommended approach anyway, and is the default).
+EAS manages the Android signing keystore by default. The `screenshots` profile
+only disables screenshot blocking; do not use it for production.
 
-Target API level: EAS automatically targets whatever API level the
-Expo SDK version you're on requires, which Expo keeps current with
-Play Store's requirement. As of now (mid-2026) Play Store requires API
-35+ for new submissions, rising to API 36 on **Aug 31, 2026** — as long
-as you're on a reasonably current Expo SDK version when you build, this
-is handled for you; just don't build with a very old/pinned Expo SDK.
+## 6. Store listing text
 
-## 5. Play Console — App Content section
+**Short description** (73 characters):
 
-Answer these once, they're mostly permanent:
+> Free videos and MCQ quizzes, plus Notes for AYUSH exam preparation
 
-**Privacy Policy URL**: `https://your-admin-domain.com/privacy`
-(the page from the earlier delivery)
+**Full description**:
 
-**App access**: "All functionality is available without special access"
-— unless you want to provide Google a test login, which is a good idea
-for review: create a test student account and mention its email/password
-in the review notes.
+> MedVeda is an exam-preparation app for BAMS, BHMS, BUMS, BSMS and BNYS
+> students. Explore course, year and subject-wise learning content to support
+> your study routine.
+>
+> Video lectures and MCQ quizzes are free for every student. PDF Notes are
+> paid content and may be purchased as individual chapter, subject, year or
+> bundle packs where available. Use the app to review study material, practise
+> with quizzes and track your quiz scores.
+>
+> MedVeda provides educational content for exam preparation only. It does not
+> provide medical advice, diagnosis or treatment.
+
+## 7. Play Console — App content
+
+**Privacy Policy URL**: `https://www.medveda.in/privacy-policy`
+
+**Terms of Service URL**: `https://www.medveda.in/terms`
+
+**Delete-account URL**: `https://www.medveda.in/delete-account`
+
+**App access**: The app requires login. In Play Console → App content → App
+access, provide test credentials for a verified student account with a paid
+Note already unlocked and clear steps to reach a still-locked Note's checkout.
+Explain that paid digital Notes use Google Play Billing in the Play build.
+A reviewer can inspect an already-unlocked Note without paying. Put
+credentials in the Console only, never in this repository.
 
 **Ads**: No ads.
 
-**Content rating questionnaire**: Answer as an **educational
-reference/study app**. No violence, no user-generated content shown
-publicly, no gambling. This should land you an "Everyone" rating.
+**Content rating**: Complete this as an educational exam-preparation app.
 
-**Target audience**: 18+ recommended (it's a professional/higher-education
-exam prep app, not aimed at children) — this also simplifies the Data
-Safety and Families Policy requirements, since you avoid the stricter
-child-directed rules entirely.
+**Target audience**: VERIFY MANUALLY.
 
-**Data Safety form** - declare what the release build actually collects (kept in step with
-the website privacy policy, `website/_src/pages/privacy-policy.html`, and with
-`app.json` -> `android.blockedPermissions`):
+**Data safety**: VERIFY MANUALLY against the release build, the privacy policy,
+and every enabled third-party service. The billing flow handles purchase history and Play purchase/obfuscated account
+identifiers. Review the data types collected by the actual release build and
+any enabled third-party service. Use
+[`DATA_SAFETY_AUDIT.md`](DATA_SAFETY_AUDIT.md) for the evidence inventory;
+declare only data actually collected or shared by the release.
 
-| Data type (Play category) | Collected? | Shared? | Purpose |
-|---|---|---|---|
-| Name | Yes | No | Account management |
-| Email address | Yes | No | Account management, authentication, account emails |
-| Phone number | Yes (optional) | No | Account management, sign-in and password reset by number |
-| User IDs (account id, referral code) | Yes | No | Account management, referral programme, fraud prevention |
-| Purchase history | Yes | Yes - Razorpay (payment processor) | App functionality (payments) |
-| Payment info (card / UPI / bank) | **No** - entered on Razorpay's checkout, never seen or stored by MedVeda | - | - |
-| App interactions (quiz scores, screens, study events) | Yes | No | Analytics, app functionality |
-| Crash logs and diagnostics | Yes, only if a Sentry DSN is set in the build | Yes - Sentry (service provider) | Fix bugs; personal data is scrubbed before sending |
-| Device or other IDs (Expo push token, platform) | Yes, if notifications are allowed | Yes - Expo push service (service provider) | Deliver push notifications |
-| Photos, files, contacts, location, microphone, camera | **No** | - | - |
+**Alternative billing**: Not enabled. Do not display Razorpay or a user-choice
+alternative billing flow in a Google Play build while the app is ineligible.
+The separate `razorpay-distribution` EAS profile is a staging-only internal
+APK, not a Play submission; it requires isolated preview Supabase settings.
 
-Declare: data **encrypted in transit** (HTTPS everywhere), a way to **request deletion**
-(in-app Profile -> Delete Account, and the `/delete-account` page - enter that URL in Play
-Console), and that data is **not sold**. Downloaded notes are stored in app-private storage,
-excluded from Android backups (`allowBackup: false`) and deleted when the student signs out.
-
-Permissions the release manifest requests: `INTERNET`, `POST_NOTIFICATIONS`, `VIBRATE`,
-plus the library-provided `ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`, `WAKE_LOCK`,
-`RECEIVE_BOOT_COMPLETED` (study reminders) and `DETECT_SCREEN_CAPTURE`. Storage, media,
-overlay (`SYSTEM_ALERT_WINDOW`) and `DOWNLOAD_WITHOUT_NOTIFICATION` are blocked. After each
-build, check the "Permissions" list in Play Console -> App bundle explorer matches this.
-
-**Financial features declaration**: Since real payments happen (even via
-browser checkout), declare "Digital purchases through a payment
-processor (Razorpay)."
-
-## 6. Store listing text (draft — edit freely)
-
-**Short description** (80 chars):
-> Ayurveda exam prep — Notes, Video Lectures & MCQ Quiz for BAMS students
-
-**Full description** (draft, expand as you like):
-> AyurPulse helps BAMS students prepare with Year-wise and Subject-wise
-> study material — free Video Lectures for every subject, plus PDF Notes
-> and MCQ Quiz you can unlock individually per subject. Track your quiz
-> scores and progress as you study.
-
-## 7. Submit
+## 8. Submit
 
 ```bash
 eas submit --platform android --profile production
 ```
-Or upload the `.aab` manually in Play Console → Production → Create
-release. First submission goes through Google's review (can take a few
-days to a couple weeks for a new developer account/app).
 
-## Final pre-submission checklist (pulling together everything from this whole project)
+Or upload the AAB manually in Play Console → Production → Create release.
 
-- [ ] `backend/` functions deployed, secrets set, `functionsBase.ts` +
-      `WEB_CHECKOUT_BASE_URL` filled in with real deployed URLs
-- [ ] Firestore rules merged and deployed (`firestore/firestore.rules.snippet`)
-- [ ] Admin Panel deployed, `/login` works, you've granted yourself the
-      `admin` claim (`backend/scripts/setAdminClaim.js`)
-- [ ] `/privacy`, `/terms`, `/delete-account` all load correctly on the
-      deployed Admin Panel domain
-- [ ] At least one Product created per Subject, with Notes/Videos/Quiz
-      attached, so the app isn't empty on first review
-- [ ] Tested the full purchase flow end-to-end with Razorpay **test**
-      keys (browser checkout → verify → unlock)
-- [ ] Switched to Razorpay **live** keys before the build you actually
-      submit
-- [ ] In-app "Delete Account" tested (Profile → Delete Account)
-- [ ] `app.json` package name finalized, icons/splash in place
-- [ ] `eas build --platform android --profile production` succeeds
-- [ ] Play Console: Data Safety form, content rating, store listing,
-      screenshots, feature graphic all filled in
-- [ ] Identity verification on your Developer account completed
+## Final pre-submission checklist
+
+- [ ] Supabase Edge Functions `create-order`, `verify-payment`, and
+      `delete-account` are deployed.
+- [ ] Required Supabase Edge Function secrets are set.
+- [ ] RLS is enabled on all Supabase tables.
+- [ ] The resolved `production` and `internal-testing` app configs select
+      Google Play Billing and do not register a user-choice billing program.
+- [ ] Razorpay checkout is unavailable from every Play-distributed build.
+- [ ] Every live active paid price has an exact active Play one-time SKU at the
+      matching INR price. Record the inventory in `docs/UCB_SETUP.md`.
+- [ ] Google Play Developer API service account permissions and Supabase
+      secrets are configured server-side; no service-account key is shipped.
+- [ ] Play grants are verified server-side before access is granted; test
+      success, pending, cancel/failure, restore, and duplicate-purchase paths.
+- [ ] A Play-installed, licensed Indian tester completes Play success,
+      same-tier repeat purchase, cancel/failure, and recovery.
+- [ ] VERIFY MANUALLY: full purchase flow is tested end-to-end with the
+      production configuration.
+- [ ] In-app Delete Account is tested.
+- [ ] `google-services.json` is for `in.medveda.app` and is available locally
+      or as the production `GOOGLE_SERVICES_JSON` EAS file secret.
+- [ ] `eas build --platform android --profile production` succeeds.
+- [ ] Play Console App access includes the verified test student credentials
+      with an unlocked Note and checkout navigation steps.
+- [ ] The live website Terms, Privacy and Refund pages accurately describe
+      the payment provider available in this Play build.
+- [ ] Play Console Data safety, content rating, store listing, screenshots,
+      feature graphic, and the URLs above are complete.
+- [ ] Developer-account identity verification is complete.

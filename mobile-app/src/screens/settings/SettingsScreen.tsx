@@ -31,7 +31,7 @@ export default function SettingsScreen() {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.ayurpulse.app",
+          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.medveda.app",
       });
     } catch (error) {
       logError("Screen action failed", error);
@@ -55,7 +55,7 @@ export default function SettingsScreen() {
   };
 
   const handleRateApp = async () => {
-    const packageName = "com.ayurpulse.app";
+    const packageName = "com.medveda.app";
 
     try {
       await Linking.openURL(
@@ -191,7 +191,7 @@ export default function SettingsScreen() {
       <ConfirmationDialog
         visible={deleteDialogVisible}
         title="Delete Account"
-        message="This will permanently delete your account, purchases, and all saved data. This action cannot be undone."
+        message="This requests permanent account deletion and removes access to your purchases. Some transaction records may be retained. This action cannot be undone."
         confirmLabel={deleting ? "Deleting…" : "Delete"}
         destructive
         onConfirm={confirmDeleteAccount}

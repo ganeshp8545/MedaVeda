@@ -44,5 +44,11 @@ Thumbs.db
 
 # Play Console service account key (never commit)
 google-play-service-account.json
+*service-account*.json
+*service_account*.json
+*private-key*.json
+*.pem
+*.key
+scripts/ucb-secrets.env
 prod_dump.sql
 *.sql.gz

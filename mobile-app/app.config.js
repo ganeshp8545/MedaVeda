@@ -2,7 +2,7 @@
 // automatically the moment the file exists; without the file the build is exactly app.json.
 //
 // 1. Android push (FCM): ./google-services.json, or the EAS file variable GOOGLE_SERVICES_JSON.
-//    Firebase Console -> Project settings -> Your apps -> Android `com.ayurpulse.app`.
+//    Firebase Console -> Project settings -> Your apps -> Android `com.medveda.app`.
 //    Without it Expo push tokens cannot be issued on Android.
 //
 // 2. OTA update code signing: ./code-signing/certificate.pem. Once enabled, the installed app
@@ -19,7 +19,17 @@ const fs = require("fs");
 const path = require("path");
 
 module.exports = ({ config }) => {
+  require("./scripts/check-staging-build.cjs").checkStagingBuild(process.env);
+  const paymentProvider = process.env.MEDVEDA_PAYMENT_PROVIDER || "play";
+  if (paymentProvider !== "play" && paymentProvider !== "razorpay") {
+    throw new Error("MEDVEDA_PAYMENT_PROVIDER must be play or razorpay.");
+  }
+  if (["production", "internal-testing"].includes(process.env.EAS_BUILD_PROFILE) &&
+      paymentProvider !== "play") {
+    throw new Error("Google Play builds must use Google Play Billing.");
+  }
   const next = { ...config };
+  next.extra = { ...next.extra, medvedaPaymentProvider: paymentProvider };
 
   const local = path.join(__dirname, "google-services.json");
   const googleServicesFile = process.env.GOOGLE_SERVICES_JSON || (fs.existsSync(local) ? "./google-services.json" : undefined);

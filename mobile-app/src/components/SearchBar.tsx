@@ -65,7 +65,12 @@ export default function SearchBar({
       />
 
       {!!onClear && value.length > 0 && (
-        <TouchableOpacity onPress={onClear} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+        <TouchableOpacity
+          onPress={onClear}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityRole="button"
+          accessibilityLabel="Clear search"
+        >
           <Text style={styles.clearIcon}>✕</Text>
         </TouchableOpacity>
       )}

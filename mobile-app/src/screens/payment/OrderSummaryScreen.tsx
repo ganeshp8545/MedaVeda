@@ -1,5 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, StyleSheet, Switch, ActivityIndicator, Alert } from "react-native";
+import {
+  View, Text, ScrollView, StyleSheet, Switch, ActivityIndicator, Alert,
+  Platform,
+} from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
 import CustomButton from "../../components/CustomButton";
@@ -14,6 +17,7 @@ import {
   ReferralSettings,
 } from "../../services/referralsService";
 import { purchaseProduct } from "../../services/paymentService";
+import { paymentProvider } from "../../config/paymentProvider";
 
 import { COLORS } from "../../theme/colors";
 import { FONT } from "../../theme/fonts";
@@ -81,6 +85,10 @@ export default function OrderSummaryScreen() {
 
   const pay = async () => {
     if (paying) return;
+    if (Platform.OS !== "android" || paymentProvider !== "razorpay") {
+      Alert.alert("Checkout unavailable", "Start checkout from a note on Android.");
+      return;
+    }
     try {
       setPaying(true);
       // Same flag the server just quoted for; the server recomputes everything.
@@ -94,10 +102,10 @@ export default function OrderSummaryScreen() {
     }
   };
 
-  if (!productId) {
+  if (!productId || Platform.OS !== "android" || paymentProvider !== "razorpay") {
     return (
       <View style={styles.container}>
-        <ErrorState message="Something went wrong." onRetry={() => navigation.goBack()} />
+        <ErrorState message="Start checkout from a note on Android." onRetry={() => navigation.goBack()} />
       </View>
     );
   }

@@ -17,6 +17,9 @@ export default function FilterChip({ label, selected, onPress }: Props) {
       style={[styles.chip, selected && styles.chipSelected]}
       onPress={onPress}
       activeOpacity={0.8}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
     >
       <Text style={[styles.label, selected && styles.labelSelected]} numberOfLines={1}>
         {label}

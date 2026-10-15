@@ -79,7 +79,7 @@ export default function ProductPosterCard({
         {title}
       </Text>
 
-      {!owned && (
+      {!owned && !!onBuyPress && (
         <View style={styles.priceBlock}>
           <Text style={styles.price}>₹{price}</Text>
 

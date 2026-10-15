@@ -312,46 +312,47 @@ select pg_temp.chk('W0 three checkouts in a row, each priced with 250 of the sam
 select pg_temp.pay(:'w1'::jsonb->>'order_id');
 select pg_temp.pay(:'w2'::jsonb->>'order_id');
 select pg_temp.pay(:'w3'::jsonb->>'order_id');
-select pg_temp.chk('W1 THE EXPLOIT: paying all three uses the 500 balance once, not 750 - the two stale orders are debited (250 each)',
+select pg_temp.chk('W1 two paid orders consume the full 500 wallet balance',
   (select coalesce(sum(amount), 0) from public.wallet_ledger where user_id = :W and entry_type = 'debit') = 500
   and (select available from public.wallet_balance_of(:W::uuid)) = 0
-  and (select count(*) from public.wallet_ledger where order_id in (:'w1'::jsonb->>'order_id', :'w2'::jsonb->>'order_id') and entry_type = 'debit' and amount = 250) = 2);
-select pg_temp.chk('W2 the third order finds an empty wallet: access granted, shortfall of 250 flagged with instructions',
-  (select count(*) from public.purchases where order_id = (:'w3'::jsonb->>'order_id') and status = 'success') = 1
-  and (select count(*) from public.order_review_flags where order_id = (:'w3'::jsonb->>'order_id') and reason = 'wallet_shortfall'
-        and (details->>'shortfall')::numeric = 250 and details->>'recommended_action' like '%pay_%') = 1);
+  and (select count(*) from public.wallet_ledger where order_id in (:'w1'::jsonb->>'order_id', :'w3'::jsonb->>'order_id') and entry_type = 'debit' and amount = 250) = 2);
+select pg_temp.chk('W2 underfunded stale order gets no entitlement or wallet debit',
+  (select count(*) from public.purchases where order_id = (:'w2'::jsonb->>'order_id')) = 0
+  and (select count(*) from public.wallet_ledger where order_id = (:'w2'::jsonb->>'order_id') and entry_type = 'debit') = 0);
+select pg_temp.chk('F03 underfunded captured payment is durably queued for refund',
+  pg_temp.srv(format($$select count(*)::text from public.payment_captures
+    where payment_id=%L and status='compensation_pending'$$,
+    'pay_' || (:'w2'::jsonb->>'order_id'))) = '1'
+  and pg_temp.srv(format($$select count(*)::text from public.payment_compensations
+    where payment_id=%L and status='pending'$$,
+    'pay_' || (:'w2'::jsonb->>'order_id'))) = '1');
 select pg_temp.pay(:'w1'::jsonb->>'order_id');
 select pg_temp.pay(:'w3'::jsonb->>'order_id');
-select pg_temp.chk('W3 replays debit nothing more and add no flag',
+select pg_temp.chk('W3 replays debit nothing more and add no shortfall flag',
   (select coalesce(sum(amount), 0) from public.wallet_ledger where user_id = :W and entry_type = 'debit') = 500
-  and (select count(*) from public.order_review_flags where order_id = (:'w3'::jsonb->>'order_id')) = 1);
+  and (select count(*) from public.order_review_flags where order_id = (:'w3'::jsonb->>'order_id') and reason='wallet_shortfall') = 0);
 select pg_temp.srv(format($$select public.handle_payment_refund(%L, true)::text$$, 'pay_' || (:'w1'::jsonb->>'order_id'))) as r \gset
 select pg_temp.chk('W4 refunding a stale order that was debited gives its 250 back', (pg_temp.j(:'r')->>'wallet_restored')::numeric = 250
   and (select available from public.wallet_balance_of(:W::uuid)) = 250, :'r');
 
--- discount_reused: access is granted; the flag says exactly what to do
+-- F02: a stale second discounted checkout must never grant underpriced access.
 select pg_temp.mkorder(:F6::uuid, 'pb_n8') as x1 \gset
 select pg_temp.mkorder(:F6::uuid, 'pb_n9') as x2 \gset
 select pg_temp.pay(:'x2'::jsonb->>'order_id');
 select pg_temp.pay(:'x1'::jsonb->>'order_id');
-select pg_temp.chk('X1 the reused-discount order still GRANTS access',
-  (select status from public.purchases where order_id = (:'x1'::jsonb->>'order_id')) = 'success'
-  and pg_temp.owns(:F6::uuid, 'pb_c8') = 'true');
-select coalesce((select details::text from public.order_review_flags where order_id = (:'x1'::jsonb->>'order_id') and reason = 'discount_reused'), '{}') as x_flag \gset
-select pg_temp.chk('X2 the flag names the order that legitimately used the discount, the under-charge, the payment id and says how to refund',
-  (:'x_flag'::jsonb->>'discount_first_order_id') = (:'x2'::jsonb->>'order_id')
-  and (:'x_flag'::jsonb->>'discount_not_owed')::numeric = 50
-  and (:'x_flag'::jsonb->>'access_granted')::boolean
-  and (:'x_flag'::jsonb->>'referrer_credited')::boolean = false
-  and (:'x_flag'::jsonb->>'razorpay_payment_id') = 'pay_' || (:'x1'::jsonb->>'order_id')
-  and (:'x_flag'::jsonb->>'recommended_action') like '%FULL refund of payment pay_%'
-  and (:'x_flag'::jsonb->>'product_title') = 'notes 8', :'x_flag');
+select pg_temp.chk('X1 at most one discounted entitlement is granted',
+  (select count(*) from public.purchases p join public.orders o on o.id=p.order_id
+    where o.user_id=:F6::uuid and o.referral_discount>0 and p.status='success') <= 1
+  and pg_temp.owns(:F6::uuid, 'pb_c8') = 'false');
+select pg_temp.chk('X2 second checkout is charged list price and stale capture is compensated',
+  (:'x2'::jsonb->>'referral_discount')::numeric=0
+  and (:'x2'::jsonb->>'amount')::numeric=500
+  and (select reason from public.payment_compensations
+    where payment_id='pay_' || (:'x1'::jsonb->>'order_id'))='stale_discount');
 select pg_temp.srv(format($$select public.handle_payment_refund(%L, true)::text$$, 'pay_' || (:'x1'::jsonb->>'order_id'))) as r \gset
-select pg_temp.chk('X3 following the advice (full refund) revokes exactly that purchase; the legitimate one and the referrer credit are untouched',
-  (select status from public.purchases where order_id = (:'x1'::jsonb->>'order_id')) = 'refunded'
-  and pg_temp.owns(:F6::uuid, 'pb_c8') = 'false'
-  and pg_temp.owns(:F6::uuid, 'pb_c9') = 'true'
-  and (select status from public.wallet_ledger where user_id = :A6 and source = 'referral_reward') = 'pending', :'r');
+select pg_temp.chk('X3 refund of rejected stale capture leaves the paid list-price access alone',
+  pg_temp.owns(:F6::uuid, 'pb_c8') = 'false'
+  and pg_temp.owns(:F6::uuid, 'pb_c9') = 'true', :'r');
 
 -- ============================================================================
 -- F6  owning a product blocks buying it again; the DB enforces it
@@ -384,15 +385,16 @@ select pg_temp.mkorder(:DU::uuid, 'pb_n10') as u2 \gset
 select pg_temp.pay(:'u2'::jsonb->>'order_id') as p2 \gset
 select pg_temp.pay(:'u1'::jsonb->>'order_id') as p1 \gset
 select pg_temp.chk('U1 paying both checkouts of one product: neither settlement fails (money is never lost to the unique index)', :'p1' = 'OK' and :'p2' = 'OK', :'p1' || :'p2');
-select pg_temp.chk('U2 exactly one successful purchase; the other is stored as duplicate and grants nothing',
+select pg_temp.chk('U2 exactly one successful purchase; the duplicate capture grants nothing',
   (select count(*) from public.purchases where user_id = :DU and product_id = 'pb_n10' and status = 'success') = 1
-  and (select count(*) from public.purchases where user_id = :DU and product_id = 'pb_n10' and status = 'duplicate') = 1
+  and (select count(*) from public.purchases where user_id = :DU and product_id = 'pb_n10' and status = 'duplicate') = 0
   and pg_temp.owns(:DU::uuid, 'pb_c10') = 'true');
-select pg_temp.chk('U3 the duplicate is flagged with the payment id and a refund instruction',
-  (select count(*) from public.order_review_flags where reason = 'duplicate_purchase'
-      and order_id = (select order_id from public.purchases where user_id = :DU and status = 'duplicate')
-      and details->>'recommended_action' like '%Refund payment pay_%') = 1);
-select pg_temp.srv(format($$select public.handle_payment_refund(%L, true)::text$$, 'pay_' || (select order_id from public.purchases where user_id = :DU and status = 'duplicate')));
+select pg_temp.chk('U3 the duplicate capture is queued for automatic refund',
+  (select count(*) from public.payment_compensations c join public.orders o on o.id=c.order_id
+    where o.user_id=:DU::uuid and c.reason='already_owned' and c.status='pending') = 1);
+select pg_temp.srv(format($$select public.handle_payment_refund(%L, true)::text$$,
+  (select c.payment_id from public.payment_compensations c join public.orders o on o.id=c.order_id
+   where o.user_id=:DU::uuid and c.reason='already_owned')));
 select pg_temp.chk('U4 refunding the duplicate leaves the student''s real access alone', pg_temp.owns(:DU::uuid, 'pb_c10') = 'true');
 
 -- ============================================================================
@@ -488,6 +490,31 @@ select pg_temp.attempt('authenticated', :ADM::uuid, format($$select public.admin
 select pg_temp.chk('L7 an expired credit cannot be reversed (it would eat other credits)', :'r' like 'ERR:%expired%', :'r');
 select pg_temp.attempt('authenticated', :H::uuid, format($$select public.admin_reverse_wallet_credit(%L, 'x')$$, :'z_credit')) as r \gset
 select pg_temp.chk('L8 a student still cannot reverse anything', :'r' like 'ERR:%admin only%', :'r');
+
+-- F01: authenticated reversal evidence is stored before the payment links.
+select pg_temp.mkorder('b3000000-0000-0000-0000-000000000030'::uuid, 'pb_n13') as early \gset
+select pg_temp.srv(format($$select public.record_provider_event(%L,%L,%L,%L,%L,%L,%L)$$,
+  'evt_early_refund','refund.processed', 'order_' || replace((:'early'::jsonb->>'order_id'),'-',''),
+  'pay_' || (:'early'::jsonb->>'order_id'), 'rfnd_early', repeat('a',64), null)) as early_event \gset
+select pg_temp.pay(:'early'::jsonb->>'order_id');
+select pg_temp.chk('F01 refund before capture linkage never grants access',
+  not exists (select 1 from public.purchases where order_id=(:'early'::jsonb->>'order_id') and status='success')
+  and pg_temp.srv(format($$select count(*)::text from public.provider_events where event_id='evt_early_refund'$$))='1', :'early_event');
+select pg_temp.chk('F01 event id cannot be reused with a different payload hash',
+  pg_temp.srv(format($$select public.record_provider_event(%L,%L,%L,%L,%L,%L,%L)$$,
+    'evt_early_refund','refund.processed',null,
+    'pay_' || (:'early'::jsonb->>'order_id'), 'rfnd_early',repeat('b',64),null))
+    like 'ERR:%payload%');
+select pg_temp.mkorder('b3000000-0000-0000-0000-000000000029'::uuid, 'pb_n12') as delayed \gset
+select pg_temp.srv(format($$select public.record_payment_capture(%L,%L,%s,now()-interval '25 hours')$$,
+  'pay_' || (:'delayed'::jsonb->>'order_id'),
+  'order_' || replace((:'delayed'::jsonb->>'order_id'),'-',''),
+  round((:'delayed'::jsonb->>'amount')::numeric*100)::bigint)) as recorded \gset
+select pg_temp.pay(:'delayed'::jsonb->>'order_id');
+select pg_temp.chk('F05 provider capture time survives 25-hour callback delay',
+  pg_temp.srv(format($$select (payment_provider_time < now()-interval '24 hours'
+    and payment_completed_at > now()-interval '2 minutes')::text from public.orders where id=%L$$,
+    :'delayed'::jsonb->>'order_id'))='true', :'recorded');
 
 -- ---- report ------------------------------------------------------------------
 \o

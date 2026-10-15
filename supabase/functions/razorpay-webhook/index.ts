@@ -1,4 +1,5 @@
 import { settleCapturedPayment, settleDispute, settleRefund } from "../_shared/settle.ts";
+import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 
 const encoder = new TextEncoder();
 const HEX_SIGNATURE = /^[0-9a-f]{64}$/i;
@@ -78,6 +79,7 @@ type RazorpayPayment = {
 
 type RazorpayWebhook = {
   event?: string;
+  created_at?: number;
   payload?: {
     payment?: { entity?: RazorpayPayment };
     refund?: { entity?: { id?: string; payment_id?: string } };
@@ -132,16 +134,38 @@ Deno.serve(async (request: Request) => {
     return response(400, { error: "Invalid JSON" });
   }
 
+  // Durable authenticated inbox: commit before any provider lookup or grant.
+  // Razorpay's top-level event time on payment.captured denotes the capture
+  // event; payment.entity.created_at denotes payment creation instead.
+  const hashBytes = new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(rawBody)));
+  const payloadHash = Array.from(hashBytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const entity = event.payload?.payment?.entity;
+  const eventPaymentId = event.payload?.refund?.entity?.payment_id
+    ?? event.payload?.dispute?.entity?.payment_id ?? entity?.id ?? null;
+  const objectId = event.payload?.refund?.entity?.id
+    ?? event.payload?.dispute?.entity?.id ?? null;
+  const providerTime = event.event === "payment.captured"
+    && Number.isSafeInteger(event.created_at) && (event.created_at as number) > 0
+    ? new Date((event.created_at as number) * 1000).toISOString() : null;
+  const { error: inboxError } = await supabaseAdmin.rpc("record_provider_event", {
+    p_event_id: eventId, p_event_type: event.event ?? "unknown",
+    p_razorpay_order_id: entity?.order_id ?? null,
+    p_payment_id: eventPaymentId, p_provider_object_id: objectId,
+    p_payload_hash: payloadHash, p_provider_time: providerTime,
+  });
+  if (inboxError) return response(503, { error: "Webhook inbox unavailable" });
+
   // refund.processed: cancels the referrer's credit if it is still in its hold.
   // Enable this event in the Razorpay Dashboard webhook alongside payment.captured.
   if (event.event === "refund.processed") {
     const refundPaymentId = event.payload?.refund?.entity?.payment_id ?? event.payload?.payment?.entity?.id;
-    if (!refundPaymentId) {
+    const refundId = event.payload?.refund?.entity?.id;
+    if (!refundPaymentId || typeof refundId !== "string" || !/^rfnd_[A-Za-z0-9]+$/.test(refundId)) {
       console.error("razorpay-webhook: malformed refund.processed payload", { eventId });
       return response(400, { error: "Invalid refund event" });
     }
     try {
-      const refund = await settleRefund({ razorpayPaymentId: refundPaymentId });
+      const refund = await settleRefund({ razorpayPaymentId: refundPaymentId, razorpayRefundId: refundId, eventId });
       if (!refund.ok) return response(500, { error: "Unable to process webhook" }); // Razorpay retries
       console.log("razorpay-webhook: refund processed", { eventId, paymentId: refundPaymentId, outcome: refund.outcome });
       return response(204);
@@ -161,7 +185,7 @@ Deno.serve(async (request: Request) => {
       return response(400, { error: "Invalid dispute event" });
     }
     try {
-      const dispute = await settleDispute({ disputeId });
+      const dispute = await settleDispute({ disputeId, eventId });
       if (!dispute.ok) return response(500, { error: "Unable to process webhook" }); // Razorpay retries
       console.log("razorpay-webhook: dispute processed", { eventId, disputeId, event: event.event, outcome: dispute.outcome });
       return response(204);
@@ -173,7 +197,11 @@ Deno.serve(async (request: Request) => {
 
   // Acknowledge unrelated, authentic events. Everything except payment.captured,
   // refund.processed and payment.dispute.* is ignored, so out-of-order delivery is harmless.
-  if (event.event !== "payment.captured") return response(204);
+  if (event.event !== "payment.captured") {
+    const { error: ignoredError } = await supabaseAdmin.from("provider_events")
+      .update({ status: "applied" }).eq("event_id", eventId);
+    return ignoredError ? response(503, { error: "Webhook inbox unavailable" }) : response(204);
+  }
 
   const payment = parseCapturedPayment(event.payload?.payment?.entity);
   if (!payment.ok) {
@@ -191,6 +219,7 @@ Deno.serve(async (request: Request) => {
       eventId,
       razorpayOrderId: payment.orderId,
       razorpayPaymentId: payment.id,
+      providerTime,
     });
   } catch (error) {
     console.error("razorpay-webhook: settlement error", { eventId, error: String(error) });
@@ -202,7 +231,9 @@ Deno.serve(async (request: Request) => {
     // Permanent rejections (unknown order, mismatch) are acknowledged so Razorpay
     // stops retrying; they are logged for manual review. Transient failures
     // (5xx-class, not-yet-captured) return non-2xx so Razorpay retries.
-    if (result.status === 404 || result.status === 400) return response(204);
+    if (result.status === 404 || result.status === 400
+        || (result.status === 409 && ["payment captured; refund queued", "payment already refunded"].includes(result.reason)))
+      return response(204);
     return response(500, { error: "Unable to process webhook" });
   }
 

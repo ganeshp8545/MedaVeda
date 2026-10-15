@@ -1,0 +1,36 @@
+# MedVeda privacy and Play release report
+
+15 October 2026. Statuses describe this local source review, not production approval. The working tree was already heavily modified; the implementation preserved those changes. No deployment, Play declaration, live account deletion, production schema change or payment-code edit occurred.
+
+| Area | Status | Finding and action |
+|---|---|---|
+| Audit | **COMPLETED** | Read app/site legal source, privacy planning documents, registration/deletion source, migrations, purchase paths and package references. Production state remains unverified. |
+| Terms | **REQUIRES APPROVAL** | App/site still allow guardian-supervised use. `TERMS_REVIEW_DRAFT.md` proposes one adult-audience text and explicitly states the absence of age verification or blocking. No unresolved eligibility text was published. |
+| Account deletion UI | **IMPLEMENTED LOCALLY** | Settings remains accessible. Confirmation no longer promises erasure of every saved record. Client now requires an explicit successful function response before signing out. |
+| Account deletion server | **BLOCKED** | Existing function derives the target from the bearer token and erases selected records before Auth deletion. New reservations, identity hashes, wallet/review references, provider logs and local cache need approved treatment. `ACCOUNT_DELETION_CHANGE_PROPOSAL.md` specifies the migration design, staging tests and rollback limit; no migration was installed. |
+| Website deletion request | **VERIFIED** in source only | `/delete-account` exposes an email request route using the repository support address. Mailbox monitoring, verification, handling and completion are not verified. `ACCOUNT_DELETION_PAGE_REVIEW.md` contains replacement copy. |
+| Privacy Policy | **REQUIRES APPROVAL** | `PRIVACY_POLICY_DRAFT.md` covers app/site data practices as a private draft. Current public-source app/site text still contains unsupported age, region, retention, response and deletion claims. No new policy text was published. |
+| Retention | **BLOCKED** | A 12-month analytics purge function exists, but deployment/scheduling is unknown. Supabase backup duration, provider retention and legal payment-record period are unverified. Current eight-year and 90-day claims must not be relied upon. |
+| Data Safety | **IMPLEMENTED LOCALLY** | `GOOGLE_PLAY_DATA_SAFETY_CHECKLIST.md` maps source categories, recipients, purposes, required/optional status, temporary processing, deletion and manual checks. All Console answers remain unverified. |
+| Android package | **VERIFIED** locally | Expo public config resolves `in.medveda.app`; iOS remains `com.medveda.app`. Website legal-page package labels and current release instructions were corrected. Backend Play verification, seeded/runtime store URLs and app share/rate links still expect `com.medveda.app`, a release blocker. |
+| Navigation | **VERIFIED** locally | Settings links to Privacy, Terms, Contact and Delete Account; app legal screens link to public pages. Website footer and contact page link to legal/deletion routes. Built-site link check passed. |
+| Tests | **VERIFIED** locally | `npx tsc --noEmit`; Expo public config; temporary website build and 17-page link check; `git diff --check`; secret-pattern scan of touched files; account deletion SQL checks against a disposable PostgreSQL 17 database. |
+| Not tested | **NOT TESTED** | Signed AAB, Play-installed purchase, real push/Sentry payload, live site, production Supabase/cron/backups, support mailbox and provider dashboards. The standalone Edge Function harness was not run because its fixture setup is separate; the SQL deletion test covers the existing database function only. |
+
+## Files changed for this task
+
+- Android app: `mobile-app/src/screens/settings/SettingsScreen.tsx`, `mobile-app/src/services/usersService.ts`.
+- Website: `_src/pages/privacy-policy.html`, `_src/pages/delete-account.html`, `_src/pages/download.html` and their matching generated HTML files. No whole-site output was regenerated in the shared dirty tree; a temporary copy built cleanly.
+- Current release documents: `docs/RELEASE_GATES.md`, `docs/UCB_PLAN.md`, `docs/UCB_SETUP.md`, `docs/UCB_DECISIONS.md`, `docs/SETUP_GUIDE.md`, `mobile-app/PLAY_STORE_SUBMISSION.md`.
+- New private work product: `MEDVEDA_LEGAL_RELEASE_CHECKLIST.md`, `TERMS_REVIEW_DRAFT.md`, `ACCOUNT_DELETION_CHANGE_PROPOSAL.md`, `ACCOUNT_DELETION_PAGE_REVIEW.md`, `GOOGLE_PLAY_DATA_SAFETY_CHECKLIST.md`, this report.
+
+## Owner and legal review before publication
+
+1. Approve an accurate adult eligibility rule and a process for credible under-18 reports while registration remains unchanged. The current app cannot tell whether a user is under 18. Reconcile the current guardian language in Terms and Privacy only after this decision.
+2. Confirm Ashwini Fuke's publishable operator/contact wording, a lawful business address or alternative contact disclosure, grievance officer/process and response commitments. Do not publish a private home address by assumption. The [DPDP Act](https://www.meity.gov.in/static/uploads/2024/02/Digital-Personal-Data-Protection-Act-2023.pdf) and [DPDP Rules](https://www.meity.gov.in/static/uploads/2025/11/53450e6e5dc0bfa85ebd78686cadad39.pdf) address business contact for privacy queries; the [Consumer Protection e-commerce rules](https://consumeraffairs.nic.in/acts-and-rules/consumer-protection/consumer-protection) also need counsel's application to this individual seller. Check commencement dates before stating any duty is currently in force.
+3. Confirm production Supabase region, SMTP provider, Sentry enablement, website hosting/logging, Razorpay live channels, analytics purge, backups, financial retention and provider-side handling. Set a supported effective date and remove unsupported timing/security promises.
+4. Approve the precise deletion treatment of reservations, hashed identity records, wallet/review data, payment references, audit logs, local files and backups. Review a new SQL migration and function response design, then test in staging before any production change. Deletion of financial evidence may be irreversible and may prevent refunds or dispute handling.
+5. Confirm the actual Play Console package and signed AAB. The server's hardcoded package mismatch must be resolved by a separately approved payment/configuration change. Check Firebase, seeded store URLs, app/site links and all distributed versions together.
+6. Reconcile the final Play build and service-provider terms with the Data Safety worksheet, target audience, live Privacy and deletion URLs, then submit manually. Google requires an in-app deletion path and a functional outside-app web request path, and permits retained data only with clear disclosure where justified ([Play account deletion guidance](https://support.google.com/googleplay/android-developer/answer/13327111)); apply its current [Data safety definitions](https://support.google.com/googleplay/android-developer/answer/10787469).
+
+The existing legal source must remain unpublished as a revised release until these blockers are closed; current live content, if already deployed, should be reviewed urgently because source claims are unsupported. This report does not establish legal compliance or Google Play approval.

@@ -83,10 +83,11 @@ begin
   update public.orders set razorpay_order_id = 'rzp_o_late' where id = 'ord-a2';
   perform public.grant_razorpay_payment('evt-late', 'rzp_o_late', 'rzp_p_late', 9900);
   assert (select status = 'paid' and user_id is null from public.orders where id = 'ord-a2'), 'late order marked paid, anonymous';
-  assert exists (select 1 from public.payments where razorpay_payment_id = 'rzp_p_late' and user_id is null), 'late payment recorded';
+  assert exists (select 1 from public.payment_captures where payment_id = 'rzp_p_late' and status='compensation_pending'), 'late capture recorded';
+  assert exists (select 1 from public.payment_compensations where payment_id = 'rzp_p_late' and reason='account_deleted'), 'late payment refund queued';
   assert not exists (select 1 from public.purchases where order_id = 'ord-a2'), 'no purchase for deleted user';
   perform public.grant_razorpay_payment('evt-late', 'rzp_o_late', 'rzp_p_late', 9900);  -- webhook retry
-  raise notice 'PASS late webhook for deleted user records payment, grants nothing, is idempotent';
+  raise notice 'PASS late webhook for deleted user records capture and compensation, grants nothing, is idempotent';
 
   -- 6. normal grant for a live user still works
   insert into auth.users (id, email, aud, role) values ('eeeeeeee-0000-4000-8000-000000000005', 'del.e@example.test', 'authenticated', 'authenticated');

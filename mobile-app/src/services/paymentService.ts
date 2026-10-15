@@ -1,4 +1,6 @@
 import { supabase } from "../config/supabase";
+import { Platform } from "react-native";
+import * as Application from "expo-application";
 
 // Supabase Edge Functions that back the payment flow (see
 // supabase/functions/{create-order,verify-payment}).
@@ -63,7 +65,13 @@ export interface VerifyResult {
  * (server-derived, same as price) as part of CheckoutData, so it doesn't
  * need to be passed in here.
  */
-export async function purchaseProduct(productId: string, useWallet = false): Promise<CheckoutData> {
+export async function purchaseProduct(
+  productId: string,
+  useWallet = false,
+  ucbOrderId?: string,
+  buyerState?: string
+): Promise<CheckoutData> {
+  if (Platform.OS !== "android") throw new Error("Purchases are available in the Android app.");
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
 
@@ -80,8 +88,13 @@ export async function purchaseProduct(productId: string, useWallet = false): Pro
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${accessToken}`, // header, never the URL
+      "x-medveda-app-version": Application.nativeApplicationVersion ?? "",
     },
-    body: JSON.stringify({ productId, useWallet }),
+    body: JSON.stringify({
+      productId,
+      useWallet,
+      ...(ucbOrderId ? { ucbOrderId, buyerState } : {}),
+    }),
   });
 
   const body = await res.json().catch(() => ({}));
@@ -113,7 +126,8 @@ async function verifyPaymentOnce(
 ): Promise<VerifyResult> {
   const res = await fetch(verifyUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json",
+      "x-medveda-app-version": Application.nativeApplicationVersion ?? "" },
     body: JSON.stringify(payload),
   });
 
@@ -169,7 +183,8 @@ export async function verifyPayment(
  * (PhonePe/GPay), so Checkout's `handler` never got to postMessage even
  * though the payment itself succeeded on Razorpay's side. Sends only
  * internalOrderId (no signature - there isn't one to send), and the
- * server checks Razorpay directly for a captured payment on that order.
+ * server verifies the current JWT and order owner, then checks Razorpay
+ * directly for a captured payment on that order.
  * Safe to call speculatively (e.g. on every app-resume while this screen
  * is open and unsettled) - if nothing was actually paid yet, it just
  * returns { success: false }.
@@ -178,9 +193,13 @@ export async function recoverPayment(
   verifyUrl: string,
   internalOrderId: string
 ): Promise<VerifyResult> {
+  const { data } = await supabase.auth.getSession();
+  const accessToken = data.session?.access_token;
+  if (!accessToken) throw new Error("Please log in before checking payment status.");
   const res = await fetch(verifyUrl, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}`,
+      "x-medveda-app-version": Application.nativeApplicationVersion ?? "" },
     body: JSON.stringify({ internalOrderId, recover: true }),
   });
 

@@ -323,7 +323,7 @@ npx supabase secrets set \
 RAZORPAY_KEY_ID=rzp_test_xxxxxxxxx \
 RAZORPAY_KEY_SECRET=xxxxxxxxx \
 RAZORPAY_WEBHOOK_SECRET=xxxxxxxxx \
-ALLOW_TEST_MODE=true
+APP_ENV=staging
 ```
 
 ### Live mode
@@ -333,7 +333,7 @@ npx supabase secrets set \
 RAZORPAY_KEY_ID=rzp_live_xxxxxxxxx \
 RAZORPAY_KEY_SECRET=xxxxxxxxx \
 RAZORPAY_WEBHOOK_SECRET=xxxxxxxxx \
-ALLOW_TEST_MODE=false
+APP_ENV=production
 ```
 
 Check configured secrets:
@@ -858,7 +858,7 @@ Current `mobile-app/app.json` contains:
 
 ```json
 "android": {
-  "package": "com.ayurpulse.app"
+  "package": "in.medveda.app"
 }
 ```
 
@@ -1047,7 +1047,7 @@ Set secrets:
 npx supabase secrets set RAZORPAY_KEY_ID=YOUR_KEY_ID
 npx supabase secrets set RAZORPAY_KEY_SECRET=YOUR_KEY_SECRET
 npx supabase secrets set RAZORPAY_WEBHOOK_SECRET=YOUR_WEBHOOK_SECRET
-npx supabase secrets set ALLOW_TEST_MODE=true
+npx supabase secrets set APP_ENV=staging
 ```
 
 ---
@@ -1171,7 +1171,7 @@ VITE_SUPABASE_ANON_KEY=
 RAZORPAY_KEY_ID=
 RAZORPAY_KEY_SECRET=
 RAZORPAY_WEBHOOK_SECRET=
-ALLOW_TEST_MODE=
+APP_ENV=production
 ```
 
 Supabase automatically provides its internal function environment variables such as the project URL/service-role environment needed by the backend.

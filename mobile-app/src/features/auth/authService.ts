@@ -3,7 +3,7 @@ import type { AuthIdentifier } from "./identity";
 
 // BUG FIX ("reset link opens the app but lands on whatever screen was
 // already open, never Reset Password"): this used to be the raw custom
-// scheme "ayurpulse://reset-password". Supabase's verify endpoint 302s
+// scheme "medveda://reset-password". Supabase's verify endpoint 302s
 // to this URL as the LAST hop of an automatic redirect chain. When the
 // email link is tapped from inside Gmail's own embedded in-app browser
 // (not a real standalone browser), that final https -> custom-scheme
@@ -15,7 +15,7 @@ import type { AuthIdentifier } from "./identity";
 // Fix: point Supabase at a real https landing page instead (hosted
 // alongside the marketing site at www.medveda.in/reset-password). https -> https
 // redirects always survive embedded webviews, and that page hands the
-// token to the app via a genuine user tap on an ayurpulse:// link,
+// token to the app via a genuine user tap on a medveda:// link,
 // which webviews honour far more reliably than an automatic redirect.
 //
 // This URL must be added under Supabase Dashboard -> Authentication ->
@@ -74,7 +74,7 @@ export async function requestPasswordReset(identifier: AuthIdentifier) {
 
 // Supabase appends the recovery session as a URL fragment on the
 // redirect link, e.g.
-//   ayurpulse://reset-password#access_token=...&refresh_token=...&type=recovery
+//   medveda://reset-password#access_token=...&refresh_token=...&type=recovery
 // (or, if the link is expired/already used, #error=...&error_description=...).
 // React Navigation's linking config only forwards the path/query into
 // route params, not the fragment, so ResetPasswordScreen reads the raw

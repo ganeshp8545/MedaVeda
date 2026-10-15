@@ -80,6 +80,8 @@ export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
               style={styles.menuButton}
               onPress={() => setDrawerVisible(true)}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open navigation menu"
             >
               <Text style={styles.menuIcon}>☰</Text>
             </TouchableOpacity>
@@ -92,6 +94,8 @@ export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
               style={styles.searchButton}
               onPress={() => navigation.navigate("Search")}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Search"
             >
               <Text style={styles.searchIcon}>🔍</Text>
             </TouchableOpacity>
@@ -105,6 +109,8 @@ export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
               style={styles.settingsButton}
               onPress={() => navigation.navigate("Settings")}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Open settings"
             >
               <Text style={styles.settingsIcon}>⚙️</Text>
             </TouchableOpacity>

@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 
 import {
@@ -102,7 +103,7 @@ export default function ChapterDetailsScreen() {
       <Text style={styles.title}>{chapterTitle}</Text>
       <Text style={styles.subtitle}>
         🎥 Videos & 📝 Quiz are always free · 📚 Notes{" "}
-        {notesUnlocked ? "unlocked ✅" : "require purchase 🔒"}
+        {notesUnlocked ? "unlocked ✅" : "locked 🔒"}
       </Text>
 
       <FeatureCard
@@ -130,7 +131,7 @@ export default function ChapterDetailsScreen() {
         }
       />
 
-      {!notesUnlocked && (
+      {!notesUnlocked && Platform.OS === "android" && (
         <>
           <Text style={styles.buySectionTitle}>Unlock PDF Notes</Text>
 

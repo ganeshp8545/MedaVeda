@@ -26,7 +26,12 @@ export default function RecentSearchesRow({ entries, onSelect, onRemove, onClear
     <View style={styles.container}>
       <View style={styles.headerRow}>
         <Text style={styles.heading}>Recent Searches</Text>
-        <TouchableOpacity onPress={onClearAll} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <TouchableOpacity
+          onPress={onClearAll}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Clear all recent searches"
+        >
           <Text style={styles.clearAll}>Clear All</Text>
         </TouchableOpacity>
       </View>
@@ -47,6 +52,8 @@ export default function RecentSearchesRow({ entries, onSelect, onRemove, onClear
               onPress={() => onRemove(entry.query)}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               style={styles.pillClose}
+              accessibilityRole="button"
+              accessibilityLabel={`Remove ${entry.query} from recent searches`}
             >
               <Text style={styles.pillCloseText}>×</Text>
             </TouchableOpacity>

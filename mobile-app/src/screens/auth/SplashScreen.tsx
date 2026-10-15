@@ -36,7 +36,7 @@ export default function SplashScreen({ navigation }: any) {
       // this effect used to unconditionally replace() to Home/Login on
       // every launch, with no awareness of *why* the app was opened. When
       // launched via the password-reset email's deep link
-      // (ayurpulse://reset-password#...&type=recovery), that forced
+      // (medveda://reset-password#...&type=recovery), that forced
       // replace() ran and won the race against React Navigation's own
       // linking resolution, silently stranding the user on Login/Home
       // before the reset screen ever had a chance to show. Checking the

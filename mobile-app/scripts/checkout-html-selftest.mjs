@@ -1,4 +1,5 @@
 import { buildCheckoutHtml } from "../src/screens/payment/checkoutHtmlTemplate.ts";
+import { isAllowedCheckoutWebUrl } from "../src/screens/payment/checkoutNavigation.ts";
 const evil = `</script><img src=x onerror=alert(1)> <!--<script> "quote" 'q' ${String.fromCharCode(0x2028)} & `;
 const html = buildCheckoutHtml({ keyId: "rzp_live_x", razorpayOrderId: "order_1", amountPaise: 4900, productTitle: evil, prefillName: evil, prefillEmail: 'a"b@x.com' });
 const h1 = html.match(/<h1>(.*?)<\/h1>/s)[1];
@@ -17,4 +18,9 @@ checks["options JSON parses"] = true;
 checks["description round-trips exactly"] = opts.description === evil;
 checks["prefill name round-trips exactly"] = opts.prefill.name === evil;
 checks["amount unchanged"] = opts.amount === 4900 && opts.order_id === "order_1";
+checks["Razorpay HTTPS allowed"] = isAllowedCheckoutWebUrl("https://checkout.razorpay.com/v1/checkout.js");
+checks["bank HTTPS allowed"] = isAllowedCheckoutWebUrl("https://netbanking.hdfcbank.com/");
+checks["HTTP denied"] = !isAllowedCheckoutWebUrl("http://checkout.razorpay.com/");
+checks["arbitrary HTTPS denied"] = !isAllowedCheckoutWebUrl("https://phish.example/");
+checks["Razorpay lookalike denied"] = !isAllowedCheckoutWebUrl("https://checkout.razorpay.com.phish.example/");
 for (const [k, v] of Object.entries(checks)) console.log(v ? "PASS" : "FAIL", k);

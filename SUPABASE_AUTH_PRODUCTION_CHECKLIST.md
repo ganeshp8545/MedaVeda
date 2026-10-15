@@ -5,7 +5,7 @@ Live values below were **read with `supabase config diff` on 2026-09-21** (read-
 | # | Setting (Dashboard → Authentication) | Live now | Target | State |
 |---|---|---|---|---|
 | 1 | URL Configuration → **Site URL** | `https://medveda.in` (redirects to www) | `https://www.medveda.in` | ☐ change |
-| 2 | **Redirect URLs** | `https://medveda.in/`, `/**`, `/reset-password`, `/auth/callback`, `https://www.medveda.in/**` | exactly: `https://www.medveda.in/reset-password`, `https://www.medveda.in/account-verified`, `ayurpulse://reset-password`. Keep the apex entries only until old app builds (which send the apex URLs) are gone; then delete them and the `/**` wildcards | ☐ tighten |
+| 2 | **Redirect URLs** | `https://medveda.in/`, `/**`, `/reset-password`, `/auth/callback`, `https://www.medveda.in/**` | exactly: `https://www.medveda.in/reset-password`, `https://www.medveda.in/account-verified`, `medveda://reset-password`. Keep the apex entries only until old app builds (which send the apex URLs) are gone; then delete them and the `/**` wildcards | ☐ tighten |
 | 3 | Email → **Confirm email** | on | on | ✔ confirmed |
 | 4 | **SMTP** | custom, `smtp.resend.com:465`, sender `noreply@medveda.in`, 30 emails/h | keep; verify SPF/DKIM/DMARC for medveda.in in Resend; send a real signup + reset mail to Gmail and check it is not spam | ☐ verify |
 | 5 | **Password policy** | min 6, no complexity | min 8 + lower/upper/digit/symbol (`supabase config push`, see `docs/security/PASSWORD_POLICY.md`) | ☐ apply |

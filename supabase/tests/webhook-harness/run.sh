@@ -23,6 +23,8 @@ S=$(mktemp -d); mkdir -p "$S/_shared" "$S/razorpay-webhook"
 cp "$root/supabase/functions/_shared/settle.ts" "$S/_shared/"
 cp "$root/supabase/tests/webhook-harness/supabaseAdmin.mock.ts" "$S/_shared/supabaseAdmin.ts"
 cp "$root/supabase/tests/webhook-harness/razorpay.mock.ts" "$S/_shared/razorpay.ts"
+cp "$root/supabase/tests/webhook-harness/externalReporting.mock.ts" "$S/_shared/externalReporting.ts"
+cp "$root/supabase/tests/webhook-harness/ucbAlert.mock.ts" "$S/_shared/ucbAlert.ts"
 cp "$root/supabase/functions/razorpay-webhook/index.ts" "$S/razorpay-webhook/"
 cp "$root/supabase/tests/webhook-harness/run.mjs" "$S/"
 cd "$S" && node --experimental-strip-types --no-warnings run.mjs
