@@ -27,7 +27,7 @@ import { RADIUS } from "../../theme/radius";
 import { SPACING } from "../../theme/spacing";
 import { logError } from "../../utils/logger";
 
-const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.medveda.app";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=in.medveda.app";
 
 const STATUS_LABEL: Record<ReferralListStatus, string> = {
   joined: "Joined",

@@ -4,6 +4,7 @@ import { COLORS } from "../../theme/colors";
 import { SPACING } from "../../theme/spacing";
 import { supabase } from "../../config/supabase";
 import { resolvePostLoginRoute } from "../../services/courseState";
+import BrandLogo from "../../components/BrandLogo";
 
 // BUG FIX ("app logs the student out on its own"): this screen used to
 // navigate straight to "Login" after a fixed 2s delay, no matter what -
@@ -67,9 +68,7 @@ export default function SplashScreen({ navigation }: any) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>🌿</Text>
-
-      <Text style={styles.title}>MedVeda</Text>
+      <BrandLogo size={200} variant="lockup" accessibilityLabel="MedVeda logo" />
 
       <Text style={styles.subtitle}>
         Learn Ayurveda{"\n"}Anytime, Anywhere
@@ -91,17 +90,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: SPACING.lg,
-  },
-
-  logo: {
-    fontSize: 70,
-  },
-
-  title: {
-    fontSize: 34,
-    fontWeight: "bold",
-    color: COLORS.text,
-    marginTop: SPACING.md,
   },
 
   subtitle: {

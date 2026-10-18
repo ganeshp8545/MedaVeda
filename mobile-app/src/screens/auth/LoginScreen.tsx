@@ -7,9 +7,11 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
@@ -33,6 +35,7 @@ import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
 import { SPACING } from "../../theme/spacing";
 import { resolvePostLoginRoute } from "../../services/courseState";
+import BrandLogo from "../../components/BrandLogo";
 
 type FormData = { identifier: string; password: string };
 
@@ -40,6 +43,7 @@ const NOT_LOCKED: LockStatus = { locked: false, remainingMs: 0 };
 
 export default function LoginScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
 
   const [hidePassword, setHidePassword] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -189,8 +193,16 @@ export default function LoginScreen() {
   const isButtonDisabled = loading || isLocked;
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.logo}>🌿</Text>
+    <ScrollView
+      style={styles.container}
+      contentContainerStyle={[styles.content, {
+        paddingTop: Math.max(SPACING.xl, insets.top),
+        paddingBottom: Math.max(SPACING.xl, insets.bottom),
+      }]}
+      keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
+    >
+      <BrandLogo size={96} style={styles.logo} accessibilityLabel="MedVeda logo" />
 
       <Text style={styles.title}>MedVeda</Text>
 
@@ -313,21 +325,24 @@ export default function LoginScreen() {
           Don't have an account? Register
         </Text>
       </TouchableOpacity>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 25,
-    justifyContent: "center",
     backgroundColor: COLORS.background,
   },
 
+  content: {
+    flexGrow: 1,
+    padding: 25,
+    justifyContent: "center",
+  },
+
   logo: {
-    fontSize: 70,
-    textAlign: "center",
+    alignSelf: "center",
   },
 
   title: {

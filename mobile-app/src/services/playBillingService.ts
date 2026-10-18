@@ -6,6 +6,7 @@ import type { Purchase, PurchaseAndroid } from "expo-iap";
 import { supabase } from "../config/supabase";
 import { getOrdersByUser } from "../repositories/ordersRepository";
 import { Order } from "../types/order";
+import { selectStandardPlayOffer } from "./playOfferSelection";
 
 const projectUrl = process.env.EXPO_PUBLIC_SUPABASE_URL ?? "";
 const attemptKey = (userId: string) => `medveda:play-attempt:${userId}`;
@@ -19,9 +20,11 @@ class BillingApiError extends Error {
 export interface PlayOrder {
   internalOrderId: string;
   playSku: string;
+  amountInr: number;
+  purchaseOptionId: string;
 }
 
-export interface PlayAttempt extends PlayOrder {
+export interface PlayAttempt extends Omit<PlayOrder, "amountInr" | "purchaseOptionId"> {
   userId: string;
   productId: string;
   productTitle: string;
@@ -87,7 +90,13 @@ async function authenticatedPost<T>(name: string, payload: Record<string, string
 }
 
 export async function createPlayOrder(productId: string): Promise<PlayOrder> {
-  return authenticatedPost<PlayOrder>("create-play-order", { productId });
+  try {
+    return await authenticatedPost<PlayOrder>("create-play-order", { productId });
+  } catch (error) {
+    if (error instanceof BillingApiError && error.message === "price_tier_pending")
+      throw new Error("Google Play checkout is being prepared for this price. Please try again shortly.");
+    throw error;
+  }
 }
 
 export async function verifyPlayPurchase(
@@ -248,7 +257,7 @@ export async function ensurePlayBilling(): Promise<typeof import("expo-iap")> {
   return connection;
 }
 
-export async function startPlayPurchase(attempt: PlayAttempt): Promise<void> {
+export async function startPlayPurchase(attempt: PlayAttempt, offerToken: string): Promise<void> {
   const iap = await ensurePlayBilling();
   await saveAttempt(attempt);
   try {
@@ -256,6 +265,7 @@ export async function startPlayPurchase(attempt: PlayAttempt): Promise<void> {
       request: {
         google: {
           skus: [attempt.playSku],
+          offerToken,
           obfuscatedAccountId: obfuscatedPlayId(attempt.userId),
           obfuscatedProfileId: obfuscatedPlayId(attempt.internalOrderId),
         },
@@ -278,14 +288,17 @@ export async function startPlayPurchase(attempt: PlayAttempt): Promise<void> {
   }
 }
 
-export async function fetchMatchingPlayProduct(sku: string, priceInr: number): Promise<void> {
+export async function fetchMatchingPlayProduct(sku: string, priceInr: number): Promise<{ offerToken: string; formattedPrice: string }> {
   const iap = await ensurePlayBilling();
   const products = await iap.fetchProducts({ skus: [sku], type: "in-app" });
   const item = products?.find((product) => product.id === sku && product.platform === "android");
-  if (!item || item.currency !== "INR" || typeof item.price !== "number" ||
-      Math.abs(item.price - priceInr) > 0.005) {
+  if (!item || item.platform !== "android" ||
+      !("oneTimePurchaseOfferDetailsAndroid" in item) || item.currency !== "INR") {
     throw new Error("The Play price does not match this product. Please contact support.");
   }
+  const offer = selectStandardPlayOffer(item.oneTimePurchaseOfferDetailsAndroid, priceInr);
+  if (!offer.formattedPrice) throw new Error("Google Play did not provide a display price.");
+  return { offerToken: offer.offerToken, formattedPrice: offer.formattedPrice };
 }
 
 export async function restorePlayPurchases(): Promise<void> {
@@ -294,7 +307,14 @@ export async function restorePlayPurchases(): Promise<void> {
   if (!data.session?.user) return;
   const iap = await ensurePlayBilling();
   const purchases = await iap.getAvailablePurchases();
-  for (const purchase of purchases) await handlePurchase(purchase);
+  for (const purchase of purchases) {
+    try {
+      await handlePurchase(purchase);
+    } catch {
+      // One malformed or temporarily unresolvable receipt must not prevent
+      // the remaining unconsumed purchases from being verified on this pass.
+    }
+  }
 }
 
 export async function recheckPlayOrder(internalOrderId: string): Promise<PlayVerifyResult> {

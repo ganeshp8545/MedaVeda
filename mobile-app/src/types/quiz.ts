@@ -18,6 +18,8 @@ export interface QuizTest {
   order: number;
   active: boolean;
   questions: QuizTestQuestion[];
+  // Added by 20261018100000; absent on older deployments/downloads.
+  questionRevision?: number;
   // Added by 20260919120000_multi_course_and_referrals.sql - see types/course.ts.
   courseId: string;
 }

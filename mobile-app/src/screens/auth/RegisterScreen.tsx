@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Controller, useForm } from "react-hook-form";
 import { yupResolver } from "@hookform/resolvers/yup";
 import { registerSchema } from "../../validation/registerSchema";
@@ -11,6 +12,7 @@ import { savePendingReferral } from "../../utils/pendingReferral";
 import { COLORS } from "../../theme/colors";
 import { RADIUS } from "../../theme/radius";
 import { SPACING } from "../../theme/spacing";
+import BrandLogo from "../../components/BrandLogo";
 
 type FormData = { fullName: string; email: string; mobileNumber: string; password: string; confirmPassword: string; referralCode?: string };
 
@@ -23,6 +25,7 @@ const STRENGTH_COLOR: Record<string, string> = {
 
 export default function RegisterScreen() {
   const navigation = useNavigation<any>();
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(false);
   const { control, handleSubmit, watch, formState: { errors } } = useForm<FormData>({
     resolver: yupResolver(registerSchema),
@@ -71,8 +74,8 @@ export default function RegisterScreen() {
     {errors[name] && <Text style={styles.error}>{errors[name]?.message}</Text>}
   </>;
 
-  return <View style={styles.container}>
-    <Text style={styles.logo}>🌿</Text><Text style={styles.title}>Create Your Account</Text>
+  return <ScrollView style={styles.container} contentContainerStyle={[styles.content, { paddingTop: Math.max(SPACING.xl, insets.top), paddingBottom: Math.max(SPACING.xl, insets.bottom) }]} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+    <BrandLogo size={76} style={styles.logo} accessibilityLabel="MedVeda logo" /><Text style={styles.title}>Create Your Account</Text>
     {field("fullName", "Full Name")}{field("email", "Email Address")}{field("mobileNumber", "Mobile Number (e.g. 9876543210)")}
     {field("password", "Password", true)}
 
@@ -103,12 +106,13 @@ export default function RegisterScreen() {
     {errors.referralCode && <Text style={styles.error}>{errors.referralCode.message}</Text>}
     <TouchableOpacity style={[styles.button, loading && styles.disabled]} disabled={loading} onPress={handleSubmit(register)}>{loading ? <ActivityIndicator color={COLORS.textOnPrimary} /> : <Text style={styles.buttonText}>Create Account</Text>}</TouchableOpacity>
     <TouchableOpacity onPress={() => navigation.navigate("Login")} disabled={loading}><Text style={styles.link}>Already have an account? Login</Text></TouchableOpacity>
-  </View>;
+  </ScrollView>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: "center", padding: 25, backgroundColor: COLORS.background },
-  logo: { textAlign: "center", fontSize: 64 },
+  container: { flex: 1, backgroundColor: COLORS.background },
+  content: { flexGrow: 1, justifyContent: "center", padding: 25 },
+  logo: { alignSelf: "center", marginBottom: SPACING.sm },
   title: { color: COLORS.text, fontSize: 28, fontWeight: "bold", textAlign: "center", marginBottom: SPACING.xl },
   input: { color: COLORS.text, backgroundColor: COLORS.card, borderColor: COLORS.border, borderWidth: 1, borderRadius: RADIUS.md, padding: SPACING.md, marginBottom: SPACING.xs },
   error: { color: COLORS.error, marginBottom: SPACING.sm },

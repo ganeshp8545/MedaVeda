@@ -35,24 +35,34 @@ export default function useVideos(filters: ContentFilters = {}) {
 
   async function createVideo(data: VideoInput) {
     await addVideo(data);
-    await loadVideos();
+    await refreshAfterMutation();
   }
 
   async function editVideo(id: string, data: VideoInput) {
     await updateVideo(id, data);
-    await loadVideos();
+    await refreshAfterMutation();
   }
 
   async function removeVideo(id: string) {
     await deleteVideo(id);
-    await loadVideos();
+    await refreshAfterMutation();
+  }
+
+  async function refreshAfterMutation() {
+    try {
+      const data = await getVideos(filters);
+      setVideos(data);
+      setError(null);
+    } catch {
+      setError("The video change succeeded, but the list could not refresh. Reload this page before retrying.");
+    }
   }
 
   return {
     videos,
     loading,
     error,
-    reload: loadVideos,
+    reload: refreshAfterMutation,
     createVideo,
     editVideo,
     removeVideo,

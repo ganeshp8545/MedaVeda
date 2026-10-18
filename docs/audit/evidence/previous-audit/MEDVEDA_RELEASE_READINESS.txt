@@ -1,0 +1,50 @@
+# Release readiness — 2026-10-18
+
+## Staging integration checkpoint — 2026-10-18
+
+**NO-GO. Deployment BLOCKED.** Read-only discovery found the local Supabase link `xbvenkfmesugrbjuufyw` (named MedVeda), and the admin/mobile local environments, website, and EAS development/preview/production/screenshot/shrink profiles point to that same ref. Existing audit evidence identifies this as the production backend. No distinct staging project ref or staging credentials were found in this workspace or process environment. The EAS `internal-testing` profile asks for the remote `preview` environment, but its actual variables could not be read: the Expo API request failed with DNS `EAI_AGAIN`. A separate staging project may exist elsewhere; its identity is **NOT VERIFIED**. No database, Storage, Edge Function, EAS build, or Play Console mutation was attempted.
+
+The 53 local SQL migrations are source inventory only. Hosted staging and production migration histories, actual schema drift, deployed JWT settings/secrets, RLS/Storage state, backups, and service authorization are **BLOCKED**. The two October 18 migrations were reviewed locally and remain unapplied. The local full-chain disposable database result in the earlier section does not establish hosted compatibility. Admin CRUD/upload/browser refresh and 1 MB, 10 MB, near-50 MB PDF tests; mobile notes/video/MCQ, offline recovery, PDF entitlement; licensed Play billing/refund/restore and catalog read-back are **BLOCKED**. No new integration PASS is claimed.
+
+The existing production-profile AAB audit reports `in.medveda.app` version code 2 and a production Supabase endpoint. That artifact cannot be used as a staging mobile test. EAS remote version and the highest Play Console code are **NOT VERIFIED**; the next upload must use a code greater than both (at least 3 if 2 is the highest), after read-only confirmation. Do not upload it as part of this checkpoint.
+
+## Continuation decision (latest)
+
+**NO-GO.** Source mitigations for MV-001/MV-002/MV-003/MV-009 and existing MV-004–MV-008 now pass local checks. The full disposable PostgreSQL migration/SQL/mock-worker suite, admin build, mobile TypeScript and Android JS export, Edge type checks, PDF parser tests and website link check pass. None exercises a deployed Supabase project, licensed Play billing or an AAB.
+
+| Gate | Current result | Required evidence |
+| --- | --- | --- |
+| Server-scored MCQ | LOCAL PASS; STAGING BLOCKED | Test current/old Android clients, offline replay, wrong user, duplicate ID, changed questions. Inline answers remain visible to clients, so verified means backend computed, not anti-cheat. |
+| Trusted PDF upload/save | LOCAL PASS; STAGING BLOCKED | Real authorized/unauthorized/invalid/corrupted/duplicate upload, 50 MB runtime, save ambiguity, entitlement and raw Storage denial. Malware scanner is absent; decide whether to integrate one before launch. |
+| Notes description/old client | LOCAL PASS; STAGING BLOCKED | Verify default on existing rows, old app listing/opening, updated form and mobile display. |
+| Video/other admin fixes | LOCAL PASS; STAGING BLOCKED | Browser/device lifecycle including validation, preview, publish, delete failure and narrow screen. |
+| Play Billing/catalog | MOCK PASS; LICENSED TEST BLOCKED | Console SKU/price read-back, internal AAB, licensed purchase/refund/restore, cron/reconciliation. |
+| Android native artifact | BLOCKED | No AAB/APK present: package, version, target API, BILLING permission, native library and provider cannot be verified from a bundle. |
+| Operations | BLOCKED | Staging backup restore, production migration inventory, cron/alert health and ledger reconciliation. |
+
+The table and paragraph below describe the **initial audit snapshot** and are superseded by this continuation where they say the server path or local SQL tests did not exist. Source configuration still does not prove Google Play approval.
+
+**Verdict: NO-GO.** Local builds and mocked billing tests are encouraging but insufficient for release-critical paid-content and payment gates. Source issues MV-001/MV-002 and absent integrated evidence prevent an unconditional release.
+
+| Gate | Status | Evidence or missing check |
+| --- | --- | --- |
+| Admin reliability | NOT VERIFIED | Build passes; browser/staging CRUD not run |
+| PDF upload | BLOCKED | Client validator passes; server scan and real upload/access absent |
+| Video publishing | NOT VERIFIED | YouTube registration code; real playback absent |
+| MCQ management | NOT VERIFIED | Editor compiles; live publish absent |
+| Admin/mobile sync | BLOCKED | No staging lifecycle test |
+| Mobile correctness | NOT VERIFIED | TypeScript passes; no device suite |
+| Authentication/authorization | BLOCKED | Source RLS reviewed; role-based integration absent |
+| Database integrity | BLOCKED | Migration drift and SQL suites not checked against isolated DB |
+| Supabase security | BLOCKED | Private bucket migration exists; deployed state unknown |
+| Google Play Billing | BLOCKED | Mock tests pass; license purchase, refund, AAB absent |
+| Pricing/catalog | BLOCKED | Source queue exists; Play read-back and failed jobs unknown |
+| User data compliance | NOT VERIFIED | Website deletion page exists; Play Console form/live flow unknown |
+| Play policy | NOT VERIFIED | Official rules reviewed; AAB and declarations unknown |
+| UI/UX | NOT VERIFIED | Narrow picker change; visual review absent |
+| Performance | NOT VERIFIED | Build bundle measured, no runtime baseline |
+| Android build | BLOCKED | No current AAB/manifest to inspect |
+| Real-device testing | BLOCKED | No licensed tester device |
+| Backup/operations | BLOCKED | No restore or cron evidence |
+
+Current official requirements: paid digital content in Play-distributed apps ordinarily uses [Google Play Billing](https://support.google.com/googleplay/android-developer/answer/9858738?hl=en); new apps and updates submitted after August 31, 2026 must target [Android 16 / API 36](https://support.google.com/googleplay/android-developer/answer/11926878?hl=en), subject to listed exceptions/extensions; Billing Library 7 reached its normal submission deadline on August 31, 2026, so the AAB must be checked against the [Billing Library support schedule](https://developer.android.com/google/play/billing/deprecation-faq). Apps allowing account creation need an in-app deletion path and a functional external [deletion resource](https://support.google.com/googleplay/android-developer/answer/13327111?hl=en), and Play Console's [Data safety section](https://support.google.com/googleplay/android-developer/answer/10144311?rd=1) must match actual data processing. Source has paths for these areas; deployed content and Console declarations were not verified. Google Play approval cannot be guaranteed.

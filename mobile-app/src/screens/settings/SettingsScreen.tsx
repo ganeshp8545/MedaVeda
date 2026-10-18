@@ -31,7 +31,7 @@ export default function SettingsScreen() {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.medveda.app",
+          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=in.medveda.app",
       });
     } catch (error) {
       logError("Screen action failed", error);
@@ -55,7 +55,7 @@ export default function SettingsScreen() {
   };
 
   const handleRateApp = async () => {
-    const packageName = "com.medveda.app";
+    const packageName = "in.medveda.app";
 
     try {
       await Linking.openURL(

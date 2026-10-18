@@ -32,6 +32,7 @@ export default function Videos() {
 
   const [deleteTarget, setDeleteTarget] = useState<Video | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const subjectsForFilter = useMemo(
     () => (courseFilter ? subjects.filter((s) => s.courseId === courseFilter) : subjects),
@@ -72,8 +73,11 @@ export default function Videos() {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
+      setDeleteError(null);
       await removeVideo(deleteTarget.id);
       setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete video.");
     } finally {
       setDeleting(false);
     }
@@ -128,6 +132,7 @@ export default function Videos() {
       </div>
 
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      {deleteError && <p className="text-red-500 mb-4" role="alert">{deleteError}</p>}
 
       {filteredVideos.length === 0 ? (
         <div className="bg-white rounded-xl p-10 text-center shadow">

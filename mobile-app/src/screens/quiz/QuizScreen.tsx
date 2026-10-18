@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -22,7 +22,8 @@ import ProgressBar from "../../components/ProgressBar";
 import { getCurrentUser } from "../../services/authState";
 import { logError } from "../../utils/logger";
 import { QuizTest } from "../../services/quizService";
-import { recordQuizAttempt } from "../../services/quizAttempts";
+import { getLocalQuizAttempts, recordQuizAttempt } from "../../services/quizAttempts";
+import { OFFLINE_DB_SUPPORTED } from "../../config/database";
 import { loadOfflineQuiz } from "../../utils/downloadManager";
 import SuccessBurst from "../../components/motion/SuccessBurst";
 
@@ -91,6 +92,24 @@ export default function QuizScreen() {
 
   const [finished, setFinished] = useState(false);
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_SECONDS);
+  const submittedRef = useRef(false);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState("unverified");
+  const [serverScore, setServerScore] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!finished || !attemptId) return;
+    const refresh = () => {
+      const attempt = getLocalQuizAttempts(test?.id).find((row) => row.attemptId === attemptId);
+      if (attempt) {
+        setVerificationStatus(attempt.verificationStatus);
+        if (attempt.verificationStatus === "verified") setServerScore(attempt.score);
+      }
+    };
+    refresh();
+    const timer = setInterval(refresh, 2000);
+    return () => clearInterval(timer);
+  }, [finished, attemptId, test?.id]);
 
   if (loadingOffline) {
     return (
@@ -122,14 +141,16 @@ export default function QuizScreen() {
     return q && q.options[answer] === q.answer ? total + 1 : total;
   }, 0);
 
-  const saveScore = async () => {
+  const saveScore = () => {
     try {
       const user = getCurrentUser();
 
-      // Local-first: this always succeeds instantly, even with zero
-      // signal - syncEngine drains it to Supabase's quiz_scores table
-      // the moment connectivity returns (see services/quizAttempts.ts).
-      recordQuizAttempt({
+      // Local practice remains available offline. The backend recomputes
+      // the verified score from the submitted answers when sync succeeds.
+      setVerificationStatus(OFFLINE_DB_SUPPORTED && user?.id &&
+        Number.isSafeInteger(test.questionRevision) && (test.questionRevision ?? 0) > 0
+        ? "unverified" : "legacy");
+      const id = recordQuizAttempt({
         quizId: test.id,
         quizTitle: test.title,
         subjectId,
@@ -139,13 +160,18 @@ export default function QuizScreen() {
         score,
         totalQuestions: questions.length,
         answers,
+        questionRevision: test.questionRevision,
       });
+      setAttemptId(id);
     } catch (error) {
       logError("QuizScreen: saving quiz attempt failed", error);
+      setVerificationStatus("legacy");
     }
   };
 
   const handleSubmit = () => {
+    if (submittedRef.current) return;
+    submittedRef.current = true;
     saveScore();
     setFinished(true);
   };
@@ -209,7 +235,8 @@ export default function QuizScreen() {
   }, [timeLeft, finished, isTimerActive]);
 
   const question = questions[currentQuestion];
-  const percentage = Math.round((score / questions.length) * 100);
+  const displayScore = verificationStatus === "verified" && serverScore !== null ? serverScore : score;
+  const percentage = Math.round((displayScore / questions.length) * 100);
   const passed = percentage >= 50;
   const isLastQuestion = currentQuestion === questions.length - 1;
 
@@ -225,7 +252,15 @@ export default function QuizScreen() {
           </Text>
 
           <Text style={styles.score}>
-            {score} / {questions.length}
+            {displayScore} / {questions.length}
+          </Text>
+
+          <Text style={{ color: COLORS.subtitle, textAlign: "center", marginTop: 6 }}>
+            {verificationStatus === "verified" ? "Server-verified score" :
+              verificationStatus === "stale" ? "Questions changed; local practice result only" :
+              verificationStatus === "rejected" ? "Verification rejected; local practice result only" :
+              verificationStatus === "legacy" ? "Local practice result only" :
+              "Local practice score; server verification pending"}
           </Text>
 
           <Text style={styles.percentage}>{percentage}%</Text>

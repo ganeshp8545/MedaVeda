@@ -5,7 +5,6 @@ import "../config/sentry";
 
 import { NavigationContainer, DefaultTheme } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { StatusBar } from "react-native";
 import { useEffect } from "react";
 
 import { COLORS } from "../theme/colors";
@@ -55,6 +54,7 @@ import PaymentSuccessScreen from "../screens/payment/PaymentSuccessScreen";
 import PaymentFailedScreen from "../screens/payment/PaymentFailedScreen";
 import PaymentCheckoutScreen from "../screens/payment/PaymentCheckoutScreen";
 import PlayBillingScreen from "../screens/payment/PlayBillingScreen";
+import { paymentProvider } from "../config/paymentProvider";
 import AboutScreen from "../screens/about/AboutScreen";
 import ContactScreen from "../screens/contact/ContactScreen";
 
@@ -76,13 +76,6 @@ const navigationTheme = {
   },
 };
 
-// Legacy: PaymentSuccess/PaymentFailed used to be reached via a browser
-// deep link after the hosted checkout page finished. That flow is no
-// longer used - payment now happens in-app (PaymentCheckoutScreen's
-// WebView), which reaches these same screens via normal in-app
-// navigation instead. Left in place in case a custom domain is set up
-// later and this reverts to a browser based flow; harmless either way.
-//
 // ResetPassword IS live: Supabase's password-reset email links back to
 // "medveda://reset-password" (see authService.PASSWORD_RESET_REDIRECT_URL).
 //
@@ -92,8 +85,6 @@ const linking = {
   prefixes: ["medveda://"],
   config: {
     screens: {
-      PaymentSuccess: "payment-success",
-      PaymentFailed: "payment-failed",
       ResetPassword: "reset-password",
     },
   },
@@ -125,7 +116,6 @@ export default function AppNavigator() {
 
   return (
     <ErrorBoundary>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.background} />
       <NavigationContainer theme={navigationTheme} linking={linking}>
         <Stack.Navigator
           initialRouteName="Splash"
@@ -163,9 +153,13 @@ export default function AppNavigator() {
         <Stack.Screen name="Notifications" component={NotificationsScreen} />
         <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
         <Stack.Screen name="PaymentFailed" component={PaymentFailedScreen} />
-        <Stack.Screen name="OrderSummary" component={OrderSummaryScreen} />
+        {paymentProvider === "razorpay" && (
+          <Stack.Screen name="OrderSummary" component={OrderSummaryScreen} />
+        )}
         <Stack.Screen name="PlayBilling" component={PlayBillingScreen} />
-        <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
+        {paymentProvider === "razorpay" && (
+          <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
+        )}
         <Stack.Screen name="About" component={AboutScreen} />
         <Stack.Screen name="Contact" component={ContactScreen} />
         <Stack.Screen name="Privacy" component={PrivacyScreen} />

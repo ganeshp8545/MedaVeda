@@ -1,5 +1,5 @@
 -- Run only against a disposable database built through 20261013110000 plus
--- 20261015100000_play_payment_jobs.sql. All fixture changes roll back.
+-- the reviewed 20261015 Play migrations. All fixture changes roll back.
 begin;
 
 do $$
@@ -10,9 +10,9 @@ declare
   v_cursor jsonb;
   v_razorpay_before jsonb;
 begin
-  insert into public.orders(id,user_id,product_id,amount,list_price,course_id,status,
+  insert into public.orders(id,user_id,product_id,scope,chapter_id,amount,list_price,course_id,status,
     provider,play_sku,purchase_token,play_consumption_status)
-  values('qa_play_1','5eed0000-0000-0000-0000-00000000000b','seed_product',49,49,'bams',
+  values('qa_play_1','5eed0000-0000-0000-0000-00000000000b','seed_product','chapter','seed_c',49,49,'bams',
     'paid','play','notes_49','qa-token-play-000001','pending');
   insert into public.orders(id,user_id,product_id,amount,list_price,course_id,status,
     provider,razorpay_order_id)

@@ -24,6 +24,7 @@ export default function Years() {
 
   const [deleteTarget, setDeleteTarget] = useState<Year | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   function openCreate() {
     setEditing(null);
@@ -47,8 +48,11 @@ export default function Years() {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
+      setDeleteError(null);
       await removeYear(deleteTarget.id);
       setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete year.");
     } finally {
       setDeleting(false);
     }
@@ -101,6 +105,7 @@ export default function Years() {
         onSubmit={handleSubmit}
       />
 
+      {deleteError && <p className="text-red-500" role="alert">{deleteError}</p>}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete Year?"

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "test": "node --experimental-strip-types scripts/pdf-validation-selftest.mjs && node scripts/mutation-selftest.cjs && node scripts/pagination-selftest.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

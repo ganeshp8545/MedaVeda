@@ -37,6 +37,7 @@ export default function Chapters() {
 
   const [deleteTarget, setDeleteTarget] = useState<Chapter | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const yearsForFilter = useMemo(
     () => (courseFilter ? years.filter((y) => y.courseId === courseFilter) : years),
@@ -83,8 +84,11 @@ export default function Chapters() {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
+      setDeleteError(null);
       await removeChapter(deleteTarget.id);
       setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete chapter.");
     } finally {
       setDeleting(false);
     }
@@ -189,6 +193,7 @@ export default function Chapters() {
         onSubmit={handleSubmit}
       />
 
+      {deleteError && <p className="text-red-500" role="alert">{deleteError}</p>}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete Chapter?"

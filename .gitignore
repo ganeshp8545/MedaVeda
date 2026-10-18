@@ -52,3 +52,5 @@ google-play-service-account.json
 scripts/ucb-secrets.env
 prod_dump.sql
 *.sql.gz
+.vercel
+.env*

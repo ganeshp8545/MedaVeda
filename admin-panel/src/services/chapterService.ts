@@ -1,28 +1,23 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type { Chapter, ChapterInput } from "../types/chapter";
-import { applyContentFilters, omitBlankIds } from "../utils/filters";
+import { applyContentFilters, fetchAllPages, omitBlankIds } from "../utils/filters";
 import type { ContentFilters } from "../types/filters";
 
 const TABLE = "chapters";
 
 export async function getChapters(filters: ContentFilters = {}): Promise<Chapter[]> {
-  const { data, error } = await applyContentFilters(
-    supabase.from(TABLE).select("*").order("order", { ascending: true }),
+  const rows = await fetchAllPages<any>(() => applyContentFilters(
+    supabase.from(TABLE).select("*").order("order", { ascending: true }).order("id"),
     filters
-  );
-  if (error) throw error;
-  return (data ?? []).map((row: any) => toCamelCase<Chapter>(row));
+  ));
+  return rows.map((row) => toCamelCase<Chapter>(row));
 }
 
 export async function getChaptersBySubject(subjectId: string): Promise<Chapter[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("*")
-    .eq("subject_id", subjectId)
-    .order("order", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map((row: any) => toCamelCase<Chapter>(row));
+  const rows = await fetchAllPages<any>(() => supabase.from(TABLE).select("*")
+    .eq("subject_id", subjectId).order("order", { ascending: true }).order("id"));
+  return rows.map((row) => toCamelCase<Chapter>(row));
 }
 
 // yearTitle / subjectTitle are UI-only display fields - not columns on the
@@ -35,11 +30,11 @@ export async function addChapter(data: ChapterInput) {
 
 export async function updateChapter(id: string, data: ChapterInput) {
   const { yearTitle, subjectTitle, courseTitle, ...payload } = data;
-  const { error } = await supabase.from(TABLE).update(toSnakeCase(omitBlankIds(payload))).eq("id", id);
+  const { error } = await supabase.from(TABLE).update(toSnakeCase(omitBlankIds(payload))).eq("id", id).select("id").single();
   if (error) throw error;
 }
 
 export async function deleteChapter(id: string) {
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  const { error } = await supabase.from(TABLE).delete().eq("id", id).select("id").single();
   if (error) throw error;
 }

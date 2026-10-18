@@ -1,0 +1,918 @@
+{
+  "project_ref": "xbvenkfmesugrbjuufyw",
+  "captured_at": "2026-10-18T07:39:20.618598+00:00",
+  "read_only": true,
+  "migrations": [
+    {
+      "version": "20260701000000"
+    },
+    {
+      "version": "20260718"
+    },
+    {
+      "version": "20260721"
+    },
+    {
+      "version": "20260801"
+    },
+    {
+      "version": "20260801150000"
+    },
+    {
+      "version": "20260919120000"
+    },
+    {
+      "version": "20260919130000"
+    },
+    {
+      "version": "20260920120000"
+    },
+    {
+      "version": "20260920130000"
+    },
+    {
+      "version": "20260920140000"
+    },
+    {
+      "version": "20260921120000"
+    },
+    {
+      "version": "20260921130000"
+    },
+    {
+      "version": "20260922100000"
+    },
+    {
+      "version": "20260923100000"
+    },
+    {
+      "version": "20260924100000"
+    },
+    {
+      "version": "20260924110000"
+    },
+    {
+      "version": "20260924120000"
+    },
+    {
+      "version": "20260924130000"
+    },
+    {
+      "version": "20260924140000"
+    },
+    {
+      "version": "20260924150000"
+    },
+    {
+      "version": "20260925100000"
+    },
+    {
+      "version": "20260925110000"
+    },
+    {
+      "version": "20260925120000"
+    },
+    {
+      "version": "20260925130000"
+    },
+    {
+      "version": "20260925140000"
+    },
+    {
+      "version": "20260926100000"
+    },
+    {
+      "version": "20260926110000"
+    },
+    {
+      "version": "20260926120000"
+    },
+    {
+      "version": "20260926130000"
+    },
+    {
+      "version": "20260927100000"
+    },
+    {
+      "version": "20260927110000"
+    },
+    {
+      "version": "20260927120000"
+    },
+    {
+      "version": "20260927130000"
+    },
+    {
+      "version": "20260928100000"
+    },
+    {
+      "version": "20260928110000"
+    },
+    {
+      "version": "20260929100000"
+    },
+    {
+      "version": "20260930100000"
+    },
+    {
+      "version": "20260930110000"
+    },
+    {
+      "version": "20261001100000"
+    },
+    {
+      "version": "20261012100000"
+    },
+    {
+      "version": "20261012110000"
+    },
+    {
+      "version": "20261012120000"
+    },
+    {
+      "version": "20261013090000"
+    },
+    {
+      "version": "20261013100000"
+    },
+    {
+      "version": "20261013110000"
+    },
+    {
+      "version": "20261014100000"
+    },
+    {
+      "version": "20261014110000"
+    },
+    {
+      "version": "20261015100000"
+    },
+    {
+      "version": "20261015120000"
+    },
+    {
+      "version": "20261016090000"
+    },
+    {
+      "version": "20261016100000"
+    }
+  ],
+  "columns": [
+    {
+      "table_name": "notes",
+      "column_name": "id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "title",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "pdf_url",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "chapter_id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "order",
+      "data_type": "integer",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "active",
+      "data_type": "boolean",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "course_id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "year_id",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "table_name": "notes",
+      "column_name": "is_free_preview",
+      "data_type": "boolean",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "title",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "subject_id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "year_id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "order",
+      "data_type": "integer",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "active",
+      "data_type": "boolean",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "questions",
+      "data_type": "jsonb",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "table_name": "quiz_tests",
+      "column_name": "course_id",
+      "data_type": "text",
+      "is_nullable": "NO"
+    }
+  ],
+  "policies": [
+    {
+      "schemaname": "public",
+      "tablename": "admins",
+      "policyname": "admins_admin_only",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "analytics_events",
+      "policyname": "analytics_insert_own_or_anon",
+      "permissive": "PERMISSIVE",
+      "roles": "{anon,authenticated}",
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "((user_id IS NULL) OR (user_id = ( SELECT auth.uid() AS uid)))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "app_config",
+      "policyname": "app_config_admin_delete",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "DELETE",
+      "qual": "am_i_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "app_config",
+      "policyname": "app_config_admin_insert",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "INSERT",
+      "qual": null,
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "app_config",
+      "policyname": "app_config_admin_update",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "UPDATE",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "app_config",
+      "policyname": "app_config_public_read",
+      "permissive": "PERMISSIVE",
+      "roles": "{anon,authenticated}",
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "app_settings",
+      "policyname": "app_settings_admin_update",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "UPDATE",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "app_settings",
+      "policyname": "public read app_settings",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "(( SELECT auth.uid() AS uid) IS NOT NULL)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "chapters",
+      "policyname": "chapters_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "chapters",
+      "policyname": "chapters_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((active = true) AND has_content_access(course_id, year_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "courses",
+      "policyname": "courses_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "courses",
+      "policyname": "courses_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "((active = true) OR am_i_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notes",
+      "policyname": "notes_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notes",
+      "policyname": "notes_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((active = true) AND has_content_access(course_id, year_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notifications",
+      "policyname": "notifications_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "notifications",
+      "policyname": "notifications_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "((active = true) OR am_i_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "order_review_flags",
+      "policyname": "order_review_flags_admin_select",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "am_i_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "orders",
+      "policyname": "orders_select_own_or_admin",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR am_i_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payment_sessions",
+      "policyname": "payment_sessions_select_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR am_i_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payments",
+      "policyname": "Users can view own payments",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "(( SELECT auth.uid() AS uid) = user_id)",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "payments",
+      "policyname": "payments_admin_read",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "am_i_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "play_price_sync",
+      "policyname": "admin_read_play_sync",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "am_i_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "play_price_tiers",
+      "policyname": "admin_read_play_tiers",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "am_i_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "products",
+      "policyname": "products_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "products",
+      "policyname": "products_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((active = true) AND (am_i_admin() OR ((scope = 'bundle'::text) AND has_content_access(course_id, NULL::text)) OR ((scope = 'year'::text) AND has_content_access(course_id, year_id)) OR ((scope = 'subject'::text) AND (EXISTS ( SELECT 1\n   FROM subjects s\n  WHERE ((s.id = products.subject_id) AND has_content_access(products.course_id, s.year_id))))) OR ((scope = 'chapter'::text) AND (EXISTS ( SELECT 1\n   FROM chapters c\n  WHERE ((c.id = products.chapter_id) AND has_content_access(products.course_id, c.year_id)))))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profiles_admin_all",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profiles_select_own_or_admin",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "((id = ( SELECT auth.uid() AS uid)) OR am_i_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "profiles",
+      "policyname": "profiles_update_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "UPDATE",
+      "qual": "(id = ( SELECT auth.uid() AS uid))",
+      "with_check": "(id = ( SELECT auth.uid() AS uid))"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "purchases",
+      "policyname": "purchases_select_own_or_admin",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR am_i_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "push_tokens",
+      "policyname": "push_tokens_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR am_i_admin())",
+      "with_check": "((user_id = ( SELECT auth.uid() AS uid)) OR am_i_admin())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "quiz_scores",
+      "policyname": "quiz_scores_own_or_admin",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "((user_id = ( SELECT auth.uid() AS uid)) OR am_i_admin())",
+      "with_check": "((user_id = ( SELECT auth.uid() AS uid)) OR am_i_admin())"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "quiz_tests",
+      "policyname": "quiz_tests_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "quiz_tests",
+      "policyname": "quiz_tests_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((active = true) AND has_content_access(course_id, year_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "referral_settings",
+      "policyname": "referral_settings_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "referral_settings",
+      "policyname": "referral_settings_read_authenticated",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "true",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "referral_settings_audit",
+      "policyname": "referral_settings_audit_admin_read",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "am_i_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "referrals",
+      "policyname": "referrals_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "subjects_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "subjects",
+      "policyname": "subjects_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((active = true) AND has_content_access(course_id, year_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "videos",
+      "policyname": "videos_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "videos",
+      "policyname": "videos_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((active = true) AND has_content_access(course_id, year_id))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "wallet_ledger",
+      "policyname": "wallet_ledger_select_admin",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "am_i_admin()",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "wallet_ledger",
+      "policyname": "wallet_ledger_select_own",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "(user_id = ( SELECT auth.uid() AS uid))",
+      "with_check": null
+    },
+    {
+      "schemaname": "public",
+      "tablename": "years",
+      "policyname": "years_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "ALL",
+      "qual": "am_i_admin()",
+      "with_check": "am_i_admin()"
+    },
+    {
+      "schemaname": "public",
+      "tablename": "years",
+      "policyname": "years_public_read_active",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "(((active = true) AND (EXISTS ( SELECT 1\n   FROM courses c\n  WHERE ((c.id = years.course_id) AND (c.active = true))))) OR am_i_admin())",
+      "with_check": null
+    },
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "notes_admin_write",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "ALL",
+      "qual": "((bucket_id = 'notes'::text) AND am_i_admin())",
+      "with_check": "((bucket_id = 'notes'::text) AND am_i_admin())"
+    },
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "notes_read_if_purchased",
+      "permissive": "PERMISSIVE",
+      "roles": "{authenticated}",
+      "cmd": "SELECT",
+      "qual": "((bucket_id = 'notes'::text) AND (am_i_admin() OR (EXISTS ( SELECT 1\n   FROM notes n\n  WHERE (n.active AND ((n.pdf_url = objects.name) OR (\"right\"(n.pdf_url, (length(objects.name) + 1)) = ('/'::text || objects.name))) AND user_owns_chapter(n.chapter_id))))))",
+      "with_check": null
+    },
+    {
+      "schemaname": "storage",
+      "tablename": "objects",
+      "policyname": "public read thumbnails",
+      "permissive": "PERMISSIVE",
+      "roles": "{public}",
+      "cmd": "SELECT",
+      "qual": "(bucket_id = 'thumbnails'::text)",
+      "with_check": null
+    }
+  ],
+  "buckets": [
+    {
+      "id": "thumbnails",
+      "public": true,
+      "file_size_limit": null,
+      "allowed_mime_types": null
+    },
+    {
+      "id": "notes",
+      "public": false,
+      "file_size_limit": null,
+      "allowed_mime_types": null
+    }
+  ],
+  "object_counts": [
+    {
+      "bucket_id": "notes",
+      "object_count": 53
+    }
+  ],
+  "database_size": [
+    {
+      "bytes": 17755283
+    }
+  ],
+  "functions_sql": [
+    {
+      "proname": "am_i_admin",
+      "args": "",
+      "prosecdef": true,
+      "proacl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+      "definition_hash": "16b94434ef0050f1916715a7c332d6a9"
+    },
+    {
+      "proname": "settle_play_purchase",
+      "args": "p_user_id uuid, p_order_id text, p_product_id text, p_play_sku text, p_purchase_token text, p_paid_at timestamp with time zone",
+      "prosecdef": true,
+      "proacl": "{postgres=X/postgres,service_role=X/postgres}",
+      "definition_hash": "51149f55fcadf5d7255f72d63e1d80ff"
+    },
+    {
+      "proname": "user_can_access_note",
+      "args": "p_user uuid, p_note_id text",
+      "prosecdef": true,
+      "proacl": "{postgres=X/postgres,service_role=X/postgres}",
+      "definition_hash": "238c6616da61066cd6173bbc0936be69"
+    }
+  ],
+  "grants": [],
+  "edge_functions": [
+    {
+      "slug": "verify-payment",
+      "name": "verify-payment",
+      "version": 67,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790106848094
+    },
+    {
+      "slug": "send-push-notification",
+      "name": "send-push-notification",
+      "version": 50,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1789993120363
+    },
+    {
+      "slug": "razorpay-webhook",
+      "name": "razorpay-webhook",
+      "version": 49,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1790106854078
+    },
+    {
+      "slug": "delete-account",
+      "name": "delete-account",
+      "version": 18,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1789896585559
+    },
+    {
+      "slug": "create-order",
+      "name": "create-order",
+      "version": 22,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1790106841912
+    },
+    {
+      "slug": "get-note-url",
+      "name": "get-note-url",
+      "version": 17,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1789981639814
+    },
+    {
+      "slug": "get-video-url",
+      "name": "get-video-url",
+      "version": 17,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1789981644543
+    },
+    {
+      "slug": "login-with-mobile",
+      "name": "login-with-mobile",
+      "version": 17,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1789990093212
+    },
+    {
+      "slug": "request-password-reset-by-mobile",
+      "name": "request-password-reset-by-mobile",
+      "version": 17,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1789990100784
+    },
+    {
+      "slug": "create-play-order",
+      "name": "create-play-order",
+      "version": 2,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1792259108507
+    },
+    {
+      "slug": "verify-play-purchase",
+      "name": "verify-play-purchase",
+      "version": 2,
+      "status": "ACTIVE",
+      "verify_jwt": true,
+      "updated_at": 1792259116603
+    },
+    {
+      "slug": "sync-play-catalog",
+      "name": "sync-play-catalog",
+      "version": 2,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1792259125241
+    },
+    {
+      "slug": "play-payment-worker",
+      "name": "play-payment-worker",
+      "version": 2,
+      "status": "ACTIVE",
+      "verify_jwt": false,
+      "updated_at": 1792259132736
+    }
+  ],
+  "backups": {
+    "region": "ap-northeast-2",
+    "pitr_enabled": false,
+    "backup_metadata": []
+  }
+}

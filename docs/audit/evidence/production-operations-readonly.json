@@ -1,0 +1,375 @@
+{
+  "project_ref": "xbvenkfmesugrbjuufyw",
+  "captured_at": "2026-10-18T07:40:16.284391+00:00",
+  "read_only": true,
+  "price_tiers": [],
+  "catalog_queue": [
+    {
+      "price_inr": "1.00",
+      "status": "pending",
+      "attempts": 0,
+      "last_synced_at": null
+    }
+  ],
+  "payment_queue": [],
+  "cron_jobs": [
+    {
+      "jobid": 1,
+      "jobname": "purge-analytics-events-12m",
+      "schedule": "30 3 * * *",
+      "active": true
+    },
+    {
+      "jobid": 2,
+      "jobname": "purge-payment-sessions-30d",
+      "schedule": "40 3 * * *",
+      "active": true
+    },
+    {
+      "jobid": 5,
+      "jobname": "release-wallet-credits",
+      "schedule": "*/15 * * * *",
+      "active": true
+    },
+    {
+      "jobid": 8,
+      "jobname": "play-catalog-sync",
+      "schedule": "* * * * *",
+      "active": false
+    },
+    {
+      "jobid": 9,
+      "jobname": "play-consume",
+      "schedule": "* * * * *",
+      "active": false
+    },
+    {
+      "jobid": 10,
+      "jobname": "play-reconcile",
+      "schedule": "* * * * *",
+      "active": false
+    },
+    {
+      "jobid": 11,
+      "jobname": "play-voids",
+      "schedule": "* * * * *",
+      "active": false
+    }
+  ],
+  "cron_recent": [
+    {
+      "jobname": "purge-payment-sessions-30d",
+      "status": "succeeded",
+      "count": 1
+    },
+    {
+      "jobname": "release-wallet-credits",
+      "status": "succeeded",
+      "count": 96
+    },
+    {
+      "jobname": "purge-analytics-events-12m",
+      "status": "succeeded",
+      "count": 1
+    }
+  ],
+  "counts": [
+    {
+      "notes": 28,
+      "videos": 4,
+      "quizzes": 1,
+      "products": 10,
+      "profiles": 25
+    }
+  ],
+  "product_prices": [
+    {
+      "scope": "bundle",
+      "product_type": "notes_bundle",
+      "price": "1.00",
+      "active": true,
+      "count": 1
+    },
+    {
+      "scope": "chapter",
+      "product_type": "other",
+      "price": "1.00",
+      "active": true,
+      "count": 1
+    },
+    {
+      "scope": "subject",
+      "product_type": "notes",
+      "price": "1.00",
+      "active": true,
+      "count": 1
+    },
+    {
+      "scope": "subject",
+      "product_type": "other",
+      "price": "1.00",
+      "active": true,
+      "count": 4
+    },
+    {
+      "scope": "year",
+      "product_type": "notes",
+      "price": "1.00",
+      "active": true,
+      "count": 2
+    },
+    {
+      "scope": "year",
+      "product_type": "other",
+      "price": "1.00",
+      "active": true,
+      "count": 1
+    }
+  ],
+  "orphan_object_candidates": [
+    {
+      "objects_without_exact_note_reference": 25
+    }
+  ],
+  "rls_tables": [
+    {
+      "relname": "admin_settings",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "admins",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "analytics_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "app_config",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "app_settings",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "chapters",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "courses",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "first_discount_reservations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "first_purchase_identities",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "notes",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "notifications",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "order_review_flags",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "orders",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "payment_captures",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "payment_compensations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "payment_jobs",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "payment_sessions",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "payments",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "play_payment_jobs",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "play_price_sync",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "play_price_sync_logs",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "play_price_tiers",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "play_recovery_cursor",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "play_void_sweep_state",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "play_void_tokens",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "products",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "profiles",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "provider_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "purchases",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "push_tokens",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "quiz_scores",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "quiz_tests",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "rate_limits",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "razorpay_webhook_events",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "referral_settings",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "referral_settings_audit",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "referrals",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "subjects",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "ucb_external_refunds",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "videos",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "wallet_ledger",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "wallet_order_reservations",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    },
+    {
+      "relname": "years",
+      "relrowsecurity": true,
+      "relforcerowsecurity": false
+    }
+  ],
+  "disk": {
+    "timestamp": "2026-10-18T07:40:26Z",
+    "metrics": {
+      "fs_size_bytes": 2077073408,
+      "fs_avail_bytes": 1784049664,
+      "fs_used_bytes": 293023744
+    }
+  },
+  "secret_names": [
+    "SUPABASE_URL",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_PUBLISHABLE_KEYS",
+    "SUPABASE_SECRET_KEYS",
+    "SUPABASE_DB_URL",
+    "SUPABASE_JWKS",
+    "RAZORPAY_KEY_ID",
+    "RAZORPAY_KEY_SECRET",
+    "RAZORPAY_WEBHOOK_SECRET",
+    "GOOGLE_PLAY_PACKAGE_NAME",
+    "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON",
+    "PLAY_CATALOG_CRON_SECRET",
+    "PLAY_PAYMENT_CRON_SECRET"
+  ]
+}

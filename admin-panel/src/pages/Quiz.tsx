@@ -31,6 +31,7 @@ export default function Quiz() {
 
   const [deleteTarget, setDeleteTarget] = useState<QuizTest | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const subjectsForFilter = useMemo(
     () => (courseFilter ? subjects.filter((s) => s.courseId === courseFilter) : subjects),
@@ -71,8 +72,11 @@ export default function Quiz() {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
+      setDeleteError(null);
       await removeTest(deleteTarget.id);
       setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete quiz test.");
     } finally {
       setDeleting(false);
     }
@@ -127,6 +131,7 @@ export default function Quiz() {
       </div>
 
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      {deleteError && <p className="text-red-500 mb-4" role="alert">{deleteError}</p>}
 
       {filteredTests.length === 0 ? (
         <div className="bg-white rounded-xl p-10 text-center shadow">

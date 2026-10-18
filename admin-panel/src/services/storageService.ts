@@ -1,43 +1,22 @@
 import { supabase } from "../config/supabase";
+import { validatePdf } from "../utils/pdfValidation";
 
-// ============================================================================
-// CRITICAL FINDING (see audit report): uploadFile() returns getPublicUrl(),
-// which only works if the bucket is marked PUBLIC in Supabase Dashboard ->
-// Storage. A public bucket means the PDF/file is reachable by ANYONE who
-// has (or guesses/finds) the URL - with no auth check and no purchase/
-// entitlement check. Since "notes" holds paid content (Notes are gated by
-// a purchase in the mobile app), a public "notes" bucket lets anyone
-// bypass the paywall entirely if they ever see one URL (shared link,
-// screenshot, proxy log, browser history, etc.) - RLS on the `notes`
-// TABLE does not protect the file sitting in Storage; those are two
-// separate permission systems in Supabase.
-//
-// RECOMMENDED FIX (requires a small migration, so not applied
-// automatically here - see the audit report's "manual actions" section):
-//   1. In Supabase Dashboard -> Storage, set the "notes" bucket to
-//      PRIVATE.
-//   2. Add a Storage RLS policy on storage.objects restricting SELECT to
-//      users who own a matching row in `purchases` (or gate access
-//      through an Edge Function instead - the report includes an
-//      example).
-//   3. Switch callers from getPublicUrl() to getSignedUrl() below, and
-//      have the mobile app fetch a fresh signed URL right before opening
-//      the PDF viewer (not once at admin-upload time), through a
-//      call that checks entitlement server-side.
-// ============================================================================
+// The notes bucket is made private by 20260924120000. Existing rows store
+// public-style URLs as object identifiers; get-note-url checks entitlement
+// and signs a short-lived URL before the mobile app opens a PDF.
 
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024; // 50MB - adjust to your content
 
-// Uploads a file to a Supabase Storage bucket and returns its PUBLIC URL.
-// Keep using this only for genuinely public assets (e.g. thumbnails).
-// For anything paywalled (Note PDFs), migrate to uploadPrivateFile below
-// once the bucket is private.
-export function uploadFile(
+// Returns the legacy URL-shaped identifier expected by notes.pdf_url. It
+// cannot be fetched without a signed URL while the bucket is private.
+export async function uploadFile(
   file: File,
   bucket: string,
   onProgress?: (percent: number) => void,
-  allowedMimeTypes: string[] = ["application/pdf"]
-): Promise<string> {
+  allowedMimeTypes: string[] = ["application/pdf"],
+  requestId: string = crypto.randomUUID()
+): Promise<{ pdfUrl: string; requestId: string }> {
+  if (bucket !== "notes") throw new Error("Unsupported upload bucket.");
   if (!allowedMimeTypes.includes(file.type)) {
     return Promise.reject(new Error(`File type "${file.type}" is not allowed.`));
   }
@@ -47,76 +26,57 @@ export function uploadFile(
     );
   }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `${Date.now()}_${safeName}`;
+  if (file.type === "application/pdf") await validatePdf(file);
 
-  return new Promise((resolve, reject) => {
-    // supabase-js v2 doesn't expose granular upload progress like Firebase
-    // did, so we show an indeterminate state to the caller instead.
-    onProgress?.(50);
-
-    supabase.storage
-      .from(bucket)
-      .upload(path, file, { upsert: false, contentType: file.type })
-      .then(({ error }) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-
-        onProgress?.(100);
-        const { data } = supabase.storage.from(bucket).getPublicUrl(path);
-        resolve(data.publicUrl);
-      })
-      .catch(reject);
-  });
-}
-
-// Same upload, but returns the storage PATH (not a URL) - use this once a
-// bucket is switched to private. Store `bucket:path` (or just `path`, if
-// you always know the bucket) instead of a URL in the DB row, and resolve
-// it to a short-lived signed URL only at view-time via getSignedUrl().
-export function uploadPrivateFile(
-  file: File,
-  bucket: string,
-  onProgress?: (percent: number) => void,
-  allowedMimeTypes: string[] = ["application/pdf"]
-): Promise<string> {
-  if (!allowedMimeTypes.includes(file.type)) {
-    return Promise.reject(new Error(`File type "${file.type}" is not allowed.`));
-  }
-  if (file.size > MAX_UPLOAD_BYTES) {
-    return Promise.reject(
-      new Error(`File is too large (max ${Math.floor(MAX_UPLOAD_BYTES / 1024 / 1024)}MB).`)
-    );
+  if (file.size > 10 * 1024 * 1024) {
+    const sha256 = Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", await file.arrayBuffer())))
+      .map((n) => n.toString(16).padStart(2, "0")).join("");
+    const invoke = async (body: Record<string, unknown>) => {
+      const { data, error } = await supabase.functions.invoke("upload-note-pdf", { body });
+      if (error) throw new Error("Upload validation service unavailable. Retry with the same file.");
+      if (!data || data.requestId !== requestId) throw new Error("Invalid upload response.");
+      if (data.status === "rejected" || data.status === "failed") throw new Error(data.error || "PDF validation failed.");
+      return data;
+    };
+    let result = await invoke({ action: "reserve", requestId, sha256, bytes: file.size });
+    if (result.status !== "ready") {
+      if (typeof result.path !== "string" || typeof result.token !== "string") throw new Error("Upload authorization missing.");
+      const { error } = await supabase.storage.from("note-quarantine")
+        .uploadToSignedUrl(result.path, result.token, file, { contentType: "application/pdf" });
+      // An ambiguous previous upload can already exist. The worker validates
+      // the immutable object's expected hash before it can become attachable.
+      if (error && String((error as any).statusCode) !== "409" && !/already exists/i.test(error.message)) {
+        throw new Error("Quarantine transfer failed. Retry with the same file.");
+      }
+      onProgress?.(75);
+      const deadline = Date.now() + 5 * 60 * 1000;
+      while (Date.now() < deadline && result.status !== "ready") {
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+        result = await invoke({ action: "status", requestId });
+      }
+    }
+    if (result.status !== "ready" || typeof result.pdfUrl !== "string") {
+      throw new Error("PDF is awaiting trusted validation. Retry with the same file; do not start another upload.");
+    }
+    onProgress?.(100);
+    return { requestId, pdfUrl: result.pdfUrl };
   }
 
-  const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-  const path = `${Date.now()}_${safeName}`;
-
-  return new Promise((resolve, reject) => {
-    onProgress?.(50);
-
-    supabase.storage
-      .from(bucket)
-      .upload(path, file, { upsert: false, contentType: file.type })
-      .then(({ error }) => {
-        if (error) {
-          reject(error);
-          return;
-        }
-        onProgress?.(100);
-        resolve(path); // caller stores `path`, not a URL
-      })
-      .catch(reject);
-  });
+  const body = new FormData();
+  body.append("file", file);
+  body.append("request_id", requestId);
+  onProgress?.(50);
+  const { data, error } = await supabase.functions.invoke("upload-note-pdf", { body });
+  if (error || typeof data?.pdfUrl !== "string" || data?.requestId !== requestId) {
+    const detail = data?.error;
+    throw new Error(typeof detail === "string" ? detail : "PDF upload failed. Please retry.");
+  }
+  onProgress?.(100);
+  return { pdfUrl: data.pdfUrl, requestId };
 }
 
-// Generates a time-boxed URL for a private-bucket object. Call this from
-// the MOBILE app right before opening the PDF viewer (ideally via an
-// Edge Function / RPC that re-checks purchase entitlement server-side
-// first), not once at admin-upload time - a signed URL that never
-// expires is only marginally better than a public one.
+// Admin preview only. Mobile callers use get-note-url, which checks purchase
+// entitlement before signing.
 export async function getSignedUrl(
   bucket: string,
   path: string,
@@ -138,5 +98,9 @@ export function extractStoragePath(bucket: string, storedUrl: string): string | 
   const idx = storedUrl.indexOf(marker);
   if (idx === -1) return null;
   const path = storedUrl.slice(idx + marker.length).split("?")[0];
-  return path ? decodeURIComponent(path) : null;
+  try {
+    return path ? decodeURIComponent(path) : null;
+  } catch {
+    return null;
+  }
 }

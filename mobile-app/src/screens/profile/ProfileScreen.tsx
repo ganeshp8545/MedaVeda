@@ -69,7 +69,7 @@ export default function ProfileScreen() {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.medveda.app",
+          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=in.medveda.app",
       });
     } catch (error) {
       logError("Screen action failed", error);
@@ -108,7 +108,7 @@ export default function ProfileScreen() {
 
         <View style={styles.statsRow}>
           <StatCard
-          title="Attempts"
+          title="Verified Attempts"
           value={stats.totalAttempts.toString()}
           />
 
@@ -117,6 +117,12 @@ export default function ProfileScreen() {
             value={`${stats.bestScore}%`}
           />
         </View>
+
+        {stats.legacyAttempts > 0 && (
+          <Text style={{ color: COLORS.subtitle, marginBottom: SPACING.md }}>
+            {stats.legacyAttempts} earlier attempt(s) are unverified practice history.
+          </Text>
+        )}
 
         <ProfileMenuCard
           icon="🎓"

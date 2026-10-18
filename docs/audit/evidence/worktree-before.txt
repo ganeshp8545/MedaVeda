@@ -1,0 +1,241 @@
+ .github/workflows/ci.yml                           |   1 +
+ .gitignore                                         |   2 +
+ MEDVEDA_PAYMENT_INTEGRATION_AUDIT.md               |   2 +
+ admin-panel/package.json                           |   1 +
+ admin-panel/src/components/ChapterPicker.tsx       |   2 +-
+ admin-panel/src/components/Modal.tsx               |   4 +-
+ admin-panel/src/components/NoteFormModal.tsx       |  56 ++++++---
+ admin-panel/src/components/NotesTable.tsx          |   5 +-
+ admin-panel/src/components/ProductFormModal.tsx    |  30 +++--
+ admin-panel/src/components/ProductTable.tsx        |  21 +++-
+ admin-panel/src/components/QuizFormModal.tsx       |   8 +-
+ admin-panel/src/components/SubjectPicker.tsx       |   2 +-
+ admin-panel/src/components/VideoFormModal.tsx      |  30 +++--
+ admin-panel/src/pages/Notes.tsx                    |  15 ++-
+ admin-panel/src/pages/Products.tsx                 |  33 +++++-
+ admin-panel/src/pages/Quiz.tsx                     |   5 +
+ admin-panel/src/pages/Videos.tsx                   |   5 +
+ admin-panel/src/services/noteService.ts            |  24 +++-
+ admin-panel/src/services/quizService.ts            |   6 +-
+ admin-panel/src/services/storageService.ts         | 128 +++++----------------
+ admin-panel/src/services/videoService.ts           |   6 +-
+ admin-panel/src/types/note.ts                      |   1 +
+ admin-panel/src/types/product.ts                   |   2 +-
+ docs/RELEASE_GATES.md                              |   4 +-
+ mobile-app/App.tsx                                 |   2 +-
+ mobile-app/app.config.js                           |   9 +-
+ mobile-app/app.json                                |   4 +-
+ mobile-app/scripts/payment-provider-selftest.cjs   |   8 ++
+ mobile-app/src/components/HomeHeader.tsx           |  42 +++++--
+ mobile-app/src/components/NoteCard.tsx             |  12 ++
+ mobile-app/src/components/SideDrawer.tsx           |   2 +-
+ mobile-app/src/config/database.ts                  |   9 ++
+ mobile-app/src/hooks/useQuizStats.ts               |  18 ++-
+ mobile-app/src/navigation/AppNavigator.tsx         |  20 ++--
+ mobile-app/src/screens/about/AboutScreen.tsx       |   4 +-
+ mobile-app/src/screens/auth/LoginScreen.tsx        |  27 ++++-
+ mobile-app/src/screens/auth/RegisterScreen.tsx     |  16 ++-
+ mobile-app/src/screens/auth/SplashScreen.tsx       |  16 +--
+ mobile-app/src/screens/notes/NotesScreen.tsx       |   3 +-
+ .../src/screens/payment/PaymentSuccessScreen.tsx   |  74 +++++++-----
+ .../src/screens/payment/PlayBillingScreen.tsx      |  47 ++++++--
+ mobile-app/src/screens/privacy/PrivacyScreen.tsx   |  11 +-
+ mobile-app/src/screens/profile/ProfileScreen.tsx   |  10 +-
+ mobile-app/src/screens/quiz/QuizScreen.tsx         |  53 +++++++--
+ mobile-app/src/screens/referral/ReferralScreen.tsx |   2 +-
+ mobile-app/src/screens/settings/SettingsScreen.tsx |   4 +-
+ mobile-app/src/screens/terms/TermsScreen.tsx       |   5 +-
+ .../src/screens/update/UpdateRequiredScreen.tsx    |   4 +-
+ mobile-app/src/services/appConfigService.ts        |   6 +-
+ mobile-app/src/services/playBillingService.ts      |  34 ++++--
+ mobile-app/src/services/quizAttempts.ts            |  44 +++----
+ mobile-app/src/services/syncEngine.ts              |  67 ++++++++++-
+ mobile-app/src/types/navigation.ts                 |   5 +-
+ mobile-app/src/types/note.ts                       |   1 +
+ mobile-app/src/types/quiz.ts                       |   2 +
+ supabase/config.toml                               |   8 ++
+ supabase/functions/.env.example                    |   4 +
+ supabase/functions/_shared/googlePlay.ts           |  19 ++-
+ supabase/functions/create-play-order/index.ts      |  14 ++-
+ supabase/functions/get-video-url/index.ts          |   8 +-
+ supabase/functions/verify-play-purchase/index.ts   |  47 +++++---
+ supabase/play_payment_cron_setup.sql               |  32 ++----
+ supabase/seed/apply-play-price-tiers.mjs           |  44 +------
+ supabase/seed/play_price_tiers.json                |   4 +-
+ supabase/tests/payment-concurrency.sh              |  10 +-
+ supabase/tests/play_payment_pg_checks.sql          |   6 +-
+ supabase/tests/referral_switch_off_paths.sql       |  12 +-
+ supabase/tests/run-all.sh                          |   4 +-
+ supabase/tests/ucb-cron-config-selftest.cjs        |   5 +-
+ supabase/tests/ucb_checks.sql                      |   7 +-
+ website/404.html                                   |   2 +-
+ website/_src/faq.mjs                               |   6 +-
+ website/_src/pages/about.html                      |   2 +-
+ website/_src/pages/courses.html                    |  20 ++--
+ website/_src/pages/disclaimer.html                 |   2 +-
+ website/_src/pages/features.html                   |   4 +-
+ website/_src/pages/how-it-works.html               |   2 +-
+ website/_src/pages/index.html                      |  16 +--
+ website/about.html                                 |   4 +-
+ website/account-verified.html                      |   6 +-
+ website/assets/js/config.js                        |   2 +-
+ website/contact.html                               |   2 +-
+ website/courses.html                               |  32 +++---
+ website/delete-account.html                        |   2 +-
+ website/disclaimer.html                            |   4 +-
+ website/download.html                              |   4 +-
+ website/faq.html                                   |  12 +-
+ website/features.html                              |   8 +-
+ website/how-it-works.html                          |   6 +-
+ website/index.html                                 |  38 +++---
+ website/privacy-policy.html                        |   2 +-
+ website/refund-policy.html                         |   2 +-
+ website/reset-password.html                        |   6 +-
+ website/scripts/build.mjs                          |   2 +-
+ website/shipping-policy.html                       |   2 +-
+ website/sitemap.xml                                |  28 ++---
+ website/terms.html                                 |   2 +-
+ 97 files changed, 872 insertions(+), 524 deletions(-)
+ M .github/workflows/ci.yml
+ M .gitignore
+ M MEDVEDA_PAYMENT_INTEGRATION_AUDIT.md
+ M admin-panel/package.json
+ M admin-panel/src/components/ChapterPicker.tsx
+ M admin-panel/src/components/Modal.tsx
+ M admin-panel/src/components/NoteFormModal.tsx
+ M admin-panel/src/components/NotesTable.tsx
+ M admin-panel/src/components/ProductFormModal.tsx
+ M admin-panel/src/components/ProductTable.tsx
+ M admin-panel/src/components/QuizFormModal.tsx
+ M admin-panel/src/components/SubjectPicker.tsx
+ M admin-panel/src/components/VideoFormModal.tsx
+ M admin-panel/src/pages/Notes.tsx
+ M admin-panel/src/pages/Products.tsx
+ M admin-panel/src/pages/Quiz.tsx
+ M admin-panel/src/pages/Videos.tsx
+ M admin-panel/src/services/noteService.ts
+ M admin-panel/src/services/quizService.ts
+ M admin-panel/src/services/storageService.ts
+ M admin-panel/src/services/videoService.ts
+ M admin-panel/src/types/note.ts
+ M admin-panel/src/types/product.ts
+ M docs/RELEASE_GATES.md
+ M mobile-app/App.tsx
+ M mobile-app/app.config.js
+ M mobile-app/app.json
+ M mobile-app/scripts/payment-provider-selftest.cjs
+ M mobile-app/src/components/HomeHeader.tsx
+ M mobile-app/src/components/NoteCard.tsx
+ M mobile-app/src/components/SideDrawer.tsx
+ M mobile-app/src/config/database.ts
+ M mobile-app/src/hooks/useQuizStats.ts
+ M mobile-app/src/navigation/AppNavigator.tsx
+ M mobile-app/src/screens/about/AboutScreen.tsx
+ M mobile-app/src/screens/auth/LoginScreen.tsx
+ M mobile-app/src/screens/auth/RegisterScreen.tsx
+ M mobile-app/src/screens/auth/SplashScreen.tsx
+ M mobile-app/src/screens/notes/NotesScreen.tsx
+ M mobile-app/src/screens/payment/PaymentSuccessScreen.tsx
+ M mobile-app/src/screens/payment/PlayBillingScreen.tsx
+ M mobile-app/src/screens/privacy/PrivacyScreen.tsx
+ M mobile-app/src/screens/profile/ProfileScreen.tsx
+ M mobile-app/src/screens/quiz/QuizScreen.tsx
+ M mobile-app/src/screens/referral/ReferralScreen.tsx
+ M mobile-app/src/screens/settings/SettingsScreen.tsx
+ M mobile-app/src/screens/terms/TermsScreen.tsx
+ M mobile-app/src/screens/update/UpdateRequiredScreen.tsx
+ M mobile-app/src/services/appConfigService.ts
+ M mobile-app/src/services/playBillingService.ts
+ M mobile-app/src/services/quizAttempts.ts
+ M mobile-app/src/services/syncEngine.ts
+ M mobile-app/src/types/navigation.ts
+ M mobile-app/src/types/note.ts
+ M mobile-app/src/types/quiz.ts
+ M supabase/config.toml
+ M supabase/functions/.env.example
+ M supabase/functions/_shared/googlePlay.ts
+ M supabase/functions/create-play-order/index.ts
+ M supabase/functions/get-video-url/index.ts
+ M supabase/functions/verify-play-purchase/index.ts
+ M supabase/play_payment_cron_setup.sql
+ M supabase/seed/apply-play-price-tiers.mjs
+ M supabase/seed/play_price_tiers.json
+ M supabase/tests/payment-concurrency.sh
+ M supabase/tests/play_payment_pg_checks.sql
+ M supabase/tests/referral_switch_off_paths.sql
+ M supabase/tests/run-all.sh
+ M supabase/tests/ucb-cron-config-selftest.cjs
+ M supabase/tests/ucb_checks.sql
+ M website/404.html
+ M website/_src/faq.mjs
+ M website/_src/pages/about.html
+ M website/_src/pages/courses.html
+ M website/_src/pages/disclaimer.html
+ M website/_src/pages/features.html
+ M website/_src/pages/how-it-works.html
+ M website/_src/pages/index.html
+ M website/about.html
+ M website/account-verified.html
+ M website/assets/js/config.js
+ M website/contact.html
+ M website/courses.html
+ M website/delete-account.html
+ M website/disclaimer.html
+ M website/download.html
+ M website/faq.html
+ M website/features.html
+ M website/how-it-works.html
+ M website/index.html
+ M website/privacy-policy.html
+ M website/refund-policy.html
+ M website/reset-password.html
+ M website/scripts/build.mjs
+ M website/shipping-policy.html
+ M website/sitemap.xml
+ M website/terms.html
+?? MEDVEDA_AAB_FINAL_VERIFICATION.md
+?? MEDVEDA_BILLING_FINAL_COMPLETION.md
+?? MEDVEDA_COMPLETE_PLAY_STORE_AUDIT.md
+?? MEDVEDA_DYNAMIC_PRICING_BILLING_AUDIT.md
+?? MEDVEDA_GOOGLE_PLAY_BILLING_FIX_RESULT.md
+?? MEDVEDA_GOOGLE_PLAY_BILLING_FULL_AUDIT.md
+?? MEDVEDA_GOOGLE_PLAY_BILLING_ONLY_AUDIT.md
+?? MEDVEDA_PAYMENT_IMPLEMENTATION_RESULT.md
+?? MEDVEDA_PHASE0_LIVE_BILLING_VERIFICATION.md
+?? admin-panel/scripts/
+?? admin-panel/src/services/playBillingSyncService.ts
+?? admin-panel/src/utils/pdfValidation.ts
+?? admin-panel/src/utils/videoUrl.ts
+?? docs/PLAY_CATALOG_SYNC_SETUP.md
+?? docs/PLAY_NOTES_CLASSIFICATION_INVENTORY.sql
+?? docs/audit/
+?? mobile-app/assets/branding/
+?? mobile-app/scripts/play-restore-selftest.cjs
+?? mobile-app/src/components/BrandLogo.tsx
+?? mobile-app/src/services/playOfferSelection.ts
+?? supabase/functions/_shared/playCatalog.ts
+?? supabase/functions/_shared/playPurchaseValidation.ts
+?? supabase/functions/_shared/validatePdfStructure.ts
+?? supabase/functions/sync-play-catalog/
+?? supabase/functions/upload-note-pdf/
+?? supabase/migrations/20261014100000_payment_audit_capture_inbox.sql
+?? supabase/migrations/20261014110000_payment_job_leases.sql
+?? supabase/migrations/20261015120000_play_entitlement_order_snapshot.sql
+?? supabase/migrations/20261016090000_free_video_access.sql
+?? supabase/migrations/20261016100000_play_catalog_sync.sql
+?? supabase/migrations/20261018100000_verified_quiz_attempts.sql
+?? supabase/migrations/20261018110000_trusted_note_uploads.sql
+?? supabase/play_catalog_cron_setup.sql
+?? supabase/tests/note_upload_reconciliation_readonly.sql
+?? supabase/tests/note_upload_staging_test.ts
+?? supabase/tests/pdf-validation-test.ts
+?? supabase/tests/play-cron-config-selftest.cjs
+?? supabase/tests/play-offer-selftest.ts
+?? supabase/tests/play_catalog_api_test.ts
+?? supabase/tests/play_catalog_migration_legacy_selftest.sh
+?? supabase/tests/play_catalog_sync_checks.sql
+?? supabase/tests/play_catalog_unit_test.ts
+?? supabase/tests/play_entitlement_snapshot_checks.sql
+?? supabase/tests/verified_content_checks.sql
+?? tatus
+?? website/.gitignore

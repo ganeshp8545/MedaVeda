@@ -2,7 +2,7 @@
 export const FAQ = [
   // Getting started
   { group: "Getting started", home: true, q: "What is MedVeda?", a: "<p>MedVeda is a mobile study app for AYUSH degree students. For your course and academic year it organises study material as subject → chapter, with PDF notes, video lectures and MCQ tests.</p>" },
-  { group: "Getting started", home: true, q: "Which courses are supported?", a: "<p>BAMS, BNYS, BSMS, BUMS and BHMS are set up on the platform. Courses are managed by the MedVeda team, so more can be added over time. What you can study depends on the content published for your course and year.</p>" },
+  { group: "Getting started", home: true, q: "Which courses are supported?", a: "<p>BAMS study content is currently available. MedVeda plans to expand to other AYUSH degrees, but those courses do not have published study content yet. Available subjects and chapters depend on your academic year.</p>" },
   { group: "Getting started", q: "Which phones does MedVeda run on?", a: "<p>MedVeda is available on Android through <a href=\"{{PLAY_URL}}\" rel=\"noopener\">Google Play</a>. Check the <a href=\"/download\">Download page</a> for the latest availability.</p>" },
   { group: "Getting started", home: true, q: "Is MedVeda free?", a: "<p>Video lectures and MCQ tests are free. PDF notes are sold as paid packages (a few individual notes may be marked free). See <a href=\"/how-it-works\">How it works</a>.</p>" },
 
@@ -23,8 +23,8 @@ export const FAQ = [
   { group: "Learning & content", q: "Are my quiz scores saved?", a: "<p>Yes. Test scores are recorded to your account. If you finish a test while offline, the score is saved on the device and synced when you're back online.</p>" },
 
   // Payments
-  { group: "Payments & purchases", home: true, q: "How do I buy notes?", a: "<p>Open a chapter, subject or the Store and choose an option: notes can be sold per chapter, per subject, per academic year, or as a multi-year bundle. Pay in the app through Razorpay. When payment succeeds the notes unlock.</p>" },
-  { group: "Payments & purchases", q: "Which payment methods can I use?", a: "<p>Payments are handled by Razorpay, which shows the methods available for your purchase at checkout. MedVeda does not see or store your card, UPI PIN or bank details.</p>" },
+  { group: "Payments & purchases", home: true, q: "How do I buy notes?", a: "<p>Open a chapter, subject or the Store in the Android app and choose a Notes package. The Google Play version uses Google Play Billing; separate permitted distribution builds use Razorpay. Notes unlock after payment is verified.</p>" },
+  { group: "Payments & purchases", q: "Which payment methods can I use?", a: "<p>Google Play shows the payment methods available in the Play-distributed app. Separate permitted distribution builds use Razorpay. MedVeda does not see or store your card, UPI PIN or bank details.</p>" },
   { group: "Payments & purchases", q: "My payment failed or money was deducted but the notes are locked.", a: "<p>First reopen the app and check <strong>My Purchases</strong> — confirmation can take a short while. If the amount was debited and the notes are still locked, email us with your registered email and the payment reference from your bank or Razorpay. See the <a href=\"/refund-policy\">Refund &amp; Cancellation Policy</a> and <a href=\"/shipping-policy\">Delivery Policy</a>.</p>" },
   { group: "Payments & purchases", q: "Can I get a refund?", a: "<p>Please read our <a href=\"/refund-policy\">Refund &amp; Cancellation Policy</a>. It explains what is refundable, how duplicate or failed payments are handled and how to ask.</p>" },
   { group: "Payments & purchases", q: "Where can I see what I've bought?", a: "<p>Open <strong>My Purchases</strong> in the app for your order history and unlocked content.</p>" },

@@ -1,4 +1,6 @@
 import React from "react";
+import * as Application from "expo-application";
+import Constants from "expo-constants";
 import {
   Text,
   StyleSheet,
@@ -24,7 +26,7 @@ export default function AboutScreen() {
       </Text>
 
       <Text style={styles.version}>
-        Version 1.0.0
+        Version {Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "—"}
       </Text>
 
       <Text style={styles.heading}>

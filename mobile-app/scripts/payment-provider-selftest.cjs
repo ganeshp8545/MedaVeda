@@ -26,6 +26,14 @@ assert.equal(app.slug, "ayurpulse");
 assert.equal(configFor("production").extra.medvedaPaymentProvider, "play");
 assert.equal(configFor("internal-testing").extra.medvedaPaymentProvider, "play");
 assert.equal(configFor("razorpay-distribution", "razorpay").extra.medvedaPaymentProvider, "razorpay");
+assert.equal(configFor("production").android.runtimeVersion, `${app.version}-play`);
+assert.equal(configFor("internal-testing").android.runtimeVersion, `${app.version}-play`);
+assert.equal(configFor("razorpay-distribution", "razorpay").android.runtimeVersion,
+  `${app.version}-razorpay`);
+assert.equal(configFor(undefined, "razorpay").android.runtimeVersion,
+  `${app.version}-razorpay`);
+assert.notEqual(configFor(undefined, "razorpay").android.runtimeVersion,
+  configFor("production").android.runtimeVersion);
 assert.throws(
   () => configFor("production", "razorpay"),
   /Google Play builds must use Google Play Billing/

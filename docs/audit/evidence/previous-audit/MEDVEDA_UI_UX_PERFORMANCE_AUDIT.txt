@@ -1,0 +1,11 @@
+# UI, accessibility and performance
+
+## Continuation (latest)
+
+The note form now accepts descriptions and reuses an upload request ID after a failed response. Mobile note cards show descriptions and note search includes them. Quiz results label local/unverified, stale, rejected and server-verified outcomes; profile metrics read only `verified_quiz_attempts` and label old history unverified. TypeScript and admin build pass. No small-screen screenshot, keyboard/screen-reader, real device, upload timing or runtime memory test was performed. The earlier content below is an initial snapshot.
+
+The admin course/year/subject/chapter pickers now stack on narrow screens (MV-007). Video access copy now reflects the free-video rule (MV-005), and content deletion failures are visible (MV-006). PDF uploads show an indeterminate state because granular transfer progress is unavailable in the current Supabase JS call. Admin modals contain large forms; browser screenshot and keyboard/accessibility review were not available.
+
+The public website now distinguishes currently available BAMS content from planned AYUSH courses (MV-008). Its generated pages rebuilt and all 17 local links passed; hosted pages were not checked.
+
+The admin production bundle built successfully. The largest shared JS asset was approximately 468 kB before gzip and 136 kB after gzip in this local build. No startup/render/network/memory baseline or before/after measurement was available, so no performance gain is claimed. Mobile logo, small-screen behavior, video buffering, PDF viewer and screen-reader usability remain NOT VERIFIED on devices.

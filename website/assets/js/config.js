@@ -3,5 +3,5 @@ window.MEDVEDA_CONFIG = {
   supabaseUrl: "https://xbvenkfmesugrbjuufyw.supabase.co",
   supabaseAnonKey: "sb_publishable_fXCKukdHR8Yy05Er-t47wQ_fxHuYMZD",
   appScheme: "medveda://",
-  playStoreUrl: "https://play.google.com/store/apps/details?id=com.medveda.app"
+  playStoreUrl: "https://play.google.com/store/apps/details?id=in.medveda.app"
 };

@@ -3,7 +3,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const db = `ap_cron_${process.pid}`;
 const root = path.resolve(__dirname, '../..');
-const env = { ...process.env, PGHOST: '127.0.0.1', PGPORT: '55437', PGUSER: 'postgres' };
+// Use the same PostgreSQL connection as the rest of the SQL suites. A fixed
+// test port made this selftest fail against a healthy local cluster.
+const env = { ...process.env, PGHOST: process.env.PGHOST || '127.0.0.1',
+  PGPORT: process.env.PGPORT || '5432', PGUSER: process.env.PGUSER || 'postgres' };
 function sql(database, source) {
   const result = spawnSync('psql', ['-X','-q','-At','-v','ON_ERROR_STOP=1','-d',database,'-c',source], { env, encoding:'utf8' });
   return result;

@@ -70,7 +70,7 @@ export class GoogleApiError extends Error {
   constructor(public readonly status: number) { super(`Google Play API returned ${status}`); }
 }
 
-export async function googleRequest<T>(method: "GET" | "POST", path: string, body?: unknown): Promise<T> {
+export async function googleRequest<T>(method: "GET" | "POST" | "PATCH", path: string, body?: unknown): Promise<T> {
   const response = await fetch(`${API}${path}`, {
     method, signal: AbortSignal.timeout(15_000),
     headers: { Authorization: `Bearer ${await serviceAccountToken()}`,
@@ -89,6 +89,23 @@ function productPath(sku: string, token: string): string {
 
 export function getProductPurchase(sku: string, token: string): Promise<ProductPurchase> {
   return googleRequest<ProductPurchase>("GET", productPath(sku, token));
+}
+
+export type ProductPurchaseV2 = {
+  purchaseStateContext?: { purchaseState?: string };
+  productLineItem?: { productId?: string; productOfferDetails?: {
+    purchaseOptionId?: string; offerId?: string; quantity?: number;
+    refundableQuantity?: number; consumptionState?: string;
+  } }[];
+  regionCode?: string;
+  purchaseCompletionTime?: string;
+  obfuscatedExternalAccountId?: string;
+  obfuscatedExternalProfileId?: string;
+};
+
+export function getProductPurchaseV2(token: string): Promise<ProductPurchaseV2> {
+  return googleRequest<ProductPurchaseV2>("GET",
+    `/applications/${encodeURIComponent(packageName())}/purchases/productsv2/tokens/${encodeURIComponent(token)}`);
 }
 
 export function consumeProductPurchase(sku: string, token: string): Promise<Record<string, never>> {

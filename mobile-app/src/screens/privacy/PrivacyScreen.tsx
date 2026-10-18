@@ -62,10 +62,11 @@ export default function PrivacyScreen() {
         Payments
       </Text>
       <Text style={styles.body}>
-        Depending on your choice and eligibility, payments are
-        processed by Google Play or Razorpay. We verify purchases and
-        report eligible Razorpay transactions and refunds to Google
-        Play. We do not store your card numbers, UPI PIN or bank
+        Google Play processes digital Notes purchases in the Google Play
+        Android app. Separate permitted distribution builds use Razorpay.
+        We verify purchases and, where required by an enrolled payment
+        program, report eligible Razorpay transactions and refunds to
+        Google Play. We do not store your card numbers, UPI PIN or bank
         credentials.
       </Text>
       <Text style={styles.heading}>
@@ -79,7 +80,7 @@ export default function PrivacyScreen() {
         • Sentry – crash and error reports{"\n"}
         • Expo – push notifications{"\n"}
         • Google Play – app distribution, Google Play Billing, purchase
-        verification and alternative-billing reporting{"\n\n"}
+        verification and any required payment-program reporting{"\n\n"}
         Each provider follows its own privacy policy. We may also
         disclose data where the law requires it.
       </Text>

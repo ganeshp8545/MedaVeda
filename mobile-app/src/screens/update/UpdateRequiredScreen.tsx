@@ -5,6 +5,7 @@ import CustomButton from "../../components/CustomButton";
 
 import { COLORS } from "../../theme/colors";
 import { SPACING } from "../../theme/spacing";
+import BrandLogo from "../../components/BrandLogo";
 
 // Blocking screen shown when the installed build is older than the admin-set
 // min_app_version. Deliberately has no way past it.
@@ -17,7 +18,7 @@ export default function UpdateRequiredScreen({ storeUrl }: { storeUrl: string })
 
   return (
     <View style={styles.container}>
-      <Text style={styles.logo}>🌿</Text>
+      <BrandLogo size={88} accessibilityLabel="MedVeda logo" />
       <Text style={styles.title}>Update required</Text>
       <Text style={styles.message}>
         A newer version of MedVeda is available and this version is no longer supported.
@@ -38,7 +39,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     padding: SPACING.lg,
   },
-  logo: { fontSize: 64 },
   title: {
     fontSize: 26,
     fontWeight: "bold",

@@ -16,6 +16,7 @@ import { SHADOW } from "../theme/shadows";
 
 type Props = {
   title: string;
+  description?: string;
   onPress: () => void;
   locked?: boolean;
   free?: boolean;
@@ -35,6 +36,7 @@ type Props = {
 
 export default function NoteCard({
   title,
+  description,
   onPress,
   locked = false,
   free = false,
@@ -78,6 +80,10 @@ export default function NoteCard({
             </View>
           )}
         </View>
+
+        {!!description?.trim() && (
+          <Text style={styles.description} numberOfLines={2}>{description.trim()}</Text>
+        )}
 
         <Text style={styles.subtitle} numberOfLines={1}>
           {locked
@@ -196,6 +202,12 @@ const styles = StyleSheet.create({
   subtitle: {
     marginTop: SPACING.xs,
     color: COLORS.subtitle,
+    fontSize: FONT.small,
+  },
+
+  description: {
+    marginTop: SPACING.xs,
+    color: COLORS.text,
     fontSize: FONT.small,
   },
 

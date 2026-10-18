@@ -1,9 +1,12 @@
 import type { Product } from "../types/product";
+import type { BillingStatus } from "../services/playBillingSyncService";
 
 type Props = {
   products: Product[];
   onEdit: (product: Product) => void;
   onDelete: (product: Product) => void;
+  billing: Record<string, BillingStatus>;
+  onRetryBilling: (product: Product) => void;
 };
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -29,7 +32,7 @@ function scopeTarget(product: Product): string {
   return "-";
 }
 
-export default function ProductTable({ products, onEdit, onDelete }: Props) {
+export default function ProductTable({ products, onEdit, onDelete, billing, onRetryBilling }: Props) {
   if (products.length === 0) {
     return (
       <div className="rounded-xl bg-white p-10 text-center text-gray-400 shadow">
@@ -49,6 +52,7 @@ export default function ProductTable({ products, onEdit, onDelete }: Props) {
             <th className="p-4 text-left">Type</th>
             <th className="p-4 text-left">Price</th>
             <th className="p-4 text-left">Status</th>
+            <th className="p-4 text-left">Google Play Billing</th>
             <th className="p-4 text-right">Actions</th>
           </tr>
         </thead>
@@ -87,6 +91,21 @@ export default function ProductTable({ products, onEdit, onDelete }: Props) {
 
               <td className="p-4">
                 {product.active ? "🟢 Active" : "🔴 Inactive"}
+              </td>
+
+              <td className="p-4 text-xs text-gray-700">
+                <div className="font-semibold">{billing[product.id]?.billing_status ?? "Pending"}</div>
+                {billing[product.id]?.play_sku && <div>Product ID: {billing[product.id].play_sku}</div>}
+                {billing[product.id]?.purchase_option_id && <div>BUY option: {billing[product.id].purchase_option_id}</div>}
+                {billing[product.id]?.synced_price != null &&
+                  <div>Synced: {billing[product.id].currency_code} {billing[product.id].synced_price}</div>}
+                {billing[product.id]?.last_synced_at &&
+                  <div>Last sync: {new Date(billing[product.id].last_synced_at!).toLocaleString()}</div>}
+                {billing[product.id]?.last_error &&
+                  <div className="text-red-700">{billing[product.id].last_error}</div>}
+                {product.active && product.price > 0 && billing[product.id] &&
+                  !["ready", "not_billable_notes", "catalog_inactive"].includes(billing[product.id].billing_status) &&
+                  <button onClick={() => onRetryBilling(product)} className="text-green-700 underline">Retry sync</button>}
               </td>
 
               <td className="p-4 text-right">

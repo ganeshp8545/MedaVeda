@@ -1,0 +1,73 @@
+# Test results — 2026-10-18
+
+## Read-only staging discovery — 2026-10-18
+
+| Check | Result | Evidence/limit |
+| --- | --- | --- |
+| Local linked Supabase identity | VERIFIED LOCALLY | `.temp/project-ref` and `.temp/linked-project.json`: `xbvenkfmesugrbjuufyw`, MedVeda. Existing AAB audit identifies the same endpoint as production. |
+| Isolated staging identity/credentials | BLOCKED | No separate ref or staging URL/admin/student JWT found; no Supabase CLI or access token in the process environment. Existing local `.env` files and EAS preview/development profiles reference the production ref. |
+| Remote migration inventory/deployment preview | BLOCKED | 53 local migration files; hosted `supabase_migrations.schema_migrations` and drift unavailable. No `db push`, SQL apply, function deploy, or Storage mutation attempted. |
+| Remote EAS preview/Android version | BLOCKED | `eas whoami --non-interactive` failed with `getaddrinfo EAI_AGAIN api.expo.dev`; EAS remote variables and version code could not be read. |
+| Notes, videos, MCQ, paid entitlement integration | BLOCKED | No isolated deployed project, browser session, or staging Android build. No 1 MB, 10 MB, or near-50 MB upload was attempted. |
+| JWT, service secrets, live RLS/Storage | BLOCKED | Source settings inspected; deployed values and behavior unavailable. Secret values were not read or printed. |
+| Play SKU/offer, refund/restore and next AAB code | BLOCKED | No Play Console read-back or license tester; existing production AAB code 2 is historical evidence only. |
+
+No prior local compilation or mocked PASS in this report is a staging or production integration result.
+
+## Continuation results (latest)
+
+| Check | Result | Evidence/limit |
+| --- | --- | --- |
+| Full disposable PostgreSQL migration + SQL/worker suite | PASS | `PGHOST=127.0.0.1 PGPORT=55432 PGUSER=postgres bash supabase/tests/run-all.sh`: final run reported `ALL SUITES PASSED`; new content suite 0 FAIL, 24 PASS; `medium_db_checks` 0 FAIL, 34 PASS. Uses local stubs and mocked external services. |
+| Trusted PDF structure | PASS | `deno test supabase/tests/pdf-validation-test.ts`: 2/2 valid/corrupt cases; not malware scanning. |
+| Admin form tests/build | PASS | `cd admin-panel && npm test && npm run build` (PDF/YouTube local cases, TypeScript and Vite). |
+| Mobile TypeScript | PASS | `cd mobile-app && npx tsc --noEmit`. |
+| Mobile Android JS export | PASS | `EXPO_PUBLIC_SUPABASE_URL=https://example.invalid EXPO_PUBLIC_SUPABASE_ANON_KEY=local-export-only npx expo export --platform android --output-dir /tmp/medveda_android_export_20261018_final`: 3,245 modules, 9 MB Hermes bundle; this is not an AAB or native manifest check. |
+| Edge type checks | PASS | All 16 `supabase/functions/*/index.ts`, including `upload-note-pdf`, via `deno check`. |
+| Play catalog fake API/unit | PASS | `deno test --allow-env ...play_catalog_unit_test.ts ...play_catalog_api_test.ts`: 4/4 mocked. |
+| Local Play cron/payment provider/restore/worker self-tests | PASS | `play-cron-config-selftest.cjs` against disposable PostgreSQL; `payment-provider-selftest.cjs`, `play-restore-selftest.cjs`, `play-payment-worker-selftest.cjs`. External Google results are mocked. An initial cron attempt after stopping PostgreSQL failed to connect; rerun with the disposable server passed. |
+| Website generation/links | PASS | `node website/scripts/build.mjs && node website/scripts/check-links.mjs`: 17 pages checked. |
+| Staging Notes/Video/MCQ, device, entitlement | BLOCKED | No isolated Supabase credentials, student/admin test accounts or device. No real PDF was uploaded. |
+| Staging upload harness | PREPARED, BLOCKED | `supabase/tests/note_upload_staging_test.ts` type-checks; requires a separate staging URL, admin/student JWTs and explicit confirmation. It was not run. |
+| Licensed Play purchase/refund, current AAB | BLOCKED | No Play license test environment or AAB artifact. Mocked tests do not establish real purchase behavior. |
+
+The older table and integration matrix below are the **initial audit snapshot**. Its statements that PostgreSQL or structural server validation were unavailable have been superseded by this update; staging and Play gates remain blocked.
+
+PASS below means the named local check passed. It never means an integrated Supabase/Play/device flow passed. BLOCKED means required isolated infrastructure or credentials were unavailable; NOT VERIFIED means the check was not performed.
+
+## Local checks
+
+| Check | Result | Command / evidence |
+| --- | --- | --- |
+| Admin TypeScript + Vite build | PASS | `cd admin-panel && npm run build` |
+| PDF validator: valid header, spoofed MIME, wrong MIME, empty file; YouTube URL accept/reject | PASS (9 local cases) | `cd admin-panel && npm test` |
+| Mobile TypeScript | PASS | `cd mobile-app && npx tsc --noEmit` |
+| Deno check of all 15 Edge Function entry points | PASS | `for f in supabase/functions/*/index.ts; do deno check "$f"; done` |
+| Play catalog unit/fake API | PASS (4 mocked tests) | `deno test --allow-env supabase/tests/play_catalog_unit_test.ts supabase/tests/play_catalog_api_test.ts` |
+| Play worker/void/consumption/recovery harnesses | PASS (mocked) | `node supabase/tests/play-payment-worker-selftest.cjs` and three related self-tests |
+| Payment provider and restore self-tests | PASS (mocked) | `node mobile-app/scripts/payment-provider-selftest.cjs && node mobile-app/scripts/play-restore-selftest.cjs` |
+| Website build and links | PASS | `node website/scripts/build.mjs && node website/scripts/check-links.mjs` |
+| Cron SQL self-test | BLOCKED | `node supabase/tests/play-cron-config-selftest.cjs` could not create a scratch DB; local PostgreSQL unavailable |
+| SQL suites, dependency audit, native AAB inspection | NOT VERIFIED | No isolated DB / built AAB / complete audit run |
+
+## Required integration matrix
+
+| Area | Case | Status |
+| --- | --- | --- |
+| Admin | Valid login; invalid login; student denied | NOT VERIFIED |
+| Admin | PDF upload; invalid PDF rejected by server; draft; publish; replace | BLOCKED — staging Storage/Auth unavailable |
+| Admin | Video register/preview/publish; MCQ create/questions/publish | BLOCKED — staging/browser unavailable |
+| Admin | Pricing view/edit in isolated context; refresh/persistence | BLOCKED — staging/Play catalog unavailable |
+| Mobile | Register/login; course/year/subject/chapter browsing | NOT VERIFIED — device/staging unavailable |
+| Mobile | Free video; paid PDF denied; entitled PDF opened | BLOCKED — staging/device unavailable |
+| Mobile | MCQ attempt/result/history; lost network | NOT VERIFIED — device/staging unavailable |
+| Mobile | Purchase restore; logout; test-account deletion | BLOCKED — device/Play/staging unavailable |
+| Billing | Unavailable product/service; cancel; pending; licensed success | BLOCKED — Play license tester/internal build unavailable |
+| Billing | Duplicate callback; invalid token; wrong product/account; retry | PASS in mocked harness only; real integration BLOCKED |
+| Billing | Restore; refund/reversal; no double grant | PASS in mocked harness only; real integration BLOCKED |
+| Database/security | Anonymous and cross-user rejection; admin/student isolation; unauthorized Storage read | BLOCKED — isolated Supabase unavailable |
+| Database/security | Malformed input; duplicate prevention; transaction recovery | PASS for selected mocked billing paths only; broad DB cases BLOCKED |
+| Visual/performance | Admin/mobile screenshots, small screens, accessibility, startup/memory | NOT VERIFIED |
+| Operations | Backup restore, cron execution, alert delivery, catalog queue health | BLOCKED — operational access unavailable |
+
+No real PDF/video was uploaded, no live payment was made, and no production data was touched.

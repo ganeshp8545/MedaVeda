@@ -134,7 +134,7 @@ export default function SideDrawer({ visible, onClose }: Props) {
     try {
       await Share.share({
         message:
-          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=com.medveda.app",
+          "Download MedVeda - The study app for BAMS, BHMS, BUMS, BSMS & BNYS students.\n\nhttps://play.google.com/store/apps/details?id=in.medveda.app",
       });
     } catch (error) {
       logError("Screen action failed", error);

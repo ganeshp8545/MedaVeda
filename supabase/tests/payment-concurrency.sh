@@ -8,7 +8,12 @@ insert into auth.users(id,email) values
  ('c5000000-0000-0000-0000-000000000002','play-race-2@example.invalid'),
  ('c5000000-0000-0000-0000-000000000003','razorpay-race@example.invalid');
 update public.profiles set course_id='bams' where id::text like 'c5000000-%';
-insert into public.play_price_tiers(price_inr,play_sku,active) values(49,'notes_49',true);
+do $$ declare j record; begin
+  select * into j from public.claim_play_price_sync();
+  if j.price_inr<>49 or not public.finish_play_price_sync(49,j.lease_id,j.candidate_sku,'buy') then
+    raise exception 'Play race tier not verified';
+  end if;
+end $$;
 create table public.payment_race_orders(kind text,order_id text);
 insert into public.payment_race_orders values
  ('play1',public.create_play_order('c5000000-0000-0000-0000-000000000001','seed_product')->>'order_id'),
@@ -16,9 +21,10 @@ insert into public.payment_race_orders values
  ('razorpay',public.create_priced_order('c5000000-0000-0000-0000-000000000003','seed_product',false)->>'order_id');
 update public.orders set razorpay_order_id='order_payment_race' where id=(select order_id from public.payment_race_orders where kind='razorpay');
 SQL
+play_sku=$("${P[@]}" -c "select candidate_sku from public.play_price_sync where price_inr=49")
 play_settle() {
   local n=$1
-  "${P[@]}" -c "select public.settle_play_purchase('c5000000-0000-0000-0000-00000000000$n',(select order_id from public.payment_race_orders where kind='play$n'),'seed_product','notes_49','shared_play_token_race_123',now())" >/tmp/medveda_play_race_$n.out 2>&1
+  "${P[@]}" -c "select public.settle_play_purchase('c5000000-0000-0000-0000-00000000000$n',(select order_id from public.payment_race_orders where kind='play$n'),'seed_product','${play_sku}','shared_play_token_race_123',now())" >/tmp/medveda_play_race_$n.out 2>&1
 }
 play_settle 1 & p1=$!
 play_settle 2 & p2=$!

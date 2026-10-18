@@ -1,4 +1,4 @@
 {
-  "comment": "TEMPORARY TEST ONLY: remove the INR 1.00 tier and replace with verified live prices before production.",
-  "tiers": [{ "priceInr": 1, "sku": "notes_1" }]
+  "comment": "OWNER CONFIGURATION REQUIRED: add only confirmed active Notes prices and matching Play Console SKUs. Temporary INR 1 tier is deliberately omitted.",
+  "tiers": []
 }

@@ -1,7 +1,7 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase } from "../utils/caseConvert";
 import type { Order, OrderStatus } from "../types/order";
-import { applyContentFilters } from "../utils/filters";
+import { applyContentFilters, fetchAllPages } from "../utils/filters";
 import type { ContentFilters } from "../types/filters";
 
 const TABLE = "orders";
@@ -12,17 +12,13 @@ const TABLE = "orders";
 export async function getOrders(filters: ContentFilters = {}): Promise<Order[]> {
   // orders has no year_id of its own that means "this order's year", so
   // only the course filter applies.
-  const { data, error } = await applyContentFilters(
+  const rows = await fetchAllPages<any>(() => applyContentFilters(
     supabase
       .from(TABLE)
       .select(`*, products ( title ), courses ( name )`)
-      .order("created_at", { ascending: false }),
+      .order("created_at", { ascending: false }).order("id"),
     { courseId: filters.courseId }
-  );
-
-  if (error) throw error;
-
-  const rows = data ?? [];
+  ));
 
   // orders.user_id references auth.users, not profiles, so PostgREST cannot
   // embed profiles on orders. Fetch the names/emails separately. user_id is

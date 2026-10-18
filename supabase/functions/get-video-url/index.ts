@@ -1,12 +1,8 @@
 // POST /functions/v1/get-video-url      Body: { videoId }
 // Header: Authorization: Bearer <user access token>   (verify_jwt = true)
 //
-// Same entitlement model as get-note-url: a free-preview video (is_free_preview)
-// is available to any signed-in, non-blocked user; every other video needs a
-// purchase covering its subject/year/bundle. Returns the video URL only when
-// allowed. (See docs/security/SECURITY_FIX_NOTES.md for when the database stops
-// exposing videos.youtube_url directly - until then this is the enforced-by-API
-// path the app should use.)
+// Videos are free for signed-in, nonblocked users. The database access rule
+// comes from 20261016090000_free_video_access.sql; no purchase is required.
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin, getUserFromAuthHeader } from "../_shared/supabaseAdmin.ts";
 import { withinLimit } from "../_shared/rateLimit.ts";

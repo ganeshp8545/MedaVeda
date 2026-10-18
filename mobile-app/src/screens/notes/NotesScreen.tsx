@@ -96,7 +96,7 @@ export default function NotesScreen() {
   }, [chapterId]);
 
   const filteredData = notes.filter((item) =>
-    item.title.toLowerCase().includes(search.toLowerCase())
+    `${item.title} ${item.description ?? ""}`.toLowerCase().includes(search.toLowerCase())
   );
 
   async function handleNotePress(item: Note) {
@@ -190,6 +190,7 @@ export default function NotesScreen() {
             return (
               <NoteCard
                 title={item.title}
+                description={item.description}
                 locked={!unlocked && !isFree}
                 free={isFree && !unlocked}
                 onPress={() => handleNotePress(item)}

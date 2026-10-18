@@ -25,6 +25,8 @@ export default function PlayBillingScreen() {
   const { productId, productTitle } = route.params;
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [playPrice, setPlayPrice] = useState<string | null>(null);
+  const [prepared, setPrepared] = useState<{ offerToken: string; order: Awaited<ReturnType<typeof createPlayOrder>> } | null>(null);
   const started = useRef(false);
   const settled = useRef(false);
   const currentOrderId = useRef<string | null>(null);
@@ -69,11 +71,13 @@ export default function PlayBillingScreen() {
       navigation.goBack();
     } else if (event.type === "error") {
       setWorking(false);
+      setPrepared(null);
+      setPlayPrice(null);
       setMessage(event.message);
     }
   }), [navigation, productId, productTitle]);
 
-  const start = async () => {
+  const prepare = async () => {
     if (working || !productId || Platform.OS !== "android") return;
     if (paymentProvider !== "play") {
       setMessage("Google Play Billing is not enabled for this distribution.");
@@ -89,22 +93,39 @@ export default function PlayBillingScreen() {
         throw new Error("This product is no longer available.");
       }
       const order = await createPlayOrder(productId);
-      if (!order.internalOrderId || !order.playSku) {
+      if (!order.internalOrderId || !order.playSku || !order.purchaseOptionId) {
         throw new Error("Could not prepare Play payment.");
       }
       currentOrderId.current = order.internalOrderId;
-      await fetchMatchingPlayProduct(order.playSku, quote.listPrice);
+      if (!Number.isFinite(order.amountInr) || Math.abs(order.amountInr - quote.listPrice) > 0.005) {
+        throw new Error("The product price changed. Please try again.");
+      }
+      const offer = await fetchMatchingPlayProduct(order.playSku, order.amountInr);
+      setPlayPrice(offer.formattedPrice);
+      setPrepared({ offerToken: offer.offerToken, order });
+      setWorking(false);
+    } catch (error) {
+      setWorking(false);
+      setPrepared(null);
+      setPlayPrice(null);
+      setMessage(error instanceof Error ? error.message : "Could not start Play payment.");
+    }
+  };
+
+  const pay = async () => {
+    if (!prepared || working) return;
+    try {
+      setWorking(true);
+      setMessage(null);
       const { data } = await supabase.auth.getSession();
       const userId = data.session?.user.id;
       if (!userId) throw new Error("Please log in before purchasing.");
-      await startPlayPurchase({
-        userId,
-        productId,
-        productTitle: productTitle ?? "MedVeda purchase",
-        ...order,
-      });
+      await startPlayPurchase({ userId, productId,
+        productTitle: productTitle ?? "MedVeda purchase", ...prepared.order }, prepared.offerToken);
     } catch (error) {
       setWorking(false);
+      setPrepared(null);
+      setPlayPrice(null);
       setMessage(error instanceof Error ? error.message : "Could not start Play payment.");
     }
   };
@@ -112,7 +133,7 @@ export default function PlayBillingScreen() {
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    void start();
+    void prepare();
     // Run once for this screen instance. Retry is an explicit button below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -123,11 +144,12 @@ export default function PlayBillingScreen() {
       <Text style={styles.description}>
         Google Play will show the payment options available to you.
       </Text>
+      {playPrice && <Text style={styles.price}>Google Play price: {playPrice}</Text>}
       {working && <ActivityIndicator color={COLORS.accent} size="large" style={styles.spinner} />}
       {message && <Text style={styles.error}>{message}</Text>}
       {!working && (
-        <TouchableOpacity style={styles.button} onPress={() => { void start(); }}>
-          <Text style={styles.buttonText}>{message ? "Try again" : "Continue"}</Text>
+        <TouchableOpacity style={styles.button} onPress={() => { void (prepared ? pay() : prepare()); }}>
+          <Text style={styles.buttonText}>{prepared ? `Pay ${playPrice}` : message ? "Try again" : "Continue"}</Text>
         </TouchableOpacity>
       )}
     </View>
@@ -143,6 +165,7 @@ const styles = StyleSheet.create({
   },
   title: { color: COLORS.text, fontSize: FONT.title, fontWeight: "700", textAlign: "center" },
   description: { color: COLORS.subtitle, fontSize: FONT.body, textAlign: "center", marginTop: SPACING.md },
+  price: { color: COLORS.text, fontSize: FONT.title, fontWeight: "700", textAlign: "center", marginTop: SPACING.xl },
   spinner: { marginTop: SPACING.xl },
   error: { color: COLORS.error, fontSize: FONT.body, textAlign: "center", marginTop: SPACING.xl },
   button: { backgroundColor: COLORS.accent, padding: SPACING.md, borderRadius: 10, marginTop: SPACING.xl },

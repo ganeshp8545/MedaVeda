@@ -3,6 +3,7 @@ export interface Note {
   id: string;
   title: string;
   pdfUrl: string;
+  description?: string;
   chapterId: string;
   order: number;
   // Both added by 20260919120000_multi_course_and_referrals.sql - notes

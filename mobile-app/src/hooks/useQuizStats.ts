@@ -14,6 +14,7 @@ export default function useQuizStats() {
   const [bestScore, setBestScore] = useState(0);
 
   const [recentQuiz, setRecentQuiz] = useState<any[]>([]);
+  const [legacyAttempts, setLegacyAttempts] = useState(0);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -32,13 +33,19 @@ export default function useQuizStats() {
         return;
       }
 
-      const { data, error: queryError } = await supabase
-        .from("quiz_scores")
+      const [{ data, error: queryError }, { count: oldCount, error: oldError }] = await Promise.all([
+        supabase
+        .from("verified_quiz_attempts")
         .select("*")
         .eq("user_id", uid)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false }),
+        supabase.from("quiz_scores").select("id", { count: "exact", head: true }).eq("user_id", uid),
+      ]);
 
       if (queryError) throw queryError;
+      if (oldError) throw oldError;
+
+      setLegacyAttempts(oldCount ?? 0);
 
       const rows = data ?? [];
 
@@ -61,6 +68,10 @@ export default function useQuizStats() {
         setBestScore(highest);
 
         setRecentQuiz(rows.slice(0, 5));
+      } else {
+        setAveragePercentage(0);
+        setBestScore(0);
+        setRecentQuiz([]);
       }
 
       setLoading(false);
@@ -77,6 +88,7 @@ export default function useQuizStats() {
     averagePercentage,
     bestScore,
     recentQuiz,
+    legacyAttempts,
     error,
     refresh: loadStats,
   };

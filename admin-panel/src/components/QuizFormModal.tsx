@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Modal from "./Modal";
 import Input from "./Input";
@@ -9,6 +9,7 @@ import type { QuizTest, QuizTestInput, QuizTestQuestion } from "../types/quiz";
 import type { Year } from "../types/year";
 import type { Course } from "../types/course";
 import type { Subject } from "../types/subject";
+import { validateQuizQuestion } from "../utils/quizValidation";
 
 type Props = {
   open: boolean;
@@ -35,7 +36,7 @@ function buildEmptyForm(): QuizTestInput {
     yearId: "",
     yearTitle: "",
     order: 1,
-    active: true,
+    active: false,
     questions: Array.from({ length: REQUIRED_QUESTION_COUNT }, buildEmptyQuestion),
   };
 }
@@ -53,6 +54,7 @@ export default function QuizFormModal({
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [questionErrors, setQuestionErrors] = useState<Record<number, string>>({});
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -123,20 +125,8 @@ export default function QuizFormModal({
     }
 
     form.questions.forEach((q, index) => {
-      if (!q.question.trim()) {
-        newQuestionErrors[index] = "Question text is required";
-        return;
-      }
-
-      const filledOptions = q.options.filter((o) => o.trim());
-      if (filledOptions.length < 2) {
-        newQuestionErrors[index] = "Fill in at least 2 options";
-        return;
-      }
-
-      if (!q.answer.trim() || !q.options.includes(q.answer)) {
-        newQuestionErrors[index] = "Select the correct answer";
-      }
+      const error = validateQuizQuestion(q);
+      if (error) newQuestionErrors[index] = error;
     });
 
     setErrors(newErrors);
@@ -148,9 +138,11 @@ export default function QuizFormModal({
   }
 
   async function handleSubmit() {
+    if (savingRef.current) return;
     if (!validate()) return;
 
     try {
+      savingRef.current = true;
       setSaving(true);
       await onSubmit(form);
       onClose();
@@ -163,6 +155,7 @@ export default function QuizFormModal({
             : "Something went wrong while saving. Please try again.",
       });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -171,6 +164,7 @@ export default function QuizFormModal({
     <Modal
       open={open}
       onClose={onClose}
+      closeDisabled={saving}
       title={initialData ? "Edit Quiz Test" : "Create New Quiz Test"}
     >
       {subjects.length === 0 && (
@@ -180,6 +174,7 @@ export default function QuizFormModal({
       )}
 
       <SubjectPicker
+        key={open ? initialData?.id ?? "new" : "closed"}
         courses={courses}
         years={years}
         subjects={subjects}

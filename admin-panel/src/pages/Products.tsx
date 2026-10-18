@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import useCourses from "../hooks/useCourses";
 import CoursePicker from "../components/CoursePicker";
 
@@ -15,6 +15,7 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import SearchBar from "../components/SearchBar";
 
 import type { Product, ProductInput } from "../types/product";
+import { getBillingStatuses, retryBillingPrice, type BillingStatus } from "../services/playBillingSyncService";
 
 export default function Products() {
   const { courses } = useCourses();
@@ -35,6 +36,32 @@ export default function Products() {
 
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [billing, setBilling] = useState<Record<string, BillingStatus>>({});
+  const [billingError, setBillingError] = useState<string | null>(null);
+
+  async function loadBilling() {
+    try {
+      setBilling(await getBillingStatuses());
+      setBillingError(null);
+    } catch {
+      setBillingError("Could not load Google Play Billing status.");
+    }
+  }
+
+  useEffect(() => {
+    void loadBilling();
+    const timer = setInterval(() => { void loadBilling(); }, 15000);
+    return () => clearInterval(timer);
+  }, []);
+
+  async function retryBilling(product: Product) {
+    try {
+      await retryBillingPrice(product.price);
+      await loadBilling();
+    } catch (error) {
+      setBillingError(error instanceof Error ? error.message : "Could not retry billing sync.");
+    }
+  }
 
   const filteredProducts = useMemo(() => {
     return products.filter((product) => {
@@ -64,6 +91,7 @@ export default function Products() {
     } else {
       await createProduct(data);
     }
+    await loadBilling();
   }
 
   async function handleDelete() {
@@ -109,11 +137,14 @@ export default function Products() {
       </div>
 
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      {billingError && <p className="text-red-500 mb-4">{billingError}</p>}
 
       <ProductTable
         products={filteredProducts}
         onEdit={openEdit}
         onDelete={setDeleteTarget}
+        billing={billing}
+        onRetryBilling={(product) => { void retryBilling(product); }}
       />
 
       <ProductFormModal

@@ -1,6 +1,6 @@
 // A Product is a sellable item ("SKU"). Its `scope` decides what buying it
 // unlocks for a student:
-//   chapter -> unlocks just one Chapter (its Notes + Videos)
+//   chapter -> unlocks paid Notes in one Chapter; Videos remain free
 //   subject -> unlocks every Chapter under one Subject
 //   year    -> unlocks every Subject/Chapter under one Year
 //   bundle  -> unlocks every Year listed in yearIds (2 or 3 year combos)

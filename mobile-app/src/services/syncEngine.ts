@@ -29,6 +29,7 @@ import { getDb, OFFLINE_DB_SUPPORTED } from "../config/database";
 import { supabase } from "../config/supabase";
 import { SyncEntityType, SyncQueueItem } from "../types/offline";
 import { logDebug } from "../utils/logger";
+import { getCurrentUser } from "./authState";
 
 let syncInProgress = false;
 let unsubscribeNetInfo: (() => void) | null = null;
@@ -74,8 +75,14 @@ export function queueForSync(
 
 function getPendingItems(): SyncQueueItem[] {
   const db = getDb();
+  const currentUserId = getCurrentUser()?.id ?? "";
   const rows = db.getAllSync(
-    `SELECT * FROM sync_queue WHERE synced_at IS NULL ORDER BY created_at ASC LIMIT 50;`
+    `SELECT * FROM sync_queue WHERE synced_at IS NULL
+       AND (entity_type <> 'quiz_attempt' OR NOT json_valid(payload)
+         OR json_extract(payload, '$.user_id') IS NULL
+         OR json_extract(payload, '$.user_id') = ?)
+     ORDER BY created_at ASC LIMIT 50;`,
+    [currentUserId]
   ) as any[];
 
   const items: SyncQueueItem[] = [];
@@ -107,11 +114,61 @@ function markFailed(queueId: string, error: string): void {
   );
 }
 
+function markQuizLocal(attemptId: string, status: "legacy" | "verified" | "stale" | "rejected", score?: number, total?: number): void {
+  const db = getDb();
+  if (status === "verified" && score !== undefined && total !== undefined) {
+    db.runSync(
+      `UPDATE quiz_attempts_local SET score = ?, total_questions = ?, synced = 1, verification_status = ? WHERE attempt_id = ?;`,
+      [score, total, status, attemptId]
+    );
+  } else {
+    db.runSync(`UPDATE quiz_attempts_local SET verification_status = ? WHERE attempt_id = ?;`, [status, attemptId]);
+  }
+}
+
 async function syncOne(item: SyncQueueItem): Promise<void> {
+  if (item.entityType === "quiz_attempt") {
+    const payload = item.payload;
+    const attemptId = typeof payload.attempt_id === "string" ? payload.attempt_id :
+      typeof payload.id === "string" ? payload.id : "";
+    // Old queued writes only carry a client score. Keep their local history,
+    // but never promote them into the server-verified result table.
+    if (!Array.isArray(payload.answers) || typeof payload.question_revision !== "number") {
+      if (attemptId) markQuizLocal(attemptId, "legacy");
+      return;
+    }
+    if (!attemptId) return;
+    if (payload.user_id !== getCurrentUser()?.id) {
+      // Another account can sign back in later and submit its own attempt.
+      // Never discard or relabel that account's local practice result.
+      throw new Error("Quiz account changed; retry when the original account signs in");
+    }
+    const { data, error } = await supabase.rpc("submit_quiz_attempt", {
+      p_attempt_id: attemptId,
+      p_test_id: payload.test_id,
+      p_question_revision: payload.question_revision,
+      p_answers: payload.answers,
+    });
+    if (error) {
+      if (["22023", "23505", "42501"].includes(error.code)) {
+        markQuizLocal(attemptId, "rejected");
+        return;
+      }
+      throw error;
+    }
+    if (data?.status === "stale") {
+      markQuizLocal(attemptId, "stale");
+      return;
+    }
+    if (data?.status !== "verified" || !Number.isInteger(data.score) || !Number.isInteger(data.total)) {
+      throw new Error("Quiz verification returned an invalid result");
+    }
+    markQuizLocal(attemptId, "verified", data.score, data.total);
+    return;
+  }
+
   const table =
-    item.entityType === "quiz_attempt"
-      ? "quiz_scores"
-      : item.entityType === "bookmark"
+    item.entityType === "bookmark"
       ? "bookmarks"
       : item.entityType === "reading_progress"
       ? "reading_progress"
@@ -160,7 +217,7 @@ export async function drainQueue(): Promise<void> {
         markFailed(item.queueId, err?.message ?? "Unknown sync error");
         // Give up on a row after 5 tries so one bad payload can't jam the
         // whole queue forever; it stays visible for manual/debug review.
-        if (item.attemptCount + 1 >= 5) {
+        if (item.entityType !== "quiz_attempt" && item.attemptCount + 1 >= 5) {
           markSynced(item.queueId);
         }
       }

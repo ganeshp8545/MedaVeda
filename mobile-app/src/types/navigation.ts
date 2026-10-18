@@ -107,9 +107,8 @@ export type RootStackParamList = {
   Settings: undefined;
   StudyReminder: undefined;
 
-  // Reached only via deep link from the hosted Razorpay checkout page
-  // (see the contract note in PaymentSuccessScreen.tsx). Params come
-  // straight from the redirect URL's query string.
+  // Reached by in-app navigation after provider verification. The screen
+  // independently confirms the order and entitlement before showing success.
   PaymentSuccess: {
     title?: string;
     amount?: string;

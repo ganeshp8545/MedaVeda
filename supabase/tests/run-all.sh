@@ -28,7 +28,7 @@ $P -d $DB -f "$here/support/seed.sql" >/dev/null || { echo "seed failed"; exit 2
 
 # Suites that end with "N FAIL, M PASS" (or a "<n> FAIL" line): pass only at 0 FAIL and with tests present.
 for s in f7_checks f8_checks batch1_checks batch3_checks batch3b_checks phase2_referral_wallet_checks \
-         referral_limits_checks referral_off_wallet_checks high_phone_and_notes_checks medium_db_checks low_grants_checks admin_mfa_checks ucb_checks; do
+         referral_limits_checks referral_off_wallet_checks high_phone_and_notes_checks medium_db_checks low_grants_checks admin_mfa_checks ucb_checks verified_content_checks; do
   out=$(psql -X -q -At -d $DB -f "$here/$s.sql" 2>&1)
   line=$(echo "$out" | grep -E '[0-9]+ FAIL, [0-9]+ PASS' | tail -1 | tr -d ' ')
   if [[ "$line" =~ ^0FAIL,[1-9][0-9]*PASS$ ]]; then printf "PASS  %-36s %s\n" "$s" "$line"
@@ -45,6 +45,8 @@ done
 
 echo "== edge-function harnesses"
 export TEMPLATE_DB=$DB
+if out=$(deno test "$here/pdf-validation-test.ts" "$here/upload-body-test.ts" "$here/note-pdf-hash-test.ts" 2>&1); then echo "PASS  pdf-validation + upload-body + note-pdf-hash (9 cases)";
+else echo "FAIL  pdf-validation-test"; echo "$out" | tail -8; fail=1; fi
 if out=$(bash "$here/wallet-concurrency.sh" 2>&1); then echo "$out";
 else echo "$out"; fail=1; fi
 if out=$(bash "$here/discount-concurrency.sh" 2>&1); then echo "$out";

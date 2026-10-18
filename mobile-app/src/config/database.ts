@@ -124,6 +124,15 @@ export function initDatabase(): void {
   `);
 
   migrateDownloadsCourseId(db);
+  migrateQuizVerificationStatus(db);
+}
+
+function migrateQuizVerificationStatus(db: SQLite.SQLiteDatabase): void {
+  const columns = db.getAllSync(`PRAGMA table_info(quiz_attempts_local);`) as { name: string }[];
+  if (!columns.some((c) => c.name === "verification_status")) {
+    // Existing device attempts cannot be proven by their old client scores.
+    db.execSync(`ALTER TABLE quiz_attempts_local ADD COLUMN verification_status TEXT NOT NULL DEFAULT 'legacy';`);
+  }
 }
 
 // initDatabase() only ever CREATEs tables IF NOT EXISTS, so columns added

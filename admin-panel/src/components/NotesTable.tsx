@@ -35,7 +35,10 @@ export default function NotesTable({ notes, chapters, onEdit, onDelete }: Props)
             <tr key={note.id} className="border-b hover:bg-gray-50">
               <td className="p-4 text-gray-500">{note.order}</td>
 
-              <td className="p-4">{note.title}</td>
+              <td className="p-4">
+                <div>{note.title}</div>
+                {!!note.description && <div className="mt-1 max-w-xs truncate text-xs text-gray-500">{note.description}</div>}
+              </td>
 
               <td className="p-4">
                 {chapters.find((c) => c.id === note.chapterId)?.title ?? "-"}

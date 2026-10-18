@@ -23,7 +23,7 @@ type Props = {
 };
 
 const SCOPES: { value: ProductScope; label: string; hint: string }[] = [
-  { value: "chapter", label: "Single Chapter", hint: "Unlocks just one chapter's notes & videos" },
+  { value: "chapter", label: "Single Chapter", hint: "Unlocks paid notes in one chapter; videos are free" },
   { value: "subject", label: "Full Subject", hint: "Unlocks every chapter under one subject" },
   { value: "year", label: "Full Year", hint: "Unlocks every subject/chapter under one year" },
   { value: "bundle", label: "Multi-Year Bundle", hint: "Unlocks 2 or 3 whole years combined" },
@@ -34,7 +34,7 @@ function buildEmptyForm(): ProductInput {
     title: "",
     description: "",
     scope: "chapter",
-    productType: "other",
+    productType: "notes",
     courseId: "",
     price: 0,
     originalPrice: undefined,
@@ -138,7 +138,8 @@ export default function ProductFormModal({
       originalPrice: form.originalPrice,
       thumbnail: form.thumbnail,
       active: form.active,
-      productType: form.productType,
+      productType: form.productType === "notes" || form.productType === "notes_bundle"
+        ? scope === "bundle" ? "notes_bundle" : "notes" : form.productType,
       courseId: form.courseId,
       scope,
     });
@@ -222,7 +223,12 @@ export default function ProductFormModal({
 
     if (!form.courseId) newErrors.courseId = "Please select a Course";
     if (!form.title.trim()) newErrors.title = "Title is required";
-    if (form.price < 0) newErrors.price = "Price cannot be negative";
+    if ((form.productType === "notes_bundle") !== (form.scope === "bundle") &&
+        (form.productType === "notes" || form.productType === "notes_bundle"))
+      newErrors.productType = "Use Notes for chapter, subject or year; Notes bundle for a bundle";
+    if (!Number.isFinite(form.price) || form.price < 0 || form.price > 99999999.99 ||
+        Math.abs(form.price * 100 - Math.round(form.price * 100)) > 0.000001)
+      newErrors.price = "Enter a nonnegative INR price with at most two decimal places";
     if (
       form.originalPrice !== undefined &&
       form.originalPrice !== null &&
@@ -432,6 +438,7 @@ export default function ProductFormModal({
           label="Price (₹)"
           type="number"
           min={0}
+          step={0.01}
           value={form.price}
           onChange={(e) => setForm({ ...form, price: Number(e.target.value) })}
           error={errors.price}
@@ -471,21 +478,22 @@ export default function ProductFormModal({
 
       <div className="mb-4">
         <label className="mb-1.5 block text-sm font-medium text-gray-700">
-          Product type (referral wallet)
+          Product classification
         </label>
         <select
           value={form.productType}
           onChange={(e) => setForm({ ...form, productType: e.target.value as ProductType })}
           className="w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600"
         >
-          <option value="other">Other (referral balance NOT allowed)</option>
-          <option value="notes">Notes (single) - referral balance allowed</option>
-          <option value="notes_bundle">Notes bundle - referral balance allowed</option>
-          <option value="video">Video (referral balance NOT allowed)</option>
+          <option value="other">Unclassified legacy product — review required</option>
+          <option value="notes">Paid notes — chapter, subject or year</option>
+          <option value="notes_bundle">Paid notes bundle</option>
+          <option value="video">Video — free, not billable</option>
         </select>
+        {errors.productType && <p className="mt-1 text-xs text-red-600">{errors.productType}</p>}
         <p className="mt-1 text-xs text-gray-500">
-          Students can pay part of the price with referral balance only on Notes / Notes bundle
-          products. Decided on the server; the app cannot override it.
+          Google Play can bill only explicitly classified paid notes with a paid PDF in the selected scope.
+          Review legacy products before changing their classification. Videos remain free.
         </p>
       </div>
 

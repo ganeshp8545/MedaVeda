@@ -25,6 +25,10 @@ verify_jwt = true
 [functions.verify-play-purchase]
 verify_jwt = true
 
+# Authenticated by PLAY_CATALOG_CRON_SECRET, never by a browser JWT.
+[functions.sync-play-catalog]
+verify_jwt = false
+
 [functions.attach-external-token]
 verify_jwt = true
 
@@ -39,6 +43,10 @@ verify_jwt = false
 
 [functions.get-note-url]
 verify_jwt = true
+
+# Authenticated in the function so browser errors keep CORS headers.
+[functions.upload-note-pdf]
+verify_jwt = false
 
 [functions.get-video-url]
 verify_jwt = true

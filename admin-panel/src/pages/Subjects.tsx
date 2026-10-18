@@ -28,6 +28,7 @@ export default function Subjects() {
 
   const [deleteTarget, setDeleteTarget] = useState<Subject | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const yearsForFilter = useMemo(
     () => (courseFilter ? years.filter((y) => y.courseId === courseFilter) : years),
@@ -61,8 +62,11 @@ export default function Subjects() {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
+      setDeleteError(null);
       await removeSubject(deleteTarget.id);
       setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete subject.");
     } finally {
       setDeleting(false);
     }
@@ -139,6 +143,7 @@ export default function Subjects() {
         onSubmit={handleSubmit}
       />
 
+      {deleteError && <p className="text-red-500" role="alert">{deleteError}</p>}
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete Subject?"

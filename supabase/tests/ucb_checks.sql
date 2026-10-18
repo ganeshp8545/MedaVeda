@@ -25,8 +25,11 @@ update public.profiles set course_id='bams' where id in
 insert into public.products(id,title,scope,price,chapter_id,active,product_type,course_id)
  values ('ucb_product','UCB notes','chapter',49,'seed_c',true,'notes','bams');
 select pg_temp.chk('no unapproved tier cannot create order',
-  public.create_play_order('c3000000-0000-0000-0000-000000000001','ucb_product')->>'code'='price_tier_missing');
-insert into public.play_price_tiers(price_inr,play_sku,active) values(49,'notes_49',true);
+  public.create_play_order('c3000000-0000-0000-0000-000000000001','ucb_product')->>'code'='price_tier_pending');
+insert into public.play_price_tiers(price_inr,play_sku,active,purchase_option_id,verified_at)
+  values(49,'notes_49',true,'buy',now());
+update public.play_price_sync set candidate_sku='notes_49',status='ready',last_synced_at=now()
+  where price_inr=49;
 create temp table ucb_orders(id text,kind text);
 insert into ucb_orders select public.create_play_order('c3000000-0000-0000-0000-000000000001','ucb_product')->>'order_id','play';
 select pg_temp.chk('Play order uses exact tier and full price',

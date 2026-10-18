@@ -11,7 +11,7 @@ import { logDebug } from "../utils/logger";
 // bad config value can never lock students out.
 
 export const DEFAULT_STORE_URL =
-  "https://play.google.com/store/apps/details?id=com.medveda.app";
+  "https://play.google.com/store/apps/details?id=in.medveda.app";
 
 export type UpdateStatus = {
   required: boolean;
@@ -58,7 +58,9 @@ async function fetchStatus(): Promise<{ status: UpdateStatus; cacheable: boolean
 
     const map = new Map<string, string>(data.map((r: any) => [r.key, r.value]));
     const rawUrl = map.get("store_url")?.trim();
-    const storeUrl = rawUrl && /^https:\/\//.test(rawUrl) ? rawUrl : DEFAULT_STORE_URL;
+    const storeUrl = rawUrl && /^https:\/\//.test(rawUrl) &&
+      !rawUrl.includes("play.google.com/store/apps/details?id=com.medveda.app")
+      ? rawUrl : DEFAULT_STORE_URL;
 
     const cmp = compareVersions(installed, map.get("min_app_version"));
     // cmp === null: missing/malformed min_app_version -> fail open.

@@ -1,0 +1,13 @@
+# Admin panel audit
+
+## Continuation (latest)
+
+Notes now include a 2,000-character description field and use `upload-note-pdf` followed by the idempotent `save_note_with_upload` RPC for new/replaced PDFs. The modal retains the upload request ID on retry; existing URL-shaped PDFs and metadata-only edits remain compatible. The admin production build and local PDF/YouTube form tests pass. The browser create/edit/publish/delete path, MFA enforcement, ambiguous network response and student denial still require isolated staging. MV-004 affected-row checks, MV-005 YouTube validation, MV-006 delete feedback and MV-007 responsive picker source fixes remain present; no live UI result is claimed. The initial snapshot below predates note descriptions and trusted upload.
+
+Routes in `admin-panel/src/App.tsx` include dashboard, courses, years, subjects, chapters, notes, videos, quiz, products, orders, users, notifications, referrals, analytics, settings and review flags. Auth checks `am_i_admin()` through `AuthContext.tsx`; SQL RLS remains the actual write boundary. Notes are chapter-scoped; videos and quiz tests are subject-scoped by existing schema. Active is the existing draft/publish switch. The admin provides YouTube URL registration, not binary video upload. The quiz editor uses exactly 20 inline questions, matching current client rules.
+
+MV-003 through MV-007 in [the complete audit](MEDVEDA_COMPLETE_AUDIT.md) record the confirmed form faults and fixes. A successful Vite build verifies compilation, not button behavior against Supabase. Login, create, edit, publish, unpublish, delete, search, filters, refresh and pagination across every route remain NOT VERIFIED in a browser/staging environment. The current content pages have no explicit pagination; large datasets may need it after measuring real row counts. Products have an existing dirty-worktree catalog sync UI; remote Play price synchronization is NOT VERIFIED.
+
+The video form can now open a validated YouTube link for preview. The note schema has no description field (MV-009); adding one requires a forward-only database migration and coordinated mobile display. The current MCQ schema is subject-scoped with fixed 20-question content and client-side 30-second question timing; changing that would alter existing test rules and was not done.
+
+Next check: run `cd admin-panel && npm test && npm run build`, then in an isolated staging Supabase project exercise each content lifecycle with admin and student sessions. Keep `active=false` until the item can be read by the mobile app.

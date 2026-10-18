@@ -1,0 +1,19 @@
+# Audit change log
+
+## Continuation on 2026-10-18 (latest)
+
+Added forward migrations `20261018100000_verified_quiz_attempts.sql` and `20261018110000_trusted_note_uploads.sql`; neither was deployed. Added the `submit_quiz_attempt` RPC and verified result table, offline/local labels and legacy separation (MV-001). Added admin-only `upload-note-pdf`, bounded structural PDF parsing, restrictive Storage writes, an upload ledger and atomic retryable note save (MV-002/MV-003). Added note descriptions to database, admin and mobile (MV-009). Added `verified_content_checks.sql` (24 local checks), `pdf-validation-test.ts` (2 cases) and a staging upload harness. Earlier MV-004–MV-008 source changes were preserved and rechecked. All unrelated dirty-worktree changes were preserved. The earlier statement below that no migrations were created applies only to the initial audit snapshot.
+
+Changes made in this audit, separate from the pre-existing dirty worktree:
+
+| Issue | Files | Result |
+| --- | --- | --- |
+| MV-002 | `admin-panel/src/utils/pdfValidation.ts`, `admin-panel/src/services/storageService.ts`, `admin-panel/scripts/pdf-validation-selftest.mjs`, CI | Client PDF signature/size/MIME checks, collision-resistant object name; local tests PASS. Server validation remains open. |
+| MV-003 | `admin-panel/src/components/NoteFormModal.tsx`, `Modal.tsx` | Completed upload reused on save retry; modal cannot close during save. |
+| MV-004 | `admin-panel/src/services/{note,video,quiz}Service.ts` | One affected row required for mutations. |
+| MV-005 | `admin-panel/src/components/VideoFormModal.tsx`, `admin-panel/src/utils/videoUrl.ts`, `supabase/functions/get-video-url/index.ts` | Valid YouTube link check, free-video wording and corrected source comment. |
+| MV-006 | `admin-panel/src/pages/{Notes,Videos,Quiz}.tsx` | Delete errors surfaced. |
+| MV-007 | `admin-panel/src/components/{ChapterPicker,SubjectPicker}.tsx` | Responsive picker columns. |
+| MV-008 | `website/_src/pages/{index,courses,about,disclaimer}.html`, `website/_src/faq.mjs`, generated HTML | Corrected course availability to BAMS now and other AYUSH degrees planned. |
+
+`admin-panel/package.json` adds `npm test`; `.github/workflows/ci.yml` runs it. No migrations, prices, customer data, production resources or AAB were changed.

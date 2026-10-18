@@ -6,17 +6,18 @@ import {
   TouchableOpacity,
   Animated,
   Easing,
+  useWindowDimensions,
 } from "react-native";
 
 import { useNavigation } from "@react-navigation/native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { COLORS } from "../theme/colors";
-import { FONT } from "../theme/fonts";
 import { SPACING } from "../theme/spacing";
 import GradientBackground from "./GradientBackground";
 import NotificationBell from "./NotificationBell";
 import SideDrawer from "./SideDrawer";
+import BrandLogo from "./BrandLogo";
 
 type Props = {
   unreadNotificationCount?: number;
@@ -32,6 +33,10 @@ type Props = {
 export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
   const navigation = useNavigation<any>();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const compact = width < 390;
+  // Reserve the actual widths of the menu and action buttons, plus an 8pt gap.
+  const logoWidth = Math.max(0, Math.min(160, width - (compact ? 24 + 41 + 126 + 8 : 40 + 50 + 152 + 8)));
   const [drawerVisible, setDrawerVisible] = useState(false);
 
   // Entrance: header content eases up + fades in on mount - kept from
@@ -68,6 +73,7 @@ export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
           styles.content,
           {
             paddingTop: insets.top + 12,
+            paddingHorizontal: compact ? 12 : SPACING.lg,
             opacity,
             transform: [{ translateY }],
           },
@@ -77,7 +83,7 @@ export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
         <View style={styles.topRow}>
           <View style={styles.left}>
             <TouchableOpacity
-              style={styles.menuButton}
+              style={[styles.menuButton, compact && styles.compactButton]}
               onPress={() => setDrawerVisible(true)}
               activeOpacity={0.8}
               accessibilityRole="button"
@@ -86,12 +92,12 @@ export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
               <Text style={styles.menuIcon}>☰</Text>
             </TouchableOpacity>
 
-            <Text style={styles.brand}>MedVeda</Text>
+            <BrandLogo size={compact ? 38 : 40} variant="header" maxWidth={logoWidth} />
           </View>
 
           <View style={styles.right}>
             <TouchableOpacity
-              style={styles.searchButton}
+              style={[styles.searchButton, compact && styles.compactSearchButton]}
               onPress={() => navigation.navigate("Search")}
               activeOpacity={0.8}
               accessibilityRole="button"
@@ -106,7 +112,7 @@ export default function HomeHeader({ unreadNotificationCount = 0 }: Props) {
             />
 
             <TouchableOpacity
-              style={styles.settingsButton}
+              style={[styles.settingsButton, compact && styles.compactSettingsButton]}
               onPress={() => navigation.navigate("Settings")}
               activeOpacity={0.8}
               accessibilityRole="button"
@@ -145,11 +151,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    minWidth: 0,
   },
 
   right: {
     flexDirection: "row",
     alignItems: "center",
+    flexShrink: 0,
   },
 
   menuButton: {
@@ -167,11 +175,25 @@ const styles = StyleSheet.create({
     color: COLORS.white,
   },
 
-  brand: {
-    fontSize: FONT.subHeading,
-    fontWeight: "700",
-    letterSpacing: 1,
-    color: COLORS.white,
+  compactButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: SPACING.xs,
+  },
+
+  compactSearchButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginRight: SPACING.xs,
+  },
+
+  compactSettingsButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: SPACING.xs,
   },
 
   searchButton: {

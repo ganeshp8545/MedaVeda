@@ -2,7 +2,7 @@
 // automatically the moment the file exists; without the file the build is exactly app.json.
 //
 // 1. Android push (FCM): ./google-services.json, or the EAS file variable GOOGLE_SERVICES_JSON.
-//    Firebase Console -> Project settings -> Your apps -> Android `com.medveda.app`.
+//    Firebase Console -> Project settings -> Your apps -> Android `in.medveda.app`.
 //    Without it Expo push tokens cannot be issued on Android.
 //
 // 2. OTA update code signing: ./code-signing/certificate.pem. Once enabled, the installed app
@@ -30,6 +30,13 @@ module.exports = ({ config }) => {
   }
   const next = { ...config };
   next.extra = { ...next.extra, medvedaPaymentProvider: paymentProvider };
+  // A Razorpay OTA update must never match the runtime of a Play-installed app.
+  // EAS Update does not supply EAS_BUILD_PROFILE, so the profile check above
+  // cannot protect an update published to the wrong channel by itself.
+  next.android = {
+    ...next.android,
+    runtimeVersion: `${next.version}-${paymentProvider}`,
+  };
 
   const local = path.join(__dirname, "google-services.json");
   const googleServicesFile = process.env.GOOGLE_SERVICES_JSON || (fs.existsSync(local) ? "./google-services.json" : undefined);

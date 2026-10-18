@@ -1,5 +1,5 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from "react-native";
 
 import { useRoute, useNavigation, CommonActions } from "@react-navigation/native";
 
@@ -8,23 +8,47 @@ import { FONT } from "../../theme/fonts";
 import { SPACING } from "../../theme/spacing";
 import { RADIUS } from "../../theme/radius";
 import { SHADOW } from "../../theme/shadows";
+import { supabase } from "../../config/supabase";
 
-// Reached via normal in-app navigation from PaymentCheckoutScreen once
-// verify-payment confirms a successful payment (see usePurchase.ts and
-// paymentService.ts). Used to be reached via a medveda://payment-success
-// deep link from an external browser page - that page's script never
-// actually ran (see paymentService.ts's purchaseProduct comment for why),
-// so this screen was effectively unreachable before.
+type ConfirmedPurchase = { title: string; amount: number; orderId: string };
+
 export default function PaymentSuccessScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
 
-  const { title, amount, orderId } = route.params ?? {};
+  const orderId = typeof route.params?.orderId === "string" ? route.params.orderId : "";
+  const [confirmed, setConfirmed] = useState<ConfirmedPurchase | null>(null);
+  const [checking, setChecking] = useState(true);
+
+  useEffect(() => {
+    let mounted = true;
+    setChecking(true);
+    setConfirmed(null);
+    void (async () => {
+      try {
+        if (!/^[0-9a-f-]{36}$/i.test(orderId)) return;
+        const { data: auth, error: authError } = await supabase.auth.getUser();
+        if (authError || !auth.user) return;
+        const { data: order, error: orderError } = await supabase.from("orders")
+          .select("id,user_id,status,amount").eq("id", orderId).eq("user_id", auth.user.id).maybeSingle();
+        if (orderError || order?.status !== "paid") return;
+        const { data: purchase, error: purchaseError } = await supabase.from("purchases")
+          .select("product_title,amount").eq("order_id", orderId).eq("user_id", auth.user.id)
+          .eq("status", "success").maybeSingle();
+        if (purchaseError || !purchase || Number(purchase.amount) !== Number(order.amount)) return;
+        if (mounted) setConfirmed({ title: purchase.product_title || "Your content",
+          amount: Number(order.amount), orderId });
+      } catch {
+        // A network failure must not turn route parameters into success.
+      } finally {
+        if (mounted) setChecking(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [orderId]);
 
   function goTo(screenName: string) {
-    // Deep links can land here as the only screen on the stack (cold
-    // start) - reset instead of navigate so the back button always makes
-    // sense afterwards (Home underneath, not back into the browser flow).
+    // Reset to a stable destination after viewing the purchase status.
     navigation.dispatch(
       CommonActions.reset({
         index: 1,
@@ -35,35 +59,29 @@ export default function PaymentSuccessScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.iconCircle}>
-        <Text style={styles.icon}>✅</Text>
-      </View>
-
-      <Text style={styles.title}>Payment Successful!</Text>
+      {checking ? <ActivityIndicator color={COLORS.accent} /> : (
+        <Text style={styles.title}>{confirmed ? "Payment Successful!" : "Purchase not confirmed"}</Text>
+      )}
       <Text style={styles.subtitle}>
-        {title ? `"${title}" is now unlocked.` : "Your purchase is now unlocked."}
+        {checking ? "Checking your purchase…" : confirmed
+          ? `"${confirmed.title}" is now unlocked.`
+          : "We could not confirm access for this order. Check My Purchases or contact support."}
       </Text>
 
-      {(amount || orderId) && (
+      {confirmed && (
         <View style={styles.detailsCard}>
-          {title && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Package</Text>
-              <Text style={styles.detailValue} numberOfLines={1}>{title}</Text>
+              <Text style={styles.detailValue} numberOfLines={1}>{confirmed.title}</Text>
             </View>
-          )}
-          {amount && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Amount Paid</Text>
-              <Text style={styles.detailValue}>₹{amount}</Text>
+              <Text style={styles.detailValue}>₹{confirmed.amount}</Text>
             </View>
-          )}
-          {orderId && (
             <View style={styles.detailRow}>
               <Text style={styles.detailLabel}>Order ID</Text>
-              <Text style={styles.detailValue} numberOfLines={1}>{orderId}</Text>
+              <Text style={styles.detailValue} numberOfLines={1}>{confirmed.orderId}</Text>
             </View>
-          )}
         </View>
       )}
 

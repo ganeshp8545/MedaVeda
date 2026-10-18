@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import Modal from "./Modal";
 import Input from "./Input";
@@ -9,6 +9,7 @@ import type { Video, VideoInput } from "../types/video";
 import type { Year } from "../types/year";
 import type { Course } from "../types/course";
 import type { Subject } from "../types/subject";
+import { isSupportedYouTubeUrl } from "../utils/videoUrl";
 
 type Props = {
   open: boolean;
@@ -30,7 +31,7 @@ function buildEmptyForm(): VideoInput {
     yearId: "",
     yearTitle: "",
     order: 1,
-    active: true,
+    active: false,
     isFreePreview: false,
   };
 }
@@ -47,6 +48,7 @@ export default function VideoFormModal({
   const [form, setForm] = useState<VideoInput>(buildEmptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
 
   useEffect(() => {
     if (open) {
@@ -74,7 +76,7 @@ export default function VideoFormModal({
     const newErrors: Record<string, string> = {};
 
     if (!form.title.trim()) newErrors.title = "Title is required";
-    if (!form.youtubeUrl.trim()) newErrors.youtubeUrl = "YouTube URL is required";
+    if (!isSupportedYouTubeUrl(form.youtubeUrl)) newErrors.youtubeUrl = "Enter a valid HTTPS YouTube video URL";
     if (!form.subjectId) newErrors.subjectId = "Please select a Subject";
     if (form.order < 1) newErrors.order = "Order must be 1 or greater";
 
@@ -83,9 +85,11 @@ export default function VideoFormModal({
   }
 
   async function handleSubmit() {
+    if (savingRef.current) return;
     if (!validate()) return;
 
     try {
+      savingRef.current = true;
       setSaving(true);
       await onSubmit(form);
       onClose();
@@ -98,6 +102,7 @@ export default function VideoFormModal({
             : "Something went wrong while saving. Please try again.",
       });
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   }
@@ -106,6 +111,7 @@ export default function VideoFormModal({
     <Modal
       open={open}
       onClose={onClose}
+      closeDisabled={saving}
       title={initialData ? "Edit Video" : "Create New Video"}
     >
       {subjects.length === 0 && (
@@ -115,6 +121,7 @@ export default function VideoFormModal({
       )}
 
       <SubjectPicker
+        key={open ? initialData?.id ?? "new" : "closed"}
         courses={courses}
         years={years}
         subjects={subjects}
@@ -141,6 +148,16 @@ export default function VideoFormModal({
         error={errors.youtubeUrl}
       />
 
+      {isSupportedYouTubeUrl(form.youtubeUrl) && (
+        <button
+          type="button"
+          onClick={() => window.open(form.youtubeUrl.trim(), "_blank", "noopener,noreferrer")}
+          className="mb-4 text-sm font-medium text-green-700 hover:underline"
+        >
+          Preview video on YouTube
+        </button>
+      )}
+
       <Input
         label="Order"
         type="number"
@@ -159,14 +176,7 @@ export default function VideoFormModal({
         Active (visible to students)
       </label>
 
-      <label className="mb-4 flex items-center gap-2 text-sm text-gray-700">
-        <input
-          type="checkbox"
-          checked={form.isFreePreview}
-          onChange={(e) => setForm({ ...form, isFreePreview: e.target.checked })}
-        />
-        Free preview (any signed-in student can open this without buying)
-      </label>
+      <p className="mb-4 text-sm text-gray-600">Published videos are free for eligible students.</p>
 
       {errors.form && (
         <p className="mb-3 text-sm text-red-500">{errors.form}</p>

@@ -17,6 +17,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder
+      - run: npm test
       - run: npm audit --omit=dev --audit-level=high
 
   mobile-app:
@@ -31,6 +32,10 @@ jobs:
       - run: node --experimental-strip-types scripts/checkout-html-selftest.mjs
       - run: node --experimental-strip-types scripts/password-policy-selftest.mjs
       - run: node scripts/verify-signature-selftest.js
+      - run: node scripts/same-project-build-selftest.cjs
+      - run: node scripts/staging-build-selftest.cjs
+      - run: node scripts/payment-provider-selftest.cjs
+      - run: node scripts/play-restore-selftest.cjs
 
   website:
     runs-on: ubuntu-latest
@@ -50,6 +55,8 @@ jobs:
         with: { deno-version: v2.x }
       - run: |
           for f in supabase/functions/*/index.ts; do deno check "$f"; done
+          deno check supabase/workers/validate-note-pdf.ts
+          deno test supabase/tests/quarantine-worker-test.ts
 
   database:
     runs-on: ubuntu-latest

@@ -1,16 +1,14 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type { Course, CourseInput } from "../types/course";
+import { fetchAllPages } from "../utils/filters";
 
 const TABLE = "courses";
 
 export async function getCourses(): Promise<Course[]> {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select("*")
-    .order("display_order", { ascending: true });
-  if (error) throw error;
-  return (data ?? []).map((row) => toCamelCase<Course>(row));
+  const rows = await fetchAllPages<any>(() => supabase.from(TABLE).select("*")
+    .order("display_order", { ascending: true }).order("id"));
+  return rows.map((row) => toCamelCase<Course>(row));
 }
 
 // courses.id has a server-side default, so a blank id is omitted rather than
@@ -34,12 +32,12 @@ export async function addCourse(data: CourseInput & { id?: string }) {
 }
 
 export async function updateCourse(id: string, data: CourseInput) {
-  const { error } = await supabase.from(TABLE).update(toSnakeCase(data)).eq("id", id);
+  const { error } = await supabase.from(TABLE).update(toSnakeCase(data)).eq("id", id).select("id").single();
   if (error) throw friendlyCourseError(error);
 }
 
 export async function setCourseActive(id: string, active: boolean) {
-  const { error } = await supabase.from(TABLE).update({ active }).eq("id", id);
+  const { error } = await supabase.from(TABLE).update({ active }).eq("id", id).select("id").single();
   if (error) throw error;
 }
 
@@ -62,6 +60,6 @@ export async function deleteCourse(id: string) {
       `This course has ${years} year${years === 1 ? "" : "s"}. Deactivate it instead, or remove its years first.`
     );
   }
-  const { error } = await supabase.from(TABLE).delete().eq("id", id);
+  const { error } = await supabase.from(TABLE).delete().eq("id", id).select("id").single();
   if (error) throw error;
 }

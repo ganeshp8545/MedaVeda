@@ -68,7 +68,7 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
       {update?.required ? (
         <UpdateRequiredScreen storeUrl={update.storeUrl} />
       ) : (

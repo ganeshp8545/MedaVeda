@@ -35,24 +35,34 @@ export default function useQuiz(filters: ContentFilters = {}) {
 
   async function createTest(data: QuizTestInput) {
     await addQuizTest(data);
-    await loadTests();
+    await refreshAfterMutation();
   }
 
   async function editTest(id: string, data: QuizTestInput) {
     await updateQuizTest(id, data);
-    await loadTests();
+    await refreshAfterMutation();
   }
 
   async function removeTest(id: string) {
     await deleteQuizTest(id);
-    await loadTests();
+    await refreshAfterMutation();
+  }
+
+  async function refreshAfterMutation() {
+    try {
+      const data = await getQuizTests(filters);
+      setTests(data);
+      setError(null);
+    } catch {
+      setError("The quiz change succeeded, but the list could not refresh. Reload this page before retrying.");
+    }
   }
 
   return {
     tests,
     loading,
     error,
-    reload: loadTests,
+    reload: refreshAfterMutation,
     createTest,
     editTest,
     removeTest,

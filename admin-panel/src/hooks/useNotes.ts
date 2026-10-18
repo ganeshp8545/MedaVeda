@@ -35,24 +35,34 @@ export default function useNotes(filters: ContentFilters = {}) {
 
   async function createNote(data: NoteInput) {
     await addNote(data);
-    await loadNotes();
+    await refreshAfterMutation();
   }
 
   async function editNote(id: string, data: NoteInput) {
     await updateNote(id, data);
-    await loadNotes();
+    await refreshAfterMutation();
   }
 
   async function removeNote(id: string) {
     await deleteNote(id);
-    await loadNotes();
+    await refreshAfterMutation();
+  }
+
+  async function refreshAfterMutation() {
+    try {
+      const data = await getNotes(filters);
+      setNotes(data);
+      setError(null);
+    } catch {
+      setError("The note change succeeded, but the list could not refresh. Reload this page before retrying.");
+    }
   }
 
   return {
     notes,
     loading,
     error,
-    reload: loadNotes,
+    reload: refreshAfterMutation,
     createNote,
     editNote,
     removeNote,

@@ -4,10 +4,11 @@ type Props = {
   open: boolean;
   title: string;
   onClose: () => void;
+  closeDisabled?: boolean;
   children: ReactNode;
 };
 
-export default function Modal({ open, title, onClose, children }: Props) {
+export default function Modal({ open, title, onClose, closeDisabled = false, children }: Props) {
   if (!open) return null;
 
   return (
@@ -18,6 +19,7 @@ export default function Modal({ open, title, onClose, children }: Props) {
 
           <button
             onClick={onClose}
+            disabled={closeDisabled}
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
             aria-label="Close"
           >

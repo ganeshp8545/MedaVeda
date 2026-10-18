@@ -2,6 +2,8 @@
 
 **Audit date:** 2026-10-12 UTC. **Scope:** this working-tree snapshot, read only. Existing uncommitted changes were left intact. No production database, Razorpay account, Supabase deployment, Vercel project, or customer payment was queried or changed. “Confirmed” below means confirmed in repository code; deployment and exploitability still need validation against the running system.
 
+**17 October 2026 correction:** The owner confirmed all educational videos are free; purchases unlock paid notes/PDFs only. The video URL exposure finding (MV-01) and proposed paid-video restriction in this historical report are withdrawn. Do not apply them. The [current complete Play Store audit](MEDVEDA_COMPLETE_PLAY_STORE_AUDIT.md) contains the updated billing and paid-note plan. This correction does not change the website Razorpay integration.
+
 ## 1. Executive Summary
 
 **Recommendation: NO-GO for a new production launch or a claim of payment readiness.** The repository has strong server-side capture checks and an atomic settlement RPC, but the audit found a high-impact content URL exposure path, a refund-before-capture ordering gap, and recovery/reconciliation gaps. Live migration state, webhook subscriptions, secrets, and device behavior remain unverified. If payments are already live, treat this as a prioritized remediation and verification list, not evidence that every deployed instance is vulnerable.

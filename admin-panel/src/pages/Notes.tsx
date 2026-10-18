@@ -14,12 +14,13 @@ import ConfirmDialog from "../components/ConfirmDialog";
 import SearchBar from "../components/SearchBar";
 
 import type { Note, NoteInput } from "../types/note";
+import { saveNoteWithUpload } from "../services/noteService";
 
 export default function Notes() {
   const { courses } = useCourses();
   const [courseFilter, setCourseFilter] = useState("");
 
-  const { notes, loading, error, createNote, editNote, removeNote } =
+  const { notes, loading, error, reload, createNote, editNote, removeNote } =
     useNotes({ courseId: courseFilter || undefined });
 
   const { years } = useYears();
@@ -34,6 +35,7 @@ export default function Notes() {
 
   const [deleteTarget, setDeleteTarget] = useState<Note | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const chaptersForFilter = useMemo(
     () => (courseFilter ? chapters.filter((c) => c.courseId === courseFilter) : chapters),
@@ -62,7 +64,12 @@ export default function Notes() {
     setFormOpen(true);
   }
 
-  async function handleSubmit(data: NoteInput) {
+  async function handleSubmit(data: NoteInput, uploadRequestId?: string) {
+    if (uploadRequestId) {
+      await saveNoteWithUpload(data, uploadRequestId, editing?.id);
+      await reload();
+      return;
+    }
     if (editing) {
       await editNote(editing.id, data);
     } else {
@@ -74,8 +81,11 @@ export default function Notes() {
     if (!deleteTarget) return;
     try {
       setDeleting(true);
+      setDeleteError(null);
       await removeNote(deleteTarget.id);
       setDeleteTarget(null);
+    } catch (err) {
+      setDeleteError(err instanceof Error ? err.message : "Could not delete note.");
     } finally {
       setDeleting(false);
     }
@@ -130,6 +140,7 @@ export default function Notes() {
       </div>
 
       {error && <p className="text-red-500 mb-4">{error}</p>}
+      {deleteError && <p className="text-red-500 mb-4" role="alert">{deleteError}</p>}
 
       {filteredNotes.length === 0 ? (
         <div className="bg-white rounded-xl p-10 text-center shadow">

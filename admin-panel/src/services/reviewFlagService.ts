@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase } from "../utils/caseConvert";
+import { fetchAllPages } from "../utils/filters";
 
 // Rows written by the database when an order needs a human look (referral / wallet
 // anti-abuse, late payments, ...). Admin-only table (RLS); resolving goes through
@@ -18,15 +19,13 @@ export interface ReviewFlag {
 }
 
 export async function getReviewFlags(includeResolved: boolean): Promise<ReviewFlag[]> {
-  let query = supabase
-    .from("order_review_flags")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200);
-  if (!includeResolved) query = query.is("resolved_at", null);
-  const { data, error } = await query;
-  if (error) throw error;
-  return (data ?? []).map((row) => toCamelCase<ReviewFlag>(row));
+  const rows = await fetchAllPages<any>(() => {
+    let query = supabase.from("order_review_flags").select("*")
+      .order("created_at", { ascending: false }).order("id");
+    if (!includeResolved) query = query.is("resolved_at", null);
+    return query;
+  });
+  return rows.map((row) => toCamelCase<ReviewFlag>(row));
 }
 
 export async function resolveReviewFlag(flagId: string, note: string): Promise<void> {
