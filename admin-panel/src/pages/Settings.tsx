@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
 
+import { PartialSettingsSaveError } from "../services/settingsService";
+
 import useSettings from "../hooks/useSettings";
 
 import Input from "../components/Input";
 import Button from "../components/Button";
+import PlayServiceAccountDiagnostic from "../components/PlayServiceAccountDiagnostic";
+import PlayPricingDiagnostic from "../components/PlayPricingDiagnostic";
 
 import { validateUpdateGate } from "../utils/appVersion";
 
@@ -35,7 +39,9 @@ export default function Settings() {
       setSaved(true);
     } catch (err) {
       console.error(err);
-      setSaveError("Could not save settings. Please try again.");
+      setSaveError(err instanceof PartialSettingsSaveError
+        ? err.message
+        : "Could not confirm settings were saved. Reload settings before retrying.");
     } finally {
       setSaving(false);
     }
@@ -146,6 +152,9 @@ export default function Settings() {
           )}
         </div>
       </div>
+
+      <PlayServiceAccountDiagnostic />
+      <PlayPricingDiagnostic />
     </div>
   );
 }

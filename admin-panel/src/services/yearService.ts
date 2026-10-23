@@ -1,7 +1,7 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type { Year, YearInput } from "../types/year";
-import { applyContentFilters, fetchAllPages, omitBlankIds } from "../utils/filters";
+import { applyContentFilters, fetchAllPages } from "../utils/filters";
 import type { ContentFilters } from "../types/filters";
 
 const TABLE = "years";

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
   getReferralSettings,
@@ -23,11 +23,7 @@ export default function useReferrals(status?: ReferralStatus) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    load();
-  }, [status]);
-
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
       const [list, s, log] = await Promise.all([
@@ -50,7 +46,11 @@ export default function useReferrals(status?: ReferralStatus) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [status]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   async function saveSettings(data: ReferralSettingsInput) {
     await saveReferralSettings(data);

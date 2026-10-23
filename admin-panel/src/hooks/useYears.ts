@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
 import {
@@ -11,18 +11,15 @@ import {
 import type { Year, YearInput } from "../types/year";
 
 export default function useYears(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [years, setYears] = useState<Year[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadYears();
-  }, [filters.courseId, filters.yearId]);
-
-  async function loadYears() {
+  const loadYears = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getYears(filters);
+      const data = await getYears({ courseId, yearId });
       setYears(data);
       setError(null);
     } catch (err) {
@@ -31,7 +28,11 @@ export default function useYears(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void loadYears();
+  }, [loadYears]);
 
   async function createYear(data: YearInput) {
     await addYear(data);

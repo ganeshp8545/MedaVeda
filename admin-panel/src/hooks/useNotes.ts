@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
 import {
@@ -11,18 +11,15 @@ import {
 import type { Note, NoteInput } from "../types/note";
 
 export default function useNotes(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadNotes();
-  }, [filters.courseId, filters.yearId]);
-
-  async function loadNotes() {
+  const loadNotes = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getNotes(filters);
+      const data = await getNotes({ courseId, yearId });
       setNotes(data);
       setError(null);
     } catch (err) {
@@ -31,7 +28,11 @@ export default function useNotes(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void loadNotes();
+  }, [loadNotes]);
 
   async function createNote(data: NoteInput) {
     await addNote(data);

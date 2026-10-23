@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
 import { getOrders, updateOrderStatus } from "../services/orderService";
@@ -6,18 +6,15 @@ import { getOrders, updateOrderStatus } from "../services/orderService";
 import type { Order, OrderStatus } from "../types/order";
 
 export default function useOrders(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadOrders();
-  }, [filters.courseId, filters.yearId]);
-
-  async function loadOrders() {
+  const loadOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getOrders(filters);
+      const data = await getOrders({ courseId, yearId });
       setOrders(data);
       setError(null);
     } catch (err) {
@@ -26,7 +23,11 @@ export default function useOrders(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void loadOrders();
+  }, [loadOrders]);
 
   async function changeStatus(id: string, status: OrderStatus) {
     await updateOrderStatus(id, status);

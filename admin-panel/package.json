@@ -6,7 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "test": "node --experimental-strip-types scripts/pdf-validation-selftest.mjs && node scripts/mutation-selftest.cjs && node scripts/pagination-selftest.cjs",
+    "build:staging": "tsc -b && vite build --mode staging",
+    "test": "node --experimental-strip-types scripts/pdf-validation-selftest.mjs && node --experimental-strip-types scripts/upload-error-selftest.mjs && node scripts/mutation-selftest.cjs && node scripts/pagination-selftest.cjs && node scripts/play-service-account-diagnostic-selftest.cjs && node scripts/play-pricing-diagnostic-selftest.cjs",
     "preview": "vite preview"
   },
   "dependencies": {

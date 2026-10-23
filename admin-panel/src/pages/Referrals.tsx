@@ -16,7 +16,6 @@ import {
 
 import type {
   Referral,
-  ReferralSettingsAuditEntry,
   ReferralSettingsInput,
   ReferralStatus,
 } from "../types/referral";
@@ -28,8 +27,6 @@ const STATUS_STYLES: Record<ReferralStatus, string> = {
   rejected: "bg-red-100 text-red-700",
 };
 
-const selectClass =
-  "w-full rounded-lg border border-gray-300 px-3 py-2.5 text-sm outline-none focus:border-green-600 focus:ring-1 focus:ring-green-600";
 
 function formatDate(value: any) {
   if (!value) return "-";

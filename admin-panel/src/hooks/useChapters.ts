@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
 import {
@@ -11,18 +11,15 @@ import {
 import type { Chapter, ChapterInput } from "../types/chapter";
 
 export default function useChapters(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [chapters, setChapters] = useState<Chapter[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadChapters();
-  }, [filters.courseId, filters.yearId]);
-
-  async function loadChapters() {
+  const loadChapters = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getChapters(filters);
+      const data = await getChapters({ courseId, yearId });
       setChapters(data);
       setError(null);
     } catch (err) {
@@ -31,7 +28,11 @@ export default function useChapters(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void loadChapters();
+  }, [loadChapters]);
 
   async function createChapter(data: ChapterInput) {
     await addChapter(data);

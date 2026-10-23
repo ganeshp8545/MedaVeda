@@ -40,6 +40,13 @@ export async function getSettings(): Promise<AppSettings> {
   };
 }
 
+export class PartialSettingsSaveError extends Error {
+  constructor() {
+    super("App update settings were saved, but general settings (including Maintenance Mode) could not be confirmed. Reload settings before retrying.");
+    this.name = "PartialSettingsSaveError";
+  }
+}
+
 export async function updateSettings(data: AppSettings) {
   const { minAppVersion, storeUrl, ...rest } = data;
 
@@ -56,6 +63,11 @@ export async function updateSettings(data: AppSettings) {
   );
   if (cfgError) throw cfgError;
 
-  const { error } = await supabase.from(TABLE).update(toSnakeCase(rest)).eq("id", 1);
-  if (error) throw error;
+  try {
+    const { data: saved, error } = await supabase.from(TABLE)
+      .update(toSnakeCase(rest)).eq("id", 1).select("id").single();
+    if (error || !saved) throw new PartialSettingsSaveError();
+  } catch {
+    throw new PartialSettingsSaveError();
+  }
 }

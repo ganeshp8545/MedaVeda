@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
-import { getAnalytics } from "../services/analyticsService";
-import type { AnalyticsData } from "../services/analyticsService";
+import { getAnalytics, type AnalyticsData } from "../services/analyticsService";
 
 const emptyData: AnalyticsData = {
   totalRevenue: 0,
@@ -17,18 +16,15 @@ const emptyData: AnalyticsData = {
 };
 
 export default function useAnalytics(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [data, setData] = useState<AnalyticsData>(emptyData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    load();
-  }, [filters.courseId, filters.yearId]);
-
-  async function load() {
+  const load = useCallback(async () => {
     try {
       setLoading(true);
-      const result = await getAnalytics(filters);
+      const result = await getAnalytics({ courseId, yearId });
       setData(result);
       setError(null);
     } catch (err) {
@@ -37,7 +33,11 @@ export default function useAnalytics(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
 
   return { data, loading, error, reload: load };
 }

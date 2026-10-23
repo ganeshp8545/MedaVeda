@@ -1,5 +1,6 @@
 import { supabase } from "../config/supabase";
 import { validatePdf } from "../utils/pdfValidation";
+import { uploadErrorMessage } from "./uploadError";
 
 // The notes bucket is made private by 20260924120000. Existing rows store
 // public-style URLs as object identifiers; get-note-url checks entitlement
@@ -33,7 +34,8 @@ export async function uploadFile(
       .map((n) => n.toString(16).padStart(2, "0")).join("");
     const invoke = async (body: Record<string, unknown>) => {
       const { data, error } = await supabase.functions.invoke("upload-note-pdf", { body });
-      if (error) throw new Error("Upload validation service unavailable. Retry with the same file.");
+      if (error) throw new Error(await uploadErrorMessage(error,
+        "Upload validation service unavailable. Retry with the same file."));
       if (!data || data.requestId !== requestId) throw new Error("Invalid upload response.");
       if (data.status === "rejected" || data.status === "failed") throw new Error(data.error || "PDF validation failed.");
       return data;
@@ -67,9 +69,9 @@ export async function uploadFile(
   body.append("request_id", requestId);
   onProgress?.(50);
   const { data, error } = await supabase.functions.invoke("upload-note-pdf", { body });
-  if (error || typeof data?.pdfUrl !== "string" || data?.requestId !== requestId) {
-    const detail = data?.error;
-    throw new Error(typeof detail === "string" ? detail : "PDF upload failed. Please retry.");
+  if (error) throw new Error(await uploadErrorMessage(error, "PDF upload failed. Please retry."));
+  if (typeof data?.pdfUrl !== "string" || data?.requestId !== requestId) {
+    throw new Error("Invalid upload response. Please retry.");
   }
   onProgress?.(100);
   return { pdfUrl: data.pdfUrl, requestId };

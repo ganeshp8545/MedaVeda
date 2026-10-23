@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
 import {
@@ -11,18 +11,15 @@ import {
 import type { Product, ProductInput } from "../types/product";
 
 export default function useProducts(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadProducts();
-  }, [filters.courseId, filters.yearId]);
-
-  async function loadProducts() {
+  const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getProducts(filters);
+      const data = await getProducts({ courseId, yearId });
       setProducts(data);
       setError(null);
     } catch (err) {
@@ -31,7 +28,11 @@ export default function useProducts(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
 
   async function createProduct(data: ProductInput) {
     await addProduct(data);

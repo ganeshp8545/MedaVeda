@@ -1,7 +1,7 @@
 import { supabase } from "../config/supabase";
 import { toCamelCase, toSnakeCase } from "../utils/caseConvert";
 import type { QuizTest, QuizTestInput } from "../types/quiz";
-import { applyContentFilters, fetchAllPages, omitBlankIds } from "../utils/filters";
+import { fetchAllPages, omitBlankIds } from "../utils/filters";
 import type { ContentFilters } from "../types/filters";
 
 // IMPORTANT: this must be "quiz_tests" - it's the exact table the mobile
@@ -9,9 +9,10 @@ import type { ContentFilters } from "../types/filters";
 const TABLE = "quiz_tests";
 
 export async function getQuizTests(filters: ContentFilters = {}): Promise<QuizTest[]> {
-  const rows = await fetchAllPages<any>(() => applyContentFilters(
-    supabase.from(TABLE).select("*").order("created_at", { ascending: false }).order("id"), filters
-  ));
+  const rows = await fetchAllPages<any>(() => supabase.rpc("get_admin_quiz_tests", {
+    p_course_id: filters.courseId || null,
+    p_year_id: filters.yearId || null,
+  }).order("created_at", { ascending: false }).order("id"));
   return rows.map((row) => toCamelCase<QuizTest>(row));
 }
 

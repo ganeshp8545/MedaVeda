@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
 import {
@@ -11,18 +11,15 @@ import {
 import type { Video, VideoInput } from "../types/video";
 
 export default function useVideos(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadVideos();
-  }, [filters.courseId, filters.yearId]);
-
-  async function loadVideos() {
+  const loadVideos = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getVideos(filters);
+      const data = await getVideos({ courseId, yearId });
       setVideos(data);
       setError(null);
     } catch (err) {
@@ -31,7 +28,11 @@ export default function useVideos(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void loadVideos();
+  }, [loadVideos]);
 
   async function createVideo(data: VideoInput) {
     await addVideo(data);

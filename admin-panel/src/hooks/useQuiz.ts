@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ContentFilters } from "../types/filters";
 
 import {
@@ -11,18 +11,15 @@ import {
 import type { QuizTest, QuizTestInput } from "../types/quiz";
 
 export default function useQuiz(filters: ContentFilters = {}) {
+  const { courseId, yearId } = filters;
   const [tests, setTests] = useState<QuizTest[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadTests();
-  }, [filters.courseId, filters.yearId]);
-
-  async function loadTests() {
+  const loadTests = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getQuizTests(filters);
+      const data = await getQuizTests({ courseId, yearId });
       setTests(data);
       setError(null);
     } catch (err) {
@@ -31,7 +28,11 @@ export default function useQuiz(filters: ContentFilters = {}) {
     } finally {
       setLoading(false);
     }
-  }
+  }, [courseId, yearId]);
+
+  useEffect(() => {
+    void loadTests();
+  }, [loadTests]);
 
   async function createTest(data: QuizTestInput) {
     await addQuizTest(data);
