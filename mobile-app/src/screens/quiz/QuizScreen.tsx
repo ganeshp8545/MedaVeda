@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -39,10 +39,8 @@ const QUESTION_TIME_SECONDS = 30;
 //   2. Offline: navigated here from DownloadsScreen with only
 //      `offlineFileUri` + `quizId` - the JSON is read off-device, no
 //      network involved at all.
-// Either way, once `test` is resolved the rest of this screen behaves
-// identically - and score submission always goes through the local-first
-// recordQuizAttempt (see below) so finishing a test never fails for lack
-// of signal, online or off.
+// Either way, answers are saved locally first. A score appears only after
+// submit_quiz_attempt verifies the attempt on the server.
 export default function QuizScreen() {
   const route = useRoute<any>();
   const navigation = useNavigation<any>();
@@ -72,7 +70,37 @@ export default function QuizScreen() {
     };
   }, [offlineFileUri, test]);
 
-  const questions = (test as QuizTest | undefined)?.questions ?? [];
+  if (loadingOffline) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={COLORS.accent} />
+      </View>
+    );
+  }
+
+  if (!test || test.questions.length === 0) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.title}>{subjectTitle ?? "Quiz"}</Text>
+        <EmptyState title="This test couldn't be opened. Please go back and try again." />
+        <TouchableOpacity
+          activeOpacity={0.8}
+          style={styles.button}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.buttonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return <QuizSession test={test} subjectId={subjectId} subjectTitle={subjectTitle} navigation={navigation} />;
+}
+
+function QuizSession({ test, subjectId, subjectTitle, navigation }: {
+  test: QuizTest; subjectId: string; subjectTitle: string; navigation: any;
+}) {
+  const questions = test.questions;
 
   const [currentQuestion, setCurrentQuestion] = useState(0);
 
@@ -111,42 +139,12 @@ export default function QuizScreen() {
     return () => clearInterval(timer);
   }, [finished, attemptId, test?.id]);
 
-  if (loadingOffline) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator size="large" color={COLORS.accent} />
-      </View>
-    );
-  }
-
-  if (!test || questions.length === 0) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>{subjectTitle ?? "Quiz"}</Text>
-        <EmptyState title="This test couldn't be opened. Please go back and try again." />
-        <TouchableOpacity
-          activeOpacity={0.8}
-          style={styles.button}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.buttonText}>Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
-  const score = answers.reduce((total: number, answer, index) => {
-    if (answer === null) return total;
-    const q = questions[index];
-    return q && q.options[answer] === q.answer ? total + 1 : total;
-  }, 0);
-
-  const saveScore = () => {
+  const saveScore = useCallback(() => {
     try {
       const user = getCurrentUser();
 
-      // Local practice remains available offline. The backend recomputes
-      // the verified score from the submitted answers when sync succeeds.
+      // Answers remain available offline. The backend computes the score
+      // from those answers when sync succeeds.
       setVerificationStatus(OFFLINE_DB_SUPPORTED && user?.id &&
         Number.isSafeInteger(test.questionRevision) && (test.questionRevision ?? 0) > 0
         ? "unverified" : "legacy");
@@ -157,7 +155,7 @@ export default function QuizScreen() {
         subjectTitle,
         userId: user?.id,
         userEmail: user?.email,
-        score,
+        score: 0, // Unverified placeholder; only the server knows the key.
         totalQuestions: questions.length,
         answers,
         questionRevision: test.questionRevision,
@@ -167,30 +165,30 @@ export default function QuizScreen() {
       logError("QuizScreen: saving quiz attempt failed", error);
       setVerificationStatus("legacy");
     }
-  };
+  }, [test, subjectId, subjectTitle, questions.length, answers]);
 
-  const handleSubmit = () => {
+  const handleSubmit = useCallback(() => {
     if (submittedRef.current) return;
     submittedRef.current = true;
     saveScore();
     setFinished(true);
-  };
+  }, [saveScore]);
 
-  const goToQuestion = (index: number) => {
+  const goToQuestion = useCallback((index: number) => {
     setCurrentQuestion(index);
     setMaxReached((prev) => Math.max(prev, index));
     if (answers[index] === null) {
       setTimeLeft(QUESTION_TIME_SECONDS);
     }
-  };
+  }, [answers]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (currentQuestion + 1 < questions.length) {
       goToQuestion(currentQuestion + 1);
     } else {
       handleSubmit();
     }
-  };
+  }, [currentQuestion, questions.length, goToQuestion, handleSubmit]);
 
   const handlePrevious = () => {
     if (currentQuestion > 0) {
@@ -231,13 +229,12 @@ export default function QuizScreen() {
     }, 1000);
 
     return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [timeLeft, finished, isTimerActive]);
+  }, [timeLeft, finished, isTimerActive, handleNext]);
 
   const question = questions[currentQuestion];
-  const displayScore = verificationStatus === "verified" && serverScore !== null ? serverScore : score;
-  const percentage = Math.round((displayScore / questions.length) * 100);
-  const passed = percentage >= 50;
+  const displayScore = verificationStatus === "verified" ? serverScore : null;
+  const percentage = displayScore === null ? null : Math.round((displayScore / questions.length) * 100);
+  const passed = percentage !== null && percentage >= 50;
   const isLastQuestion = currentQuestion === questions.length - 1;
 
   if (finished) {
@@ -248,30 +245,36 @@ export default function QuizScreen() {
           <Text style={styles.resultEmoji}>{passed ? "🏆" : "📚"}</Text>
 
           <Text style={styles.finish}>
-            {passed ? "Congratulations!" : "Better Luck Next Time"}
+            {percentage === null ? "Test completed" : passed ? "Congratulations!" : "Better Luck Next Time"}
           </Text>
 
           <Text style={styles.score}>
-            {displayScore} / {questions.length}
+            {displayScore === null
+              ? verificationStatus === "legacy" || verificationStatus === "rejected" || verificationStatus === "stale"
+                ? "Score unavailable" : "Score pending"
+              : `${displayScore} / ${questions.length}`}
           </Text>
 
           <Text style={{ color: COLORS.subtitle, textAlign: "center", marginTop: 6 }}>
             {verificationStatus === "verified" ? "Server-verified score" :
-              verificationStatus === "stale" ? "Questions changed; local practice result only" :
-              verificationStatus === "rejected" ? "Verification rejected; local practice result only" :
-              verificationStatus === "legacy" ? "Local practice result only" :
-              "Local practice score; server verification pending"}
+              verificationStatus === "stale" ? "Questions changed; score unavailable" :
+              verificationStatus === "rejected" ? "Verification rejected; score unavailable" :
+              verificationStatus === "legacy" ? "Offline submission saved; score unavailable" :
+              "Server verification pending"}
           </Text>
 
-          <Text style={styles.percentage}>{percentage}%</Text>
+          <Text style={styles.percentage}>{percentage === null ? "—" : `${percentage}%`}</Text>
 
           <View
             style={[
               styles.statusBadge,
-              { backgroundColor: passed ? COLORS.success : COLORS.error },
+              { backgroundColor: percentage === null ? COLORS.accent : passed ? COLORS.success : COLORS.error },
             ]}
           >
-            <Text style={styles.statusText}>{passed ? "PASS" : "FAIL"}</Text>
+            <Text style={styles.statusText}>{percentage === null
+              ? verificationStatus === "legacy" || verificationStatus === "rejected" || verificationStatus === "stale"
+                ? "UNVERIFIED" : "PENDING"
+              : passed ? "PASS" : "FAIL"}</Text>
           </View>
 
           <TouchableOpacity
@@ -335,12 +338,7 @@ export default function QuizScreen() {
           title={option}
           disabled={selectedAnswer !== null}
           onPress={() => handleAnswer(index)}
-          isCorrect={
-            selectedAnswer !== null && question.options[index] === question.answer
-          }
-          isWrong={
-            selectedAnswer === index && question.options[index] !== question.answer
-          }
+          isSelected={selectedAnswer === index}
         />
       ))}
 

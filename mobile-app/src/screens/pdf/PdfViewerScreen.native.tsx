@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
+  AppState,
   StyleSheet,
   View,
   Text,
@@ -10,7 +11,9 @@ import Pdf from "react-native-pdf";
 import { useNavigation, useRoute } from "@react-navigation/native";
 
 import ErrorState from "../../components/ErrorState";
-import { COLORS } from "../../theme/colors";
+import { getAllDownloads } from "../../utils/downloadManager";
+import { mayOpenOfflineNote } from "../../services/offlineNoteAccess";
+import { supabase } from "../../config/supabase";
 import { FONT } from "../../theme/fonts";
 import { logError } from "../../utils/logger";
 
@@ -30,6 +33,32 @@ export default function PdfViewerScreen() {
   // sense for a remote fetch, so skip it here.
   const isLocalFile = typeof pdfUrl === "string" && pdfUrl.startsWith("file://");
 
+  const [access, setAccess] = useState<{ uri: string; allowed: boolean } | null>(null);
+  useEffect(() => {
+    if (!isLocalFile) return;
+    let alive = true;
+    let checking = false;
+    const check = async () => {
+      if (checking) return;
+      checking = true;
+      try {
+        const item = getAllDownloads().find((entry) => entry.contentType === "note" && entry.localUri === pdfUrl);
+        const allowed = !!item && await mayOpenOfflineNote(item.id);
+        if (alive) setAccess({ uri: pdfUrl, allowed });
+      } catch { if (alive) setAccess({ uri: pdfUrl, allowed: false }); }
+      finally { checking = false; }
+    };
+    void check();
+    const app = AppState.addEventListener("change", (state) => {
+      // Hide the previous account's document as soon as the app leaves foreground.
+      setAccess(null);
+      if (state === "active") void check();
+    });
+    const { data } = supabase.auth.onAuthStateChange(() => { setAccess(null); void check(); });
+    const timer = setInterval(() => { if (AppState.currentState === "active") void check(); }, 60_000);
+    return () => { alive = false; clearInterval(timer); app.remove(); data.subscription.unsubscribe(); };
+  }, [isLocalFile, pdfUrl]);
+
   const [page, setPage] = useState(1);
   const [numberOfPages, setNumberOfPages] = useState(0);
   const [loadError, setLoadError] = useState(false);
@@ -43,6 +72,13 @@ export default function PdfViewerScreen() {
         />
       </View>
     );
+  }
+
+  if (isLocalFile && (access?.uri !== pdfUrl || !access.allowed)) {
+    return <View style={styles.container}>{access?.uri !== pdfUrl
+      ? <ActivityIndicator size="large" />
+      : <ErrorState message="Connect to the internet to verify your access. If access was removed, check your purchases."
+          onRetry={() => navigation.goBack()} />}</View>;
   }
 
   if (loadError) {
@@ -65,7 +101,7 @@ export default function PdfViewerScreen() {
           especially with signed Firebase Storage URLs - this renders the
           full PDF reliably, with pinch-to-zoom and page-by-page scrolling. */}
       <Pdf
-        source={{ uri: pdfUrl, cache: !isLocalFile }}
+        source={{ uri: pdfUrl, cache: false }}
         style={styles.pdf}
         trustAllCerts={false}
         enablePaging={false}

@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -27,7 +27,7 @@ export default function StreakBadge({ days }: Props) {
       withTiming(1.12, { duration: 160, easing: EASINGS.standard }),
       withTiming(1, { duration: 140, easing: EASINGS.inOut })
     );
-  }, [days]);
+  }, [days, scale]);
 
   const animatedStyle = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 

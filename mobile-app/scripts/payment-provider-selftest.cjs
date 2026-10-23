@@ -3,12 +3,13 @@ const appConfig = require("../app.config");
 const app = require("../app.json").expo;
 const eas = require("../eas.json").build;
 
-function configFor(profile, provider) {
-  const names = ["EAS_BUILD_PROFILE", "MEDVEDA_PAYMENT_PROVIDER", "MEDVEDA_BUILD_TARGET"];
+function configFor(profile, provider, platform) {
+  const names = ["EAS_BUILD_PROFILE", "MEDVEDA_PAYMENT_PROVIDER", "MEDVEDA_BUILD_TARGET", "EAS_BUILD_PLATFORM"];
   const previous = new Map(names.map((name) => [name, process.env[name]]));
   for (const name of names) delete process.env[name];
   if (profile) process.env.EAS_BUILD_PROFILE = profile;
   if (provider) process.env.MEDVEDA_PAYMENT_PROVIDER = provider;
+  if (platform) process.env.EAS_BUILD_PLATFORM = platform;
   try {
     return appConfig({ config: app });
   } finally {
@@ -40,11 +41,12 @@ assert.throws(
 );
 assert.throws(
   () => configFor("preview", "unexpected"),
-  /MEDVEDA_PAYMENT_PROVIDER must be play or razorpay/
+  /MEDVEDA_PAYMENT_PROVIDER must be play, razorpay or disabled/
 );
 assert.equal(eas.production.env.MEDVEDA_PAYMENT_PROVIDER, "play");
 assert.equal(eas["internal-testing"].env.MEDVEDA_PAYMENT_PROVIDER, "play");
-assert.equal(eas["razorpay-distribution"].env.MEDVEDA_PAYMENT_PROVIDER, "razorpay");
-assert.equal(eas["razorpay-distribution"].environment, "preview");
+assert.equal(eas["razorpay-distribution"], undefined);
+assert.throws(() => configFor("custom", "razorpay", "android"), /Google Play builds must use Google Play Billing/);
+assert.throws(() => configFor("custom", "disabled"), /Disabled payments are reserved for isolated staging/);
 
 console.log("Payment provider and package configuration checks passed.");

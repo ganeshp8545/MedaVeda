@@ -1,6 +1,6 @@
 -- ============================================================================
 -- Tests for 20260920120000_null_year_course_fallback.sql
--- TEMPORARY – delete this file when the fallback is removed.
+-- NULL-year compatibility remains supported by course-wide browsing.
 --   psql "$LOCAL_DB_URL" -v ON_ERROR_STOP=1 -f supabase/tests/null_year_fallback_checks.sql
 -- One transaction, rolled back. Same conventions as multi_course_checks.sql.
 -- ============================================================================
@@ -121,7 +121,7 @@ begin
   raise notice 'PASS N4: a student with no course sees nothing';
 end $$;
 
--- N5. Once year_id is set, the strict course+year rule applies again.
+-- N5. Setting a registration year must not narrow course-wide browsing.
 do $$
 declare n int;
 begin
@@ -131,12 +131,12 @@ begin
 
   perform pg_temp.act_as('aaaaaaaa-1111-0000-0000-00000000000a');
   select count(*) into n from public.subjects where id like '\_test\_%';
-  if n <> 1 then raise exception 'year set: sees % subjects, want only its own year (1)', n; end if;
-  if exists (select 1 from public.subjects where id = '_test_bams_s2') then raise exception 'year set: still sees Y2'; end if;
+  if n <> 2 then raise exception 'year set: sees % subjects, want both years (2)', n; end if;
+  if not exists (select 1 from public.subjects where id = '_test_bams_s2') then raise exception 'year set: cannot see Y2'; end if;
   select count(*) into n from public.videos where id like '\_test\_%';
-  if n <> 1 then raise exception 'year set: sees % videos, want 1', n; end if;
+  if n <> 2 then raise exception 'year set: sees % videos, want 2', n; end if;
   perform pg_temp.back();
-  raise notice 'PASS N5: with year_id set the student is back to strict course+year';
+  raise notice 'PASS N5: with year_id set the student still sees all years in their course';
 end $$;
 
 -- N6. Inactive content stays hidden from a NULL-year student.

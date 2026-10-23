@@ -10,6 +10,7 @@ import { buildCheckoutHtml } from "./checkoutHtmlTemplate";
 import { verifyPayment, recoverPaymentWithRetry } from "../../services/paymentService";
 import { markOrderStatus } from "../../services/ordersService";
 import { CHECKOUT_ORIGIN_WHITELIST, isAllowedCheckoutWebUrl } from "./checkoutNavigation";
+import { paymentProvider } from "../../config/paymentProvider";
 
 // Replaces the old "open the hosted checkout page in the external
 // browser" flow (Linking.openURL). Supabase Edge Functions don't serve
@@ -31,6 +32,14 @@ const ALLOWED_APP_SCHEMES = new Set([
 ]);
 
 export default function PaymentCheckoutScreen() {
+  // Defense in depth if a stale route or future caller bypasses navigator guards.
+  if (paymentProvider !== "razorpay") {
+    return <View style={styles.center}><Text style={styles.errorText}>Use Google Play Billing to purchase this item.</Text></View>;
+  }
+  return <RazorpayCheckoutScreen />;
+}
+
+function RazorpayCheckoutScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<any>();
   const {
@@ -63,14 +72,14 @@ export default function PaymentCheckoutScreen() {
   const missingParams =
     !keyId || !razorpayOrderId || !amountPaise || !internalOrderId || !verifyUrl;
 
-  function resetTo(screenName: string, params?: Record<string, unknown>) {
+  const resetTo = useCallback((screenName: string, params?: Record<string, unknown>) => {
     navigation.dispatch(
       CommonActions.reset({
         index: 1,
         routes: [{ name: "Home" }, { name: screenName, params }],
       })
     );
-  }
+  }, [navigation]);
 
   const goToFailed = useCallback(
     (reason?: string) => {
@@ -79,8 +88,7 @@ export default function PaymentCheckoutScreen() {
       }
       resetTo("PaymentFailed", { title: productTitle, reason });
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [internalOrderId, productTitle]
+    [internalOrderId, productTitle, resetTo]
   );
 
   // ROOT CAUSE OF "payment succeeds, backend verifies, purchase unlocks,
@@ -115,7 +123,7 @@ export default function PaymentCheckoutScreen() {
         paymentId,
       });
     },
-    [productTitle, verifyUrl, internalOrderId]
+    [productTitle, verifyUrl, internalOrderId, resetTo]
   );
 
   async function handleMessage(event: WebViewMessageEvent) {
@@ -266,7 +274,7 @@ export default function PaymentCheckoutScreen() {
 
     recoveryInFlightRef.current = check;
     return check;
-  }, [verifyUrl, internalOrderId, productTitle]);
+  }, [verifyUrl, internalOrderId, productTitle, resetTo]);
 
   useEffect(() => {
     const sub = AppState.addEventListener("change", (state) => {

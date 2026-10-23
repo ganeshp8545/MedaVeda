@@ -72,7 +72,7 @@ server, after Stage 7, quotes as unavailable while the program is off).
 * Decide `require_verified_phone` (no phone-verification flow exists; 0 of 22 profiles are verified; the switch exists after Stage 4).
 * The admin panel has NO screen for `order_review_flags` (discount_reused, duplicate_purchase,
   referral_shared_network, ...). Until one exists: `select * from order_review_flags where resolved_at is null;`
-* `first_purchase_identities` stores hashes of buyers' email / phone after deletion - mention it in the privacy policy.
+* `first_purchase_identities`: see the DB-01 retention review below; the new purge is prepared only.
 * F8 default-privileges caveat: `ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin` is expected to be denied on hosted Supabase (NOTICE only).
 * Orders created while the program was on keep the wallet amount they were priced with, even if the program is switched
   off before the student pays (Razorpay was already asked for that exact amount). New orders and quotes get no wallet.
@@ -90,3 +90,83 @@ server, after Stage 7, quotes as unavailable while the program is off).
 * **Supabase Auth** (Authentication -> Sign In / Providers): Password requirements = min 8 with lower, upper, digit and symbol; leaked-password protection ON; email confirmation ON. Phone OTP needs an SMS provider (Twilio / MSG91 / ...) before the app can verify numbers; the database side (`sync_profile_mobile_verified`) is already in place.
 * **App versions**: the user-visible version lives in `mobile-app/app.json` (`expo.version`, kept equal to `package.json`); the Android `versionCode` is owned by EAS (`appVersionSource: remote`, `autoIncrement` on the production profile; `npx eas-cli build:version:get -p android -e production` shows it), so it is not set in the repo. `app_config.min_app_version` must never exceed the newest version that is live on Play.
 * **R8 / resource shrinking** is not on for production. Build the `shrink-test` profile (`eas build -p android --profile shrink-test`), test login, notes open + download, checkout, push, then ask for it to be enabled on `production`.
+
+## DB-01 retention — prepared for owner/legal review, not applied
+
+New forward migration: `20261020103000_first_purchase_identity_retention.sql`.
+It defines a service-role-only purge and an age index, with NO purge invocation,
+NO scheduler changes and NO payment/referral RPC changes. The cron.schedule
+pattern is commented SQL for separate owner review. No DB writes were run.
+
+Disclosure draft: fraud-prevention email/phone hashes and original account ID
+are kept up to 180 days after account deletion, then deleted. Expiry is measured
+from `first_purchase_at`, so deletion can occur sooner after account deletion.
+There is no reliable account-deletion timestamp in this table. This is a fixed
+180-day identity-record lifetime, including active accounts, not a fresh 180-day
+window on deletion. Existing old rows become eligible immediately on first run.
+Do not publish the retention promise until the purge is enabled, its cadence and
+cutoff lag are accepted, and failures are monitored; preparing this SQL alone
+provides no runtime retention guarantee. Owner/legal review of all draft wording
+is required; this change makes no new legal claim.
+
+Anti-abuse review: `record_purchase_identity` uses ON CONFLICT DO NOTHING;
+`has_prior_purchase_identity` matches email/phone hashes from other accounts.
+Hashes younger than the cutoff keep working unchanged. After 180 days and purge,
+a returning identity may qualify again for a first-purchase discount/referral
+credit, subject to all other existing eligibility checks. A later successful
+purchase may record it again. Existing purchases/orders/referrals are untouched;
+active accounts' purchase-history checks remain in place. Never NULL account_id
+alone: the existing SQL `<>` guard would stop matching NULL. Whole-row deletion
+minimizes both the hashes and account ID at expiry without that interim bypass.
+
+Rollback: use a NEW forward migration, unschedule only the named retention job
+if separately enabled, drop the purge function, then drop its age index. See exact
+commented SQL in the migration. Purged data cannot be restored by rollback;
+do not reconstruct expired identities from financial history. The existing
+anti-abuse helpers/schema/grants are unchanged.
+
+Validation is source-only and uses in-memory model tests, with no PostgreSQL
+writes, migration replay, live cron checks or deployments. Runtime SQL behavior
+and privileges remain for an owner-approved isolated database validation.
+
+### DB-01 post-deploy step — NOT executed; separate owner approval required
+
+After migration `20261020103000` is deployed and the retention cutoff, operational
+cadence and monitoring are approved, enable the named job separately. The SQL
+below is deliberately commented: it schedules destructive whole-row deletion;
+it is not part of migration application. The hourly example can lag the cutoff
+by up to one hour plus runtime; accept that lag before publishing a deadline.
+Existing expired rows will be removed on the first successful run.
+
+```sql
+-- POST-DEPLOY ONLY: review/approve before uncommenting and running.
+-- select cron.schedule(
+--   'first-purchase-identity-retention',
+--   '0 * * * *',
+--   'select public.purge_expired_first_purchase_identities();'
+-- );
+```
+
+Read-only verification after scheduling and after the first scheduled run:
+
+```sql
+select jobid, jobname, schedule, command, active
+from cron.job
+where jobname = 'first-purchase-identity-retention';
+
+select r.status, r.return_message, r.start_time, r.end_time
+from cron.job_run_details r
+join cron.job j on j.jobid = r.jobid
+where j.jobname = 'first-purchase-identity-retention'
+order by r.start_time desc
+limit 5;
+
+select count(*) as expired_rows, min(first_purchase_at) as oldest_expired
+from public.first_purchase_identities
+where first_purchase_at < now() - interval '180 days';
+```
+
+Expect exactly one active job with the reviewed schedule/command and a successful
+completed run. Assess expired rows against that run's cutoff and accepted lag:
+new rows can age past the cutoff between hourly runs. Missing run history is not
+success. Monitor job failures and retention lag; these SELECTs do not invoke purge.

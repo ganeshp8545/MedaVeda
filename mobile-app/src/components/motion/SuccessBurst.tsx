@@ -41,7 +41,7 @@ function Particle({ angle, play, color }: { angle: number; play: boolean; color:
       120,
       withTiming(1, { duration: DURATIONS.celebration, easing: Easing.out(Easing.cubic) })
     );
-  }, [play]);
+  }, [play, progress]);
 
   const distance = 70;
   const rad = (angle * Math.PI) / 180;
@@ -68,7 +68,7 @@ export default function SuccessBurst({ play }: { play: boolean }) {
       withTiming(1.15, { duration: 260, easing: Easing.out(Easing.back(1.6)) }),
       withTiming(1, { duration: 140, easing: Easing.inOut(Easing.ease) })
     );
-  }, [play]);
+  }, [play, scale]);
 
   const circleStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],

@@ -18,7 +18,7 @@ import { ProductScope } from "./product";
 // createOrderForProduct never sent them - meaning even an order that
 // somehow succeeded couldn't be verified/unlocked afterwards, since
 // there was no record of *what* was purchased beyond a bare productId.
-export type OrderStatus = "created" | "paid" | "failed" | "cancelled";
+export type OrderStatus = "created" | "paid" | "failed" | "cancelled" | "pending" | "refunded";
 
 export interface Order {
   id: string;

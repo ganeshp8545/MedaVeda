@@ -20,7 +20,6 @@ import ConfirmationDialog from "../../components/ConfirmationDialog";
 import BottomNav from "../../components/BottomNav";
 import useQuizStats from "../../hooks/useQuizStats";
 
-import { supabase } from "../../config/supabase";
 import { getCurrentUser, performSignOut } from "../../services/authState";
 import { fetchUserProfile, UserProfile } from "../../services/usersService";
 import { fetchReferralSettings } from "../../services/referralsService";

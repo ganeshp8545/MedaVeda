@@ -2,7 +2,7 @@ import { jsonResponse } from "../_shared/cors.ts";
 import { supabaseAdmin } from "../_shared/supabaseAdmin.ts";
 import { GoogleApiError } from "../_shared/googlePlay.ts";
 import { activateBuyOption, createOneTimeProduct, getOneTimeProduct,
-  optionNeedsActivation, priceCents, verifiedBuyOption } from "../_shared/playCatalog.ts";
+  optionNeedsActivation, PlayCatalogConfigurationError, priceCents, verifiedBuyOption } from "../_shared/playCatalog.ts";
 
 type Job = { price_inr: string; candidate_sku: string; purchase_option_id: string; lease_id: string };
 
@@ -28,7 +28,7 @@ async function sync(job: Job): Promise<void> {
   let sku = job.candidate_sku;
   let product = await getOneTimeProduct(sku);
   if (product && !verifiedBuyOption(product, sku, job.purchase_option_id, cents) &&
-      !optionNeedsActivation(product, job.purchase_option_id, cents)) {
+      !optionNeedsActivation(product, sku, job.purchase_option_id, cents)) {
     const { data: previous, error } = await supabaseAdmin.from("play_price_tiers")
       .select("play_sku").eq("play_sku", sku).maybeSingle();
     if (error) throw new Error(`tier_lookup: ${error.code}`);
@@ -42,11 +42,11 @@ async function sync(job: Job): Promise<void> {
   }
   if (!product) {
     await createOneTimeProduct(sku, job.purchase_option_id, cents);
-    product = await getOneTimeProduct(sku);
+    product = await getOneTimeProduct(sku, "catalog.readback.created");
   }
-  if (product && optionNeedsActivation(product, job.purchase_option_id, cents)) {
-    await activateBuyOption(sku, job.purchase_option_id);
-    product = await getOneTimeProduct(sku);
+  if (product && optionNeedsActivation(product, sku, job.purchase_option_id, cents)) {
+    await activateBuyOption(sku, job.purchase_option_id, cents);
+    product = await getOneTimeProduct(sku, "catalog.readback.activated");
   }
   if (!product || !verifiedBuyOption(product, sku, job.purchase_option_id, cents))
     throw new Error("Play read-back did not confirm active India BUY option and exact INR price");
@@ -70,14 +70,23 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ processed: 1, status: "ready" });
   } catch (failure) {
     const status = failure instanceof GoogleApiError ? failure.status : undefined;
-    const reason = status ? `Google Play API ${status}` :
+    const reason = failure instanceof GoogleApiError ? failure.message :
       failure instanceof Error ? failure.message : "Catalog sync failed";
-    const retry = status === 409 || status === 429 || (status !== undefined && status >= 500) ||
-      (status === undefined && !reason.includes("conflicts") &&
-        !reason.includes("No eligible paid-notes product"));
-    await rpc<boolean>("fail_play_price_sync", {
-      p_price: job.price_inr, p_lease: job.lease_id, p_reason: reason, p_retry: retry,
-    });
+    const retry = failure instanceof GoogleApiError ? failure.retryable :
+      !(failure instanceof PlayCatalogConfigurationError) &&
+      !reason.includes("conflicts") && !reason.includes("No eligible paid-notes product");
+    if (failure instanceof GoogleApiError) console.error("play_catalog_failure", JSON.stringify({
+      operation: failure.operation, status, reason: failure.reason, requestId: failure.requestId,
+      details: failure.details,
+      jobId: job.price_inr, leaseId: job.lease_id, retryable: retry,
+    }));
+    try {
+      if (!await rpc<boolean>("fail_play_price_sync", {
+        p_price: job.price_inr, p_lease: job.lease_id, p_reason: reason, p_retry: retry,
+      })) return jsonResponse({ error: "Catalog job lease lost" }, 503);
+    } catch {
+      return jsonResponse({ error: "Catalog failure could not be recorded" }, 503);
+    }
     return jsonResponse({ processed: 1, status: retry ? "retry" : "failed" });
   }
 });

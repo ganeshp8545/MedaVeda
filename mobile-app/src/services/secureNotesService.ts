@@ -6,6 +6,12 @@ import { supabase } from "../config/supabase";
 // that expires after ~2 minutes. Never cache the result and never build a
 // storage URL from note.pdfUrl on the client - that URL no longer resolves.
 
+export class NoteAccessError extends Error {
+  constructor(public readonly status?: number) {
+    super("This note is unavailable. Check your connection and access, then retry.");
+  }
+}
+
 /**
  * Resolves a note into a fresh, short-lived signed URL. Call it right before
  * opening the viewer or starting a download.
@@ -16,12 +22,11 @@ import { supabase } from "../config/supabase";
 export async function getSecureNoteUrl(noteId: string): Promise<string> {
   const { data, error } = await supabase.functions.invoke("get-note-url", {
     body: { noteId },
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (error || !data?.url) {
-    throw new Error(
-      "This note isn't available to you right now. If you believe this is a mistake, please contact support."
-    );
+    throw new NoteAccessError(error?.context?.status);
   }
 
   return data.url as string;

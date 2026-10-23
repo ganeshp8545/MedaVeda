@@ -5,7 +5,6 @@
 export interface QuizTestQuestion {
   question: string;
   options: string[];
-  answer: string;
 }
 
 export interface QuizTest {

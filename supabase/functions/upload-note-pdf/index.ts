@@ -9,11 +9,12 @@ import {
   getUserFromAuthHeader,
   supabaseAdmin,
 } from "../_shared/supabaseAdmin.ts";
-import { validatePdfStructure } from "../_shared/validatePdfStructure.ts";
 import { sha256Hex, storedPdfMatchesHash } from "../_shared/notePdfHash.ts";
 import { withinLimit } from "../_shared/rateLimit.ts";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+import {
+  NotePdfUploadError,
+  parseNotePdfUpload,
+} from "../_shared/notePdfUpload.ts";
 
 Deno.serve(async (req: Request) => {
   const preflight = handleOptions(req);
@@ -62,26 +63,15 @@ Deno.serve(async (req: Request) => {
       }
       throw error;
     }
-    const file = form.get("file");
-    const requestId = form.get("request_id");
-    if (
-      !(file instanceof File) || typeof requestId !== "string" ||
-      !UUID.test(requestId)
-    ) {
-      return jsonResponse({ error: "File and request ID are required" }, 400);
-    }
-    if (file.type !== "application/pdf" || file.size > 10 * 1024 * 1024) {
-      return jsonResponse({
-        error: "PDFs over 10 MB require the quarantine upload flow",
-      }, 400);
-    }
-    const bytes = new Uint8Array(await file.arrayBuffer());
+    let bytes: Uint8Array;
+    let requestId: string;
     try {
-      await validatePdfStructure(bytes);
+      ({ bytes, requestId } = await parseNotePdfUpload(form));
     } catch (error) {
-      return jsonResponse({
-        error: String(error instanceof Error ? error.message : error),
-      }, 400);
+      if (error instanceof NotePdfUploadError) {
+        return jsonResponse({ error: error.message }, error.status);
+      }
+      throw error;
     }
     const digest = await sha256Hex(bytes);
     const path = `validated/${user.id}/${requestId}.pdf`;

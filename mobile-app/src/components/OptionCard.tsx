@@ -20,18 +20,19 @@ type Props = {
   disabled?: boolean;
   isCorrect?: boolean;
   isWrong?: boolean;
+  isSelected?: boolean;
 };
 
 // ANIMATION SYSTEM: press feedback via AnimatedPressable, plus a quick
-// "reveal pulse" the instant an answer resolves to correct/wrong -
-// small enough to not feel gimmicky, but enough to draw the eye to the
-// right answer without a jarring color-only snap.
+// A selected option is outlined locally; correctness is only known after
+// the server scores the completed attempt.
 export default function OptionCard({
   title,
   onPress,
   disabled = false,
   isCorrect = false,
   isWrong = false,
+  isSelected = false,
 }: Props) {
   const revealScale = useSharedValue(1);
 
@@ -46,6 +47,9 @@ export default function OptionCard({
     backgroundColor = COLORS.error;
     borderColor = COLORS.error;
   }
+  if (isSelected && !isCorrect && !isWrong) {
+    borderColor = COLORS.accent;
+  }
 
   useEffect(() => {
     if (isCorrect || isWrong) {
@@ -54,7 +58,7 @@ export default function OptionCard({
         withTiming(1, { duration: DURATIONS.micro, easing: EASINGS.inOut })
       );
     }
-  }, [isCorrect, isWrong]);
+  }, [isCorrect, isWrong, revealScale]);
 
   const revealStyle = useAnimatedStyle(() => ({
     transform: [{ scale: revealScale.value }],

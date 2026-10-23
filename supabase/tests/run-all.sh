@@ -26,6 +26,12 @@ for f in $(ls "$root"/supabase/migrations/*.sql | sort); do
 done
 $P -d $DB -f "$here/support/seed.sql" >/dev/null || { echo "seed failed"; exit 2; }
 
+# Run with the pristine seed; older suites may mutate fixture eligibility.
+for s in play_catalog_queue_regression_checks play_catalog_failure_access_checks play_duplicate_settlement_checks; do
+  if $P -d $DB -f "$here/$s.sql"; then echo "PASS  $s";
+  else fail=1; fi
+done
+
 # Suites that end with "N FAIL, M PASS" (or a "<n> FAIL" line): pass only at 0 FAIL and with tests present.
 for s in f7_checks f8_checks batch1_checks batch3_checks batch3b_checks phase2_referral_wallet_checks \
          referral_limits_checks referral_off_wallet_checks high_phone_and_notes_checks medium_db_checks low_grants_checks admin_mfa_checks ucb_checks verified_content_checks; do
@@ -37,7 +43,7 @@ done
 
 # Older suites: they RAISE (psql exits non-zero) or print a line starting with FAIL.
 for s in account_deletion_checks critical_fixes_checks app_config_checks null_year_fallback_checks \
-         payment_queue_checks referral_switch_off_paths; do
+         course_wide_browsing_checks content_publication_checks quiz_answer_and_admin_mfa_checks payment_queue_checks referral_switch_off_paths play_catalog_sync_checks play_payment_pg_checks play_entitlement_snapshot_checks; do
   out=$(psql -X -q -At -v ON_ERROR_STOP=1 -d $DB -f "$here/$s.sql" 2>&1); rc=$?
   if [ $rc -eq 0 ] && ! echo "$out" | grep -qE '(^|[^A-Za-z])FAIL'; then printf "PASS  %s\n" "$s"
   else printf "FAIL  %s (exit %s)\n" "$s" "$rc"; echo "$out" | tail -6; fail=1; fi
@@ -45,6 +51,9 @@ done
 
 echo "== edge-function harnesses"
 export TEMPLATE_DB=$DB
+if out=$(deno test --allow-env "$here/play_catalog_unit_test.ts" "$here/play_catalog_api_test.ts" 2>&1); then
+  echo "PASS  Play catalog unit + API regressions";
+else echo "FAIL  Play catalog unit + API regressions"; echo "$out" | tail -15; fail=1; fi
 if out=$(deno test "$here/pdf-validation-test.ts" "$here/upload-body-test.ts" "$here/note-pdf-hash-test.ts" 2>&1); then echo "PASS  pdf-validation + upload-body + note-pdf-hash (9 cases)";
 else echo "FAIL  pdf-validation-test"; echo "$out" | tail -8; fail=1; fi
 if out=$(bash "$here/wallet-concurrency.sh" 2>&1); then echo "$out";
@@ -54,7 +63,10 @@ else echo "$out"; fail=1; fi
 if out=$(bash "$here/payment-concurrency.sh" 2>&1); then echo "$out";
 else echo "$out"; fail=1; fi
 for test in settle-timestamp-selftest.cjs f10-coverage-selftest.cjs google-reporting-selftest.cjs play-consumption-selftest.cjs recovery-selftest.cjs \
-            play-reconcile-fairness-selftest.cjs compensation-worker-selftest.cjs ucb-cron-config-selftest.cjs; do
+            play-reconcile-fairness-selftest.cjs compensation-worker-selftest.cjs ucb-cron-config-selftest.cjs \
+            play-payment-worker-selftest.cjs play-cron-config-selftest.cjs play-catalog-worker-selftest.cjs play-catalog-creation-selftest.cjs \
+            play-service-account-diagnostic-selftest.cjs play-order-selftest.cjs play-verification-selftest.cjs \
+            razorpay-routing-selftest.cjs content-url-publication-selftest.cjs; do
   if out=$(cd "$root" && node "$here/$test" 2>&1); then echo "$out" | grep '^PASS';
   else echo "$out" | tail -8; fail=1; fi
 done

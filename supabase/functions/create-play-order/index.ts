@@ -19,7 +19,21 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ error: "This Notes product is unavailable." }, 400);
   const { data, error } = await supabaseAdmin.rpc("create_play_order", { p_user_id: user.id, p_product_id: productId });
   if (error) { console.error("create-play-order failed", error.code); return jsonResponse({ error: "Unable to create Play order." }, 500); }
-  if (!data?.ok) return jsonResponse({ error: data?.code ?? "order_unavailable", code: data?.code }, 400);
+  if (!data?.ok) {
+    if (data?.code === "price_tier_pending") {
+      // Distinguish a parked provisioning failure from work that can complete
+      // automatically. Never return the operator's Google diagnostic to buyers.
+      const { data: current, error: lookupError } = await supabaseAdmin.from("products")
+        .select("price").eq("id", productId).maybeSingle();
+      if (lookupError || !current) return jsonResponse({ error: "Checkout status unavailable." }, 503);
+      const { data: sync, error: syncError } = await supabaseAdmin.from("play_price_sync")
+        .select("status").eq("price_inr", current.price).maybeSingle();
+      if (syncError) return jsonResponse({ error: "Checkout status unavailable." }, 503);
+      const code = sync?.status === "failed" ? "price_tier_failed" : "price_tier_pending";
+      return jsonResponse({ error: code, code }, 400);
+    }
+    return jsonResponse({ error: data?.code ?? "order_unavailable", code: data?.code }, 400);
+  }
   const { data: order, error: orderError } = await supabaseAdmin.from("orders")
     .select("amount,play_sku,play_purchase_option_id").eq("id", data.order_id).eq("user_id", user.id).eq("provider", "play").single();
   if (orderError || !order || order.play_sku !== data.play_sku ||

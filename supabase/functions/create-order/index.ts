@@ -27,6 +27,12 @@ Deno.serve(async (req: Request) => {
   try {
     const user = await getUserFromAuthHeader(req);
     if (!user) return jsonResponse({ error: "Please log in before purchasing." }, 401);
+    // Current/legacy native callers send this header. Website Razorpay calls
+    // do not. This is a routing guard, not proof of platform or authentication;
+    // clients that omit the header cannot be identified as Android here.
+    if (req.headers.has("x-medveda-app-version"))
+      return jsonResponse({ error: "Android purchases use Google Play Billing. Please update the app.",
+        code: "play_billing_required" }, 403);
 
     const body = (await req.json().catch(() => ({}))) as {
       productId?: unknown; useWallet?: unknown; ucbOrderId?: unknown; buyerState?: unknown;

@@ -12,8 +12,8 @@ export async function fetchQuizTestsBySubject(subjectId: string) {
 
 // Global Search System - the search index only holds a lightweight
 // version of each quiz test (no `questions`, see
-// getAllActiveQuizTestsLite). This resolves the full test, including
-// questions, once a specific search result is tapped and the app is
+// getAllActiveQuizTestsLite). This resolves the playable questions without
+// answer keys once a specific search result is tapped and the app is
 // about to navigate into the Quiz screen.
 export async function fetchQuizTestById(id: string) {
   return getQuizTestById(id);

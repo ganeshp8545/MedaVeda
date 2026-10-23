@@ -107,8 +107,15 @@ export default function PrivacyScreen() {
       <Text style={styles.body}>
         Account data is kept while your account is active. After you
         delete your account, personal data is erased within 30 days,
-        except payment, invoice and tax records, which we must keep
+        except the fraud-prevention records described below and payment,
+        invoice and tax records, which we must keep
         for up to 8 years under Indian tax and accounting laws.
+        {/* DB-01: Draft for owner/legal review; verify purge operation before publishing. */}
+        {"\n"}Fraud-prevention hashes of email addresses and phone numbers,
+        together with the original account ID, are kept up to 180 days after account deletion, then deleted.
+        The retention cutoff is 180 days from the first recorded purchase,
+        so these records may be deleted sooner after account deletion.
+        They are used to detect repeat first-purchase discounts and referral abuse.{"\n"}
         Crash reports and usage data are kept for up to 12 months,
         then deleted or kept only in anonymised, aggregated form.
       </Text>

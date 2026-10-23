@@ -5,6 +5,15 @@ on:
   pull_request:
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: tooling/package-lock.json }
+      - run: npm ci --prefix tooling
+      - run: npm run lint --prefix tooling
+
   admin-panel:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: admin-panel } }
@@ -35,7 +44,14 @@ jobs:
       - run: node scripts/same-project-build-selftest.cjs
       - run: node scripts/staging-build-selftest.cjs
       - run: node scripts/payment-provider-selftest.cjs
+      - run: node scripts/payment-routing-selftest.cjs
       - run: node scripts/play-restore-selftest.cjs
+      - run: node scripts/play-lifecycle-selftest.cjs
+      - run: node scripts/offline-download-selftest.cjs
+      - run: node scripts/offline-owner-selftest.cjs
+      - run: node scripts/quiz-hooks-selftest.cjs
+      - run: node scripts/purchases-selftest.cjs
+      - run: npm audit --omit=dev --audit-level=high
 
   website:
     runs-on: ubuntu-latest
@@ -56,7 +72,7 @@ jobs:
       - run: |
           for f in supabase/functions/*/index.ts; do deno check "$f"; done
           deno check supabase/workers/validate-note-pdf.ts
-          deno test supabase/tests/quarantine-worker-test.ts
+          deno test --allow-env supabase/tests/quarantine-worker-test.ts supabase/tests/upload-note-pdf-test.ts supabase/tests/play_catalog_unit_test.ts supabase/tests/play_catalog_api_test.ts
 
   database:
     runs-on: ubuntu-latest
@@ -80,6 +96,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node scripts/secret-scan-selftest.mjs
       - name: No real keys in the repo
-        run: |
-          ! git grep -nEI '(rzp_live_[A-Za-z0-9]{10,}|sk_live_|-----BEGIN (RSA |EC )?PRIVATE KEY-----|service_role[^\n]{0,20}eyJ)' -- . ':!docs' ':!*.md' ':!*.env.example' ':!.github'
+        run: git ls-files -z | node scripts/scan-secrets.mjs --stdin

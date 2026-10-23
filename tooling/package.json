@@ -1,0 +1,14 @@
+{
+  "name": "medveda-quality-tools",
+  "private": true,
+  "scripts": {
+    "lint": "cd .. && tooling/node_modules/.bin/eslint mobile-app/App.tsx mobile-app/src admin-panel/src",
+    "test:secrets": "cd .. && node scripts/secret-scan-selftest.mjs && git ls-files -z | node scripts/scan-secrets.mjs --stdin"
+  },
+  "devDependencies": {
+    "eslint": "10.13.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.6.0",
+    "typescript-eslint": "8.59.4"
+  }
+}

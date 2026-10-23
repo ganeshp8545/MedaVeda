@@ -64,7 +64,7 @@ export default function SplashScreen({ navigation }: any) {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [navigation]);
 
   return (
     <View style={styles.container}>

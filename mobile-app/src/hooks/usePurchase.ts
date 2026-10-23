@@ -1,5 +1,5 @@
 import { useNavigation } from "@react-navigation/native";
-import { Platform } from "react-native";
+import { Alert, Platform } from "react-native";
 
 import { Product } from "../services/productsService";
 import { paymentProvider } from "../config/paymentProvider";
@@ -33,6 +33,10 @@ export default function usePurchase() {
   // nothing is reserved or discounted by merely looking at the summary.
   function buy(product: Product) {
     if (Platform.OS !== "android") return;
+    if (paymentProvider === "disabled") {
+      Alert.alert("Purchases unavailable", "Payments are disabled in this staging build.");
+      return;
+    }
     navigation.navigate(paymentProvider === "play" ? "PlayBilling" : "OrderSummary", {
       productId: product.id,
       productTitle: product.title,

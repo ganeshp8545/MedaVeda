@@ -65,17 +65,19 @@
       },
       "channel": "internal-testing"
     },
-    "razorpay-distribution": {
+    "staging-validation": {
       "distribution": "internal",
+      "environment": "preview",
       "android": {
         "buildType": "apk"
       },
-      "environment": "preview",
+      "channel": "staging-validation",
       "env": {
         "MEDVEDA_BUILD_TARGET": "staging",
-        "MEDVEDA_PAYMENT_PROVIDER": "razorpay"
-      },
-      "channel": "razorpay-distribution"
+        "MEDVEDA_PAYMENT_PROVIDER": "disabled",
+        "EXPO_PUBLIC_SUPABASE_URL": "https://nsmsqsogedzohwboripd.supabase.co",
+        "EXPO_PUBLIC_SUPABASE_ANON_KEY": "REPLACE_WITH_STAGING_PUBLISHABLE_KEY"
+      }
     },
     "shrink-test": {
       "distribution": "internal",

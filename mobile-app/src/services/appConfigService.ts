@@ -59,7 +59,7 @@ async function fetchStatus(): Promise<{ status: UpdateStatus; cacheable: boolean
     const map = new Map<string, string>(data.map((r: any) => [r.key, r.value]));
     const rawUrl = map.get("store_url")?.trim();
     const storeUrl = rawUrl && /^https:\/\//.test(rawUrl) &&
-      !rawUrl.includes("play.google.com/store/apps/details?id=com.medveda.app")
+      !/^https:\/\/play\.google\.com\/store\/apps\/details\?(?:[^#]*&)?id=com\.(medveda|ayurpulse)\.app(?:&|$)/.test(rawUrl)
       ? rawUrl : DEFAULT_STORE_URL;
 
     const cmp = compareVersions(installed, map.get("min_app_version"));

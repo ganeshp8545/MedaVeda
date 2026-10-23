@@ -1,6 +1,6 @@
 -- REVIEW ONLY. Execute only after the owner approves the reviewed migration,
 -- Google permissions, Edge Function deployment, and secret provisioning.
--- Target project: xbvenkfmesugrbjuufyw. Vault secret: play_catalog_cron_secret.
+-- Target project: xbvenkfmesugrbjuufyw. Vault secret: PLAY_CATALOG_CRON_SECRET.
 -- Edge secret PLAY_CATALOG_CRON_SECRET must match the Vault value.
 do $setup$
 declare v_secret text; v_count integer;
@@ -13,7 +13,7 @@ begin
   select count(*),max(decrypted_secret) into v_count,v_secret
     from vault.decrypted_secrets where name='PLAY_CATALOG_CRON_SECRET';
   if v_count<>1 or length(v_secret)<32 then
-    raise exception 'play_catalog_cron_secret missing or invalid';
+    raise exception 'PLAY_CATALOG_CRON_SECRET missing or invalid';
   end if;
   perform cron.schedule('play-catalog-sync','* * * * *', $job$
     select net.http_post(

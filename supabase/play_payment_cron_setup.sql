@@ -1,6 +1,6 @@
 -- REVIEW ONLY: do not execute until the Play migration, function, secrets,
 -- monitoring and release gates have been verified. This file enables cron if run.
--- Target project: xbvenkfmesugrbjuufyw. Vault: play_payment_cron_secret.
+-- Target project: xbvenkfmesugrbjuufyw. Vault: PLAY_PAYMENT_CRON_SECRET.
 -- Edge: PLAY_PAYMENT_CRON_SECRET must match the Vault secret.
 do $setup$
 declare v_secret text; v_count integer;
@@ -13,7 +13,7 @@ begin
   select count(*),max(decrypted_secret) into v_count,v_secret
     from vault.decrypted_secrets where name='PLAY_PAYMENT_CRON_SECRET';
   if v_count<>1 or length(v_secret)<32 then
-    raise exception 'play_payment_cron_secret missing or invalid';
+    raise exception 'PLAY_PAYMENT_CRON_SECRET missing or invalid';
   end if;
   perform cron.schedule('play-consume','* * * * *', $job$
     select net.http_post(

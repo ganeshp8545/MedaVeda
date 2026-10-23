@@ -6,7 +6,7 @@
 // (notes.is_free_preview) or covered by one of their purchases
 // (user_can_access_note). Returns a short-lived signed URL (120 s).
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
-import { supabaseAdmin, getUserFromAuthHeader } from "../_shared/supabaseAdmin.ts";
+import { aalFromAuthHeader, supabaseAdmin, getUserFromAuthHeader } from "../_shared/supabaseAdmin.ts";
 import { withinLimit } from "../_shared/rateLimit.ts";
 
 const BUCKET = "notes";
@@ -40,9 +40,10 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Too many requests. Please slow down." }, 429);
     }
 
-    const { data: allowed, error: accessErr } = await supabaseAdmin.rpc("user_can_access_note", {
+    const { data: allowed, error: accessErr } = await supabaseAdmin.rpc("user_can_access_note_with_aal", {
       p_user: user.id,
       p_note_id: noteId,
+      p_aal: aalFromAuthHeader(req),
     });
     if (accessErr) {
       console.error("get-note-url: entitlement check failed", accessErr.code);

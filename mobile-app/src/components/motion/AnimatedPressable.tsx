@@ -13,13 +13,12 @@
 //   </AnimatedPressable>
 
 import React from "react";
-import { GestureResponderEvent, ViewStyle, StyleProp } from "react-native";
+import { GestureResponderEvent, ViewStyle, StyleProp, Pressable } from "react-native";
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { Pressable } from "react-native";
 
 import { PRESS_SCALE, SPRINGS } from "../../theme/motion";
 

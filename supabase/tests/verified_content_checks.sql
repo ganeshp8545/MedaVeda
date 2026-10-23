@@ -75,6 +75,20 @@ select pg_temp.check('admin can read verified score',
 select pg_temp.check('other user cannot edit verified score',
   pg_temp.call_as('authenticated','abc00000-0000-0000-0000-000000000002',
   $x$update public.verified_quiz_attempts set score=0 where id='verified_001' returning score::text$x$)='ERR 42501');
+select pg_temp.check('owner cannot edit verified score',
+  pg_temp.call_as('authenticated','abc00000-0000-0000-0000-000000000001',
+  $x$update public.verified_quiz_attempts set score=0 where id='verified_001' returning score::text$x$)='ERR 42501');
+select pg_temp.check('legacy own score remains compatible',
+  pg_temp.call_as('authenticated','abc00000-0000-0000-0000-000000000001',
+  $x$insert into public.quiz_scores(id,user_id,score,total,percentage)
+     values('legacy_forged','abc00000-0000-0000-0000-000000000001',1,1,100) returning id$x$)='legacy_forged');
+select pg_temp.check('legacy cross-account insert denied',
+  pg_temp.call_as('authenticated','abc00000-0000-0000-0000-000000000002',
+  $x$insert into public.quiz_scores(id,user_id,score,total,percentage)
+     values('legacy_other','abc00000-0000-0000-0000-000000000001',1,1,100)$x$)='ERR 42501');
+select pg_temp.check('forged legacy score cannot alter verified statistics',
+  (select count(*)=2 and max(score)=2 and avg(percentage)=50 from public.verified_quiz_attempts
+    where user_id='abc00000-0000-0000-0000-000000000001'));
 update public.profiles set blocked=true where id='abc00000-0000-0000-0000-000000000002';
 select pg_temp.check('blocked account cannot submit',
   pg_temp.call_as('authenticated','abc00000-0000-0000-0000-000000000002',

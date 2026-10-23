@@ -1,5 +1,5 @@
 import { getUserDoc, setUserDoc } from "../repositories/usersRepository";
-import { UserProfile, UserRole } from "../types/user";
+import { UserProfile } from "../types/user";
 import { supabase } from "../config/supabase";
 import { performSignOut } from "./authState";
 

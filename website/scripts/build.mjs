@@ -26,7 +26,7 @@ const V = {
   GRIEVANCE_ACK_TIME: "within 48 hours",
   GRIEVANCE_RESOLUTION_TIME: "within 15 working days (and in any case within one month)",
   JURISDICTION_CITY: "Dhule, Maharashtra",
-  DATA_RETENTION_PERIOD: "Account data is kept while the account is active. After account deletion, personal data is erased within 30 days, except records we must keep by law (payment, invoice and tax records, kept for up to 8 years under Indian tax and accounting laws).",
+  DATA_RETENTION_PERIOD: "Account data is kept while the account is active. After account deletion, personal data is erased within 30 days, except the fraud-prevention records described below and records we must keep by law (payment, invoice and tax records, kept for up to 8 years under Indian tax and accounting laws).",
   ANALYTICS_RETENTION_PERIOD: "up to 12 months, after which it is deleted or kept only in anonymised, aggregated form",
   RIGHTS_RESPONSE_TIME: "within 30 days",
   TEAM_INTRO: "MedVeda is built by a small team from Maharashtra that understands the needs of AYUSH students \u2013 organised notes, clear video lectures and regular practice tests, arranged by course and year.",
@@ -45,7 +45,7 @@ const V = {
   REFUND_RESPONSE_TIME: "within 48 hours",
   DELIVERY_WAIT_TIME: "Access is usually instant. If it doesn't appear within 30 minutes, restart the app; if it still doesn't appear within 24 hours, contact support with your payment ID.",
   DELETION_TIMELINE: "within 30 days of the request",
-  DELETION_RETENTION_CONFIRM: "Payment, order and invoice records are retained for up to 8 years as required by Indian tax and accounting laws. Backups are overwritten within 90 days. Everything else linked to your account is deleted.",
+  DELETION_RETENTION_CONFIRM: "Payment, order and invoice records are retained for up to 8 years as required by Indian tax and accounting laws. Backups are overwritten within 90 days. Other account data is deleted subject to the fraud-prevention retention described below.",
 };
 V.GRIEVANCE_BLOCK = `<p>Name: ${V.GRIEVANCE_OFFICER_NAME}<br>Email: <a href="mailto:${V.GRIEVANCE_OFFICER_EMAIL}">${V.GRIEVANCE_OFFICER_EMAIL}</a><br>Phone: ${V.SUPPORT_PHONE}<br>Address: ${V.BUSINESS_ADDRESS}<br>Support hours: ${V.SUPPORT_HOURS}</p><p class="meta">We acknowledge complaints ${V.GRIEVANCE_ACK_TIME} and resolve them ${V.GRIEVANCE_RESOLUTION_TIME}, as required by the Information Technology Act, 2000 and rules, the Consumer Protection (E-Commerce) Rules, 2020 and the Digital Personal Data Protection Act, 2023.</p>`;
 

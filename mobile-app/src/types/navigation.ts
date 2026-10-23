@@ -85,7 +85,6 @@ export type RootStackParamList = {
       questions: {
         question: string;
         options: string[];
-        answer: string;
       }[];
     };
   };

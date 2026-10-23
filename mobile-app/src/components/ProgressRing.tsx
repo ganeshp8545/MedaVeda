@@ -38,7 +38,7 @@ export default function ProgressRing({
       useNativeDriver: false,
     }).start();
     return () => anim.removeListener(id);
-  }, [clamped]);
+  }, [clamped, anim]);
 
   const rightRotation = progress > 50 ? 180 : progress * 3.6;
   const leftRotation = progress > 50 ? (progress - 50) * 3.6 : 0;

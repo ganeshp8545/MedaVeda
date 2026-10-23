@@ -1,6 +1,7 @@
 import { supabase } from "../config/supabase";
 import { Platform } from "react-native";
 import * as Application from "expo-application";
+import { paymentProvider } from "../config/paymentProvider";
 
 // Supabase Edge Functions that back the payment flow (see
 // supabase/functions/{create-order,verify-payment}).
@@ -72,6 +73,7 @@ export async function purchaseProduct(
   buyerState?: string
 ): Promise<CheckoutData> {
   if (Platform.OS !== "android") throw new Error("Purchases are available in the Android app.");
+  if (paymentProvider !== "razorpay") throw new Error("Use Google Play Billing to purchase this item.");
   const { data } = await supabase.auth.getSession();
   const accessToken = data.session?.access_token;
 

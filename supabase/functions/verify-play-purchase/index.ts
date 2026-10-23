@@ -72,8 +72,10 @@ Deno.serve(async (req: Request) => {
         await consumeProductPurchase(order.play_sku, token);
         await supabaseAdmin.from("orders").update({ play_consumption_status: "consumed" }).eq("id", orderId).eq("purchase_token", token);
       } catch (error) {
-        console.error("verify-play-purchase consumption pending", error instanceof GoogleApiError ? error.status : String(error));
-        await supabaseAdmin.from("orders").update({ play_consumption_status: "failed" }).eq("id", orderId).eq("purchase_token", token);
+        console.error("verify-play-purchase consumption pending", error instanceof GoogleApiError ? error.message : "Consumption request failed");
+        // A concurrent verification/worker may already have recorded success.
+        await supabaseAdmin.from("orders").update({ play_consumption_status: "failed" })
+          .eq("id", orderId).eq("purchase_token", token).neq("play_consumption_status", "consumed");
       }
     }
     const { data: product } = await supabaseAdmin.from("products").select("title").eq("id", productId).maybeSingle();
@@ -81,7 +83,12 @@ Deno.serve(async (req: Request) => {
     return jsonResponse({ success: true, internalOrderId: orderId, amount: Number(settlement.amount),
       productTitle: product?.title ?? "Your content" });
   } catch (error) {
-    console.error("verify-play-purchase API unavailable", error instanceof GoogleApiError ? error.status : String(error));
+    console.error("verify-play-purchase API unavailable", error instanceof GoogleApiError ? {
+      operation: error.operation, status: error.status, reason: error.reason,
+      requestId: error.requestId, details: error.details,
+    } : "Purchase verification failed");
+    if (error instanceof GoogleApiError && [400, 404, 410].includes(error.status))
+      return jsonResponse({ error: "Google Play could not validate this purchase." }, 403);
     return jsonResponse({ error: "Play verification unavailable. Please retry." }, 503);
   }
 });

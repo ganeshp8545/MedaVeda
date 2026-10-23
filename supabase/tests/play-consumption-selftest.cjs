@@ -3,7 +3,7 @@ const orderId='00000000-0000-0000-0000-000000000010',userId='buyer-id',token='pl
 const order={id:orderId,user_id:userId,product_id:'product',provider:'play',play_sku:'notes_49',
   amount:49,status:'created',purchase_token:null,external_transaction_token:null,
   external_choice_bound_order_id:null,play_consumption_status:null};
-function query(table){return {select(){return this},eq(){return this},update(changes){Object.assign(order,changes);return this},
+function query(table){return {select(){return this},eq(){return this},neq(){return this},update(changes){Object.assign(order,changes);return this},
   maybeSingle:async()=>({data:table==='orders'?order:{title:'Notes'},error:null}),
   then(resolve){resolve({data:null,error:null})}}}
 let handler,consumptionCalls=0;

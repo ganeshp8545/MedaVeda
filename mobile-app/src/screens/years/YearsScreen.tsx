@@ -35,12 +35,10 @@ export default function YearsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { ready, courseId, yearId: currentYearId } = useCourseYear();
+  const { ready, courseId } = useCourseYear();
 
-  // Only the student's course is listed. Tapping a year other than their
-  // current one is allowed - RLS then shows just what they have purchased
-  // there (a bundle/year/subject/chapter pack); changing the year itself
-  // is done from Profile.
+  // Browsing a year does not change the registered year in the profile.
+  // RLS scopes catalogue visibility to the course; PDFs still need entitlement.
   useEffect(() => {
     if (!ready) return;
     setLoading(true);
@@ -87,10 +85,10 @@ export default function YearsScreen() {
             <Text style={styles.empty}>No academic years added yet.</Text>
           }
           ListFooterComponent={
-            years.length > 1 && currentYearId ? (
+            years.length > 1 ? (
               <Text style={styles.hint}>
-                You&apos;ll see all content for your current year. Other years show only what
-                you&apos;ve purchased - change your year from Profile.
+                Browse any year in your course. Paid notes require a purchase.
+                Your profile year stays unchanged.
               </Text>
             ) : null
           }

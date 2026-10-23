@@ -140,12 +140,11 @@ export default function NotesScreen() {
   async function handleDownloadPress(item: Note) {
     setResolvingNoteId(item.id);
     try {
-      const signedUrl = await getSecureNoteUrl(item.id);
       await start({
         id: item.id,
         contentType: "note",
         title: item.title,
-        sourceUrl: signedUrl,
+        sourceUrl: "", // The manager requests fresh authorization for every transfer.
         chapterId,
         chapterTitle,
         subjectId,

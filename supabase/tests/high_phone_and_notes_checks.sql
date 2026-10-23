@@ -100,7 +100,7 @@ declare
 begin
   select n.id, n.chapter_id, n.pdf_url into v_note
   from public.notes n join public.chapters c on c.id = n.chapter_id
-  where n.active and exists (select 1 from public.purchases p where p.status='success' and p.user_id is not null and not exists (select 1 from public.admins ad where ad.id = p.user_id) and p.course_id=c.course_id and (
+  where n.active and not n.is_free_preview and exists (select 1 from public.purchases p where p.status='success' and p.user_id is not null and not exists (select 1 from public.admins ad where ad.id = p.user_id) and p.course_id=c.course_id and (
      (p.scope='chapter' and p.chapter_id=c.id) or (p.scope='subject' and p.subject_id=c.subject_id)
      or (p.scope='year' and p.year_id=c.year_id) or (p.scope='bundle' and c.year_id = any(p.year_ids))))
   limit 1;
@@ -118,11 +118,20 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', v_buyer, 'role','authenticated')::text, true);
   set local role authenticated;
   select count(*) into v_seen from storage.objects where bucket_id='notes' and name = v_name;
-  perform pg_temp.check('buyer can read the exact object', v_seen = 1);
+  -- 20261020100000 intentionally requires service-mediated PDF delivery.
+  -- Preserve this regression: a purchase must NOT bypass blocked/publication checks
+  -- by reading Storage or minting a client-side signed URL directly.
+  perform pg_temp.check('buyer can NOT read the exact object directly', v_seen = 0);
   select count(*) into v_seen from storage.objects where bucket_id='notes' and name = right(v_name, 8);
   perform pg_temp.check('buyer can NOT read an object whose name is only a substring of the path', v_seen = 0);
   select count(*) into v_seen from storage.objects where bucket_id='notes' and name = 'zz-decoy.pdf';
   perform pg_temp.check('buyer can not read an unrelated object', v_seen = 0);
+  reset role;
+
+  -- The supported path remains usable for the entitled buyer only.
+  set local role service_role;
+  perform pg_temp.check('service-only note authorization allows the buyer', public.user_can_access_note(v_buyer, v_note.id));
+  perform pg_temp.check('service-only note authorization denies a non-buyer', not public.user_can_access_note(v_other, v_note.id));
   reset role;
 
   perform set_config('request.jwt.claim.sub', v_other::text, true);

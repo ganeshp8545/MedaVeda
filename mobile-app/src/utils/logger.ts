@@ -12,7 +12,6 @@ import { Sentry } from "../config/sentry";
 // which can carry request payloads/tokens on some SDKs).
 export function logDebug(...args: unknown[]): void {
   if (__DEV__) {
-    // eslint-disable-next-line no-console
     console.log(...args);
   }
 }
@@ -20,7 +19,6 @@ export function logDebug(...args: unknown[]): void {
 export function logError(label: string, error?: unknown): void {
   const message = error instanceof Error ? error.message : undefined;
   if (__DEV__) {
-    // eslint-disable-next-line no-console
     console.error(label, message ?? error);
   }
   // Wired up to Sentry - deliberately does NOT send the raw `error` object,

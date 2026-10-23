@@ -156,7 +156,9 @@ export default function AppNavigator() {
         {paymentProvider === "razorpay" && (
           <Stack.Screen name="OrderSummary" component={OrderSummaryScreen} />
         )}
-        <Stack.Screen name="PlayBilling" component={PlayBillingScreen} />
+        {paymentProvider === "play" && (
+          <Stack.Screen name="PlayBilling" component={PlayBillingScreen} />
+        )}
         {paymentProvider === "razorpay" && (
           <Stack.Screen name="PaymentCheckout" component={PaymentCheckoutScreen} />
         )}

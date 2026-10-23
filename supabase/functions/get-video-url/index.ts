@@ -4,7 +4,7 @@
 // Videos are free for signed-in, nonblocked users. The database access rule
 // comes from 20261016090000_free_video_access.sql; no purchase is required.
 import { handleOptions, jsonResponse } from "../_shared/cors.ts";
-import { supabaseAdmin, getUserFromAuthHeader } from "../_shared/supabaseAdmin.ts";
+import { aalFromAuthHeader, supabaseAdmin, getUserFromAuthHeader } from "../_shared/supabaseAdmin.ts";
 import { withinLimit } from "../_shared/rateLimit.ts";
 
 Deno.serve(async (req: Request) => {
@@ -24,9 +24,10 @@ Deno.serve(async (req: Request) => {
       return jsonResponse({ error: "Too many requests. Please slow down." }, 429);
     }
 
-    const { data: allowed, error: accessErr } = await supabaseAdmin.rpc("user_can_access_video", {
+    const { data: allowed, error: accessErr } = await supabaseAdmin.rpc("user_can_access_video_with_aal", {
       p_user: user.id,
       p_video_id: videoId,
+      p_aal: aalFromAuthHeader(req),
     });
     if (accessErr) {
       console.error("get-video-url: entitlement check failed", accessErr.code);

@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import { moneyCents, optionNeedsActivation, priceCents, verifiedBuyOption } from
   "../functions/_shared/playCatalog.ts";
 import { validatePlayPurchaseV2 } from "../functions/_shared/playPurchaseValidation.ts";
+import type { OneTimeProduct } from "../functions/_shared/playCatalog.ts";
 
 Deno.test("arbitrary exact INR prices and Play money precision", () => {
   assert.equal(priceCents("137.25"), 13725);
@@ -10,6 +11,53 @@ Deno.test("arbitrary exact INR prices and Play money precision", () => {
     assert.throws(() => priceCents(invalid));
   assert.equal(moneyCents({ currencyCode: "INR", units: "137", nanos: 250000000 }), 13725);
   assert.equal(moneyCents({ currencyCode: "USD", units: "137", nanos: 250000000 }), null);
+});
+
+Deno.test("malformed or ambiguous catalog responses cannot activate or become ready", () => {
+  const sku = "notes_137_25_v_fixture";
+  const product = { packageName: "in.medveda.app", productId: sku,
+    purchaseOptions: [{ purchaseOptionId: "buy", state: "ACTIVE", buyOption: {},
+      regionalPricingAndAvailabilityConfigs: [{ regionCode: "IN", availability: "AVAILABLE",
+        price: { currencyCode: "INR", units: "137", nanos: 250000000 } }] }] };
+  const option = product.purchaseOptions[0];
+  const india = option.regionalPricingAndAvailabilityConfigs[0];
+  const withOption = (patch: Record<string, unknown>) => ({ ...product, purchaseOptions: [{ ...option, ...patch }] });
+  const invalid: unknown[] = [null, [], true, {}, { ...product, packageName: "other.app" },
+    { ...product, productId: "other_sku" }, { ...product, purchaseOptions: {} },
+    { ...product, purchaseOptions: [null] }, withOption({ buyOption: true }),
+    withOption({ buyOption: { multiQuantityEnabled: 0 } }), withOption({ buyOption: { multiQuantityEnabled: true } }),
+    withOption({ rentOption: {} }), withOption({ purchaseOptionId: "other" }),
+    withOption({ regionalPricingAndAvailabilityConfigs: {} }),
+    withOption({ regionalPricingAndAvailabilityConfigs: [null] }),
+    withOption({ regionalPricingAndAvailabilityConfigs: [india, india] }),
+    withOption({ regionalPricingAndAvailabilityConfigs: [{ ...india, availability: "AVAILABLE_FOR_OFFERS_ONLY" }] }),
+    withOption({ regionalPricingAndAvailabilityConfigs: [{ ...india, regionCode: "US" }] }),
+  ];
+  for (const money of [null, {}, { currencyCode: "USD", units: "137", nanos: 250000000 },
+    { currencyCode: "INR", units: "136", nanos: 1250000000 },
+    { currencyCode: "INR", units: "138", nanos: -750000000 },
+    { currencyCode: "INR", units: 137, nanos: 250000000 },
+    { currencyCode: "INR", units: "9007199254740993", nanos: 0 },
+    { currencyCode: "INR", units: "137", nanos: "250000000" },
+    { currencyCode: "INR", units: "137", nanos: 250000001 },
+    { currencyCode: "INR", units: "137", nanos: null },
+  ]) {
+    assert.equal(moneyCents(money as Parameters<typeof moneyCents>[0]), null);
+    invalid.push(withOption({ regionalPricingAndAvailabilityConfigs: [{ ...india, price: money }] }));
+  }
+  for (const value of invalid) {
+    assert.equal(verifiedBuyOption(value as OneTimeProduct, sku, "buy", 13725), false);
+    const draft = value && typeof value === "object" && !Array.isArray(value)
+      ? { ...value, purchaseOptions: Array.isArray((value as OneTimeProduct).purchaseOptions)
+        ? (value as OneTimeProduct).purchaseOptions!.map((o) => o && { ...o, state: "DRAFT" })
+        : (value as OneTimeProduct).purchaseOptions }
+      : value;
+    assert.equal(optionNeedsActivation(draft as OneTimeProduct, sku, "buy", 13725), false);
+  }
+  for (const state of ["INACTIVE", "STATE_UNSPECIFIED", "UNEXPECTED"]) {
+    assert.equal(verifiedBuyOption(withOption({ state }), sku, "buy", 13725), false);
+    assert.equal(optionNeedsActivation(withOption({ state }), sku, "buy", 13725), false);
+  }
 });
 
 Deno.test("only an active, exact-price India BUY option is verified", () => {
@@ -24,10 +72,10 @@ Deno.test("only an active, exact-price India BUY option is verified", () => {
     ...product.purchaseOptions, { ...product.purchaseOptions[0], purchaseOptionId: "other" },
   ] }, product.productId, "buy", 13725), false);
   const draft = { ...product, purchaseOptions: [{ ...product.purchaseOptions[0], state: "DRAFT" }] };
-  assert.equal(optionNeedsActivation(draft, "buy", 13725), true);
+  assert.equal(optionNeedsActivation(draft, product.productId, "buy", 13725), true);
   assert.equal(optionNeedsActivation({ ...draft, purchaseOptions: [
     ...draft.purchaseOptions, { ...draft.purchaseOptions[0], purchaseOptionId: "other" },
-  ] }, "buy", 13725), false);
+  ] }, product.productId, "buy", 13725), false);
   assert.equal(verifiedBuyOption(draft, product.productId, "buy", 13725), false);
   const rental = { ...product, purchaseOptions: [{ ...product.purchaseOptions[0], buyOption: undefined }] };
   assert.equal(verifiedBuyOption(rental, product.productId, "buy", 13725), false);

@@ -57,7 +57,7 @@ import { logError } from "../../utils/logger";
 // screen - this is what lets every section show its own skeleton.
 export default function HomeScreen() {
   const navigation = useNavigation<any>();
-  const { totalAttempts, averagePercentage, bestScore, loading: statsLoading } = useQuizStats();
+  const { totalAttempts, averagePercentage, loading: statsLoading } = useQuizStats();
 
   const [refreshing, setRefreshing] = useState(false);
 
@@ -70,7 +70,7 @@ export default function HomeScreen() {
   // course/year (e.g. it couldn't be loaded at login), ask for it now.
   useEffect(() => {
     if (needsCourseYearSelection(courseYear)) navigation.replace("SelectCourseYear");
-  }, [ready, courseId, yearId]);
+  }, [courseYear, navigation]);
 
   const [years, setYears] = useState<Year[]>([]);
   const [yearsLoading, setYearsLoading] = useState(true);
@@ -201,7 +201,7 @@ export default function HomeScreen() {
         Alert.alert("Referral applied", "Your friend's referral code has been applied.");
       }
     });
-  }, []);
+  }, [loadPurchases, loadNotifications, loadUnreadNotificationCount]);
 
   // Course-scoped sections load once the student's course is known and
   // reload if it changes.
@@ -210,13 +210,13 @@ export default function HomeScreen() {
     loadYears();
     loadYearProducts();
     loadLatest();
-  }, [ready, courseId]);
+  }, [ready, loadYears, loadYearProducts, loadLatest]);
 
   // Recommendations depend on years being loaded first (used as a
   // preference signal), so kick off once years arrive.
   useEffect(() => {
     if (ready && !yearsLoading) loadRecommended();
-  }, [ready, yearsLoading, courseId, yearId]);
+  }, [ready, yearsLoading, loadRecommended]);
 
   // Recently viewed / continue learning is local-device data, so refresh
   // it every time the screen regains focus (e.g. after finishing a chapter).

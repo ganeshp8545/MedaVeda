@@ -3,15 +3,10 @@ import { toCamelCase } from "../utils/caseConvert";
 import { QuizTest } from "../types/quiz";
 
 export async function getQuizTestsBySubject(subjectId: string): Promise<QuizTest[]> {
-  const { data, error } = await supabase
-    .from("quiz_tests")
-    // "quiz_tests" only stores subject_id/year_id - subjectTitle/yearTitle
-    // are UI-only fields the admin panel never writes to the DB, so they
-    // must be joined live here (otherwise they show blank wherever a Quiz
-    // is listed outside its own Subject screen).
-    .select("*, subjects ( title ), years ( title )")
-    .eq("subject_id", subjectId)
-    .eq("active", true);
+  const { data, error } = await supabase.rpc("get_public_quiz_tests", {
+    p_subject_id: subjectId,
+    p_test_id: null,
+  });
   if (error) throw error;
   return (data ?? []).map((row: any) => ({
     ...toCamelCase<QuizTest>(row),
@@ -24,7 +19,7 @@ export async function getQuizTestsBySubject(subjectId: string): Promise<QuizTest
 // for the search index. Deliberately excludes `questions` (can be a
 // sizeable JSON blob per test) since the index only needs id/title/order
 // plus enough context to navigate - getQuizTestById below fetches the
-// full row (questions included) only once a specific result is tapped.
+// playable questions (without answer keys) only when a result is tapped.
 export async function getAllActiveQuizTestsLite(
   courseId?: string
 ): Promise<Omit<QuizTest, "questions">[]> {
@@ -45,16 +40,16 @@ export async function getAllActiveQuizTestsLite(
 }
 
 export async function getQuizTestById(id: string): Promise<QuizTest | null> {
-  const { data, error } = await supabase
-    .from("quiz_tests")
-    .select("*, subjects ( title ), years ( title )")
-    .eq("id", id)
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("get_public_quiz_tests", {
+    p_subject_id: null,
+    p_test_id: id,
+  });
   if (error) throw error;
-  if (!data) return null;
+  const row: any = (data ?? [])[0];
+  if (!row) return null;
   return {
-    ...toCamelCase<QuizTest>(data),
-    subjectTitle: (data as any).subjects?.title ?? "",
-    yearTitle: (data as any).years?.title ?? "",
+    ...toCamelCase<QuizTest>(row),
+    subjectTitle: row.subjects?.title ?? "",
+    yearTitle: row.years?.title ?? "",
   };
 }

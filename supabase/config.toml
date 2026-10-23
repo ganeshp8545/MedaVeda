@@ -29,6 +29,14 @@ verify_jwt = true
 [functions.sync-play-catalog]
 verify_jwt = false
 
+# Uses verified Supabase Auth, admin membership and mandatory aal2 MFA in the handler.
+[functions.diagnose-play-service-account]
+verify_jwt = false
+
+# JWT gateway check plus handler verification, admin membership, and aal2.
+[functions.diagnose-play-pricing]
+verify_jwt = true
+
 [functions.attach-external-token]
 verify_jwt = true
 

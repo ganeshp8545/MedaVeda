@@ -32,17 +32,27 @@ import { getDb, OFFLINE_DB_SUPPORTED } from "../config/database";
 import {
   DownloadItem,
   DownloadRequest,
-  DownloadStatus,
   StorageStats,
 } from "../types/offline";
-import { logDebug } from "./logger";
+import { getSecureNoteUrl, NoteAccessError } from "../services/secureNotesService";
+import { getCurrentUser } from "../services/authState";
+
+import { recordNoteVerification, clearNoteVerification, OFFLINE_NOTE_VERIFICATION_PREFIX } from "../services/offlineNoteVerification";
 
 const ROOT_DIR = `${FileSystem.documentDirectory}medveda/`;
 const RESUME_STATE_PREFIX = "medveda:resume:"; // AsyncStorage key per in-flight download
+const QUIZ_CLEANUP_KEY = "medveda:answer-free-quiz-downloads:v1";
 
 // Active resumable handles, kept in memory only while the JS context is
 // alive - lets pause()/cancel() act on a live download instantly.
 const activeResumables = new Map<string, FileSystem.DownloadResumable>();
+// Invalidating an operation happens before awaiting cancellation: native completion
+// callbacks must not recreate another account's rows after logout or removal.
+const operations = new Map<string, symbol>();
+const pausedOperations = new Set<symbol>();
+let clearing: Promise<void> | null = null;
+let storageGeneration = 0;
+let fileSequence = 0;
 
 // Listener registry so multiple screens (NotesScreen card + DownloadsScreen
 // dashboard) can all react to progress/status changes for the same id
@@ -157,7 +167,8 @@ function upsertRow(item: Partial<DownloadItem> & { id: string }): void {
     db.runSync(
       `UPDATE downloads SET
         local_uri = ?, file_size_bytes = ?, bytes_written = ?, status = ?,
-        retry_count = ?, error_message = ?, downloaded_at = ?, updated_at = ?
+        retry_count = ?, error_message = ?, downloaded_at = ?, updated_at = ?,
+        source_url = ?, content_version = ?
        WHERE id = ?;`,
       [
         merged.localUri ?? null,
@@ -168,6 +179,8 @@ function upsertRow(item: Partial<DownloadItem> & { id: string }): void {
         merged.errorMessage ?? null,
         merged.downloadedAt ?? null,
         now,
+        merged.sourceUrl,
+        merged.contentVersion,
         item.id,
       ]
     );
@@ -177,194 +190,132 @@ function upsertRow(item: Partial<DownloadItem> & { id: string }): void {
   if (fresh) emit(fresh);
 }
 
-/** Kicks off (or resumes) a download. Safe to call again on a 'failed' item - acts as retry. */
+/** Every note transfer obtains a fresh URL through the entitlement-checking backend. */
 export async function enqueueDownload(request: DownloadRequest): Promise<void> {
-  if (!OFFLINE_DB_SUPPORTED) return;
+  await transferDownload(request);
+}
+
+async function transferDownload(request: DownloadRequest, saved?: FileSystem.DownloadPauseState): Promise<void> {
+  if (!OFFLINE_DB_SUPPORTED || clearing || operations.has(request.id)) return;
+  const operation = Symbol(request.id);
+  const generation = storageGeneration;
+  const owner = getCurrentUser()?.id;
+  operations.set(request.id, operation);
+  const current = () => operations.get(request.id) === operation &&
+    storageGeneration === generation && getCurrentUser()?.id === owner;
   const dir = dirFor(request.contentType);
-  await ensureDir(dir);
-
-  const existing = getDownload(request.id);
-  const isRetry = existing?.status === "failed";
-
-  upsertRow({
-    id: request.id,
-    contentType: request.contentType,
-    title: request.title,
-    chapterId: request.chapterId,
-    chapterTitle: request.chapterTitle,
-    subjectId: request.subjectId,
-    subjectTitle: request.subjectTitle,
-    yearId: request.yearId,
-    yearTitle: request.yearTitle,
-    sourceUrl: request.sourceUrl,
-    contentVersion: request.contentVersion ?? 1,
-    status: "downloading",
-    retryCount: isRetry ? (existing!.retryCount + 1) : 0,
-    errorMessage: null,
-  });
-
-  const ext = request.contentType === "note" ? "pdf" : "json";
-  const fileUri = `${dir}${request.id}.${ext}`;
-
+  const fileUri = saved?.fileUri ?? `${dir}${request.id}-${Date.now()}-${++fileSequence}.${request.contentType === "note" ? "pdf" : "json"}`;
+  let resumable: FileSystem.DownloadResumable | undefined;
   try {
-    const resumable = new FileSystem.DownloadResumable(
-      request.sourceUrl,
-      fileUri,
-      {},
-      (progress) => {
-        if (progress.totalBytesExpectedToWrite <= 0) return;
-        upsertRow({
-          id: request.id,
-          bytesWritten: progress.totalBytesWritten,
-          fileSizeBytes: progress.totalBytesExpectedToWrite,
-          status: "downloading",
-        });
-      }
-    );
+    if (!owner) throw new Error("Sign in again to download this note.");
+    const sourceUrl = request.contentType === "note" ? await getSecureNoteUrl(request.id) : request.sourceUrl;
+    if (!current()) return;
+    if (request.contentType === "note") await recordNoteVerification(owner, request.id);
+    if (!current()) return;
+    await ensureDir(dir);
+    if (!current()) return;
+    const existing = getDownload(request.id);
+    upsertRow({ ...request, sourceUrl, status: "downloading", errorMessage: null,
+      retryCount: existing?.status === "failed" ? existing.retryCount + 1 : 0 });
+    resumable = new FileSystem.DownloadResumable(sourceUrl, fileUri, saved?.options ?? {}, (progress) => {
+      if (!current() || progress.totalBytesExpectedToWrite <= 0) return;
+      upsertRow({ id: request.id, bytesWritten: progress.totalBytesWritten,
+        fileSizeBytes: progress.totalBytesExpectedToWrite, status: "downloading" });
+    }, saved?.resumeData);
     activeResumables.set(request.id, resumable);
-
-    const result = await resumable.downloadAsync();
-    activeResumables.delete(request.id);
+    const result = await (saved ? resumable.resumeAsync() : resumable.downloadAsync());
+    if (!current()) return;
+    if (!result || result.status < 200 || result.status >= 300)
+      throw new Error("Download did not complete. Please retry.");
+    const info = await FileSystem.getInfoAsync(result.uri);
+    if (!info.exists || !info.size) throw new Error("Downloaded file is empty. Please retry.");
+    if (request.contentType === "note") {
+      const headers = Object.fromEntries(Object.entries(result.headers ?? {}).map(([key, value]) => [key.toLowerCase(), value]));
+      const expected = Number(headers["content-length"]);
+      if (result.status !== 200 || (!headers["content-encoding"] && expected > 0 && info.size !== expected))
+        throw new Error("Downloaded PDF is incomplete. Please retry.");
+      // A storage error page must never become a completed PDF. Full native PDF
+      // decoding still happens in the viewer; this rejects empty/HTML responses.
+      const header = await FileSystem.readAsStringAsync(result.uri, {
+        encoding: FileSystem.EncodingType.Base64, position: 0, length: 5,
+      });
+      if (header !== "JVBERi0=") throw new Error("Downloaded file is not a PDF. Please retry.");
+    }
+    if (!current()) return;
     await AsyncStorage.removeItem(RESUME_STATE_PREFIX + request.id);
-
-    if (!result) throw new Error("Download did not complete - please retry.");
-
-    const fileInfo = await FileSystem.getInfoAsync(result.uri);
-
-    upsertRow({
-      id: request.id,
-      localUri: result.uri,
-      fileSizeBytes: fileInfo.exists ? (fileInfo.size ?? 0) : 0,
-      bytesWritten: fileInfo.exists ? (fileInfo.size ?? 0) : 0,
-      status: "completed",
-      downloadedAt: Date.now(),
-      errorMessage: null,
-    });
-  } catch (err: any) {
-    // Distinguish a user-initiated pause (we throw a sentinel below) from
-    // a real failure so pausing never shows a scary error state.
-    if (err?.message === "PAUSED_BY_USER") {
-      upsertRow({ id: request.id, status: "paused" });
+    if (!current()) return;
+    upsertRow({ id: request.id, localUri: result.uri, fileSizeBytes: info.size,
+      bytesWritten: info.size, status: "completed", downloadedAt: Date.now(), errorMessage: null });
+    if (existing?.localUri && existing.localUri !== result.uri)
+      await FileSystem.deleteAsync(existing.localUri, { idempotent: true });
+  } catch (error) {
+    if (current() && owner && request.contentType === "note" && error instanceof NoteAccessError &&
+        (error.status === 401 || error.status === 403)) {
+      await AsyncStorage.setItem(`medveda:note-denied:${owner}:${request.id}`, "1");
+      await clearNoteVerification(owner, request.id);
+      if (current()) await cancelDownload(request.id);
       return;
     }
-    upsertRow({
-      id: request.id,
-      status: "failed",
-      errorMessage: err?.message ?? "Download failed. Check your connection and retry.",
-    });
+    // Native/network exceptions can include a signed URL. Store a safe message.
+    if (current()) upsertRow({ ...request, status: "failed",
+      errorMessage: "Download unavailable. Check your connection and access, then retry." });
+  } finally {
+    const completed = getDownload(request.id)?.localUri === fileUri;
+    const paused = pausedOperations.delete(operation) && generation === storageGeneration && getCurrentUser()?.id === owner;
+    if (!completed && !paused) await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
+    if (operations.get(request.id) === operation) operations.delete(request.id);
+    if (activeResumables.get(request.id) === resumable) activeResumables.delete(request.id);
   }
 }
 
-/** Pauses an in-flight download; state is persisted so it can resume even after app restart. */
 export async function pauseDownload(id: string): Promise<void> {
   const resumable = activeResumables.get(id);
   if (!resumable) return;
-  const savable = await resumable.pauseAsync();
-  await AsyncStorage.setItem(RESUME_STATE_PREFIX + id, JSON.stringify(savable));
+  const generation = storageGeneration;
+  const owner = getCurrentUser()?.id;
+  const operation = operations.get(id);
+  if (operation) pausedOperations.add(operation);
+  operations.delete(id);
   activeResumables.delete(id);
   upsertRow({ id, status: "paused" });
+  try {
+    const saved = await resumable.pauseAsync();
+    if (generation !== storageGeneration || getCurrentUser()?.id !== owner) return;
+    await AsyncStorage.setItem(RESUME_STATE_PREFIX + id, JSON.stringify(saved));
+  } catch {
+    // Resume can safely restart if the native platform cannot preserve partial data.
+  }
 }
 
-/** Resumes a paused download - works whether or not the app was killed since pausing. */
 export async function resumeDownload(id: string): Promise<void> {
   const existing = getDownload(id);
   if (!existing) return;
-
-  const savedRaw = await AsyncStorage.getItem(RESUME_STATE_PREFIX + id);
-
-  let saved: any = null;
-  if (savedRaw) {
-    try {
-      saved = JSON.parse(savedRaw);
-    } catch {
-      // Corrupted resume-state JSON (e.g. app was killed mid-write) -
-      // treat exactly like "no resumable state" below rather than
-      // throwing and leaving the Resume button permanently broken.
-      logDebug(`Resume state for download ${id} is corrupt JSON - restarting instead`);
-      await AsyncStorage.removeItem(RESUME_STATE_PREFIX + id);
-    }
-  }
-
-  if (!saved) {
-    // No resumable state (e.g. app was killed and memory handle lost, or
-    // it was corrupted above) - simplest correct recovery is to restart
-    // the download cleanly.
-    await enqueueDownload({
-      id: existing.id,
-      contentType: existing.contentType,
-      title: existing.title,
-      sourceUrl: existing.sourceUrl,
-      chapterId: existing.chapterId,
-      chapterTitle: existing.chapterTitle,
-      subjectId: existing.subjectId,
-      subjectTitle: existing.subjectTitle,
-      yearId: existing.yearId,
-      yearTitle: existing.yearTitle,
-      contentVersion: existing.contentVersion,
-    });
-    return;
-  }
-
-  upsertRow({ id, status: "downloading" });
-
-  const resumable = new FileSystem.DownloadResumable(
-    saved.url,
-    saved.fileUri,
-    saved.options,
-    (progress) => {
-      if (progress.totalBytesExpectedToWrite <= 0) return;
-      upsertRow({
-        id,
-        bytesWritten: progress.totalBytesWritten,
-        fileSizeBytes: progress.totalBytesExpectedToWrite,
-        status: "downloading",
-      });
-    },
-    saved.resumeData
-  );
-  activeResumables.set(id, resumable);
-
-  try {
-    const result = await resumable.resumeAsync();
-    activeResumables.delete(id);
+  const generation = storageGeneration;
+  const raw = await AsyncStorage.getItem(RESUME_STATE_PREFIX + id);
+  if (generation !== storageGeneration) return;
+  let saved: FileSystem.DownloadPauseState | undefined;
+  try { saved = raw ? JSON.parse(raw) : undefined; } catch { /* restart corrupt state */ }
+  // Expo resumeData binds to its original request. Without a server ETag/version
+  // validator, stitching bytes from a refreshed signed URL can corrupt the PDF.
+  // Notes restart with a fresh authorized URL; other identical requests can resume.
+  if (existing.contentType === "note" || saved?.url !== existing.sourceUrl ||
+      !saved?.fileUri?.startsWith(dirFor(existing.contentType))) {
+    if (saved?.fileUri?.startsWith(dirFor(existing.contentType)))
+      await FileSystem.deleteAsync(saved.fileUri, { idempotent: true });
+    saved = undefined;
     await AsyncStorage.removeItem(RESUME_STATE_PREFIX + id);
-    if (!result) throw new Error("Resume failed - please retry.");
-
-    const fileInfo = await FileSystem.getInfoAsync(result.uri);
-    upsertRow({
-      id,
-      localUri: result.uri,
-      fileSizeBytes: fileInfo.exists ? (fileInfo.size ?? 0) : 0,
-      bytesWritten: fileInfo.exists ? (fileInfo.size ?? 0) : 0,
-      status: "completed",
-      downloadedAt: Date.now(),
-    });
-  } catch (err: any) {
-    upsertRow({ id, status: "failed", errorMessage: err?.message ?? "Resume failed." });
   }
+  if (generation !== storageGeneration) return;
+  await transferDownload(existing, saved);
 }
 
-/** Retries a failed download from scratch. */
 export async function retryDownload(id: string): Promise<void> {
-  const existing = getDownload(id);
-  if (!existing) return;
-  await enqueueDownload({
-    id: existing.id,
-    contentType: existing.contentType,
-    title: existing.title,
-    sourceUrl: existing.sourceUrl,
-    chapterId: existing.chapterId,
-    chapterTitle: existing.chapterTitle,
-    subjectId: existing.subjectId,
-    subjectTitle: existing.subjectTitle,
-    yearId: existing.yearId,
-    yearTitle: existing.yearTitle,
-    contentVersion: existing.contentVersion,
-  });
+  await resumeDownload(id);
 }
 
 /** Cancels + fully removes a download (queued, downloading, or paused). */
 export async function cancelDownload(id: string): Promise<void> {
+  operations.delete(id);
   const resumable = activeResumables.get(id);
   if (resumable) {
     try {
@@ -381,6 +332,9 @@ export async function cancelDownload(id: string): Promise<void> {
 /** Deletes a completed download's file + row (used by the trash icon in DownloadsScreen). */
 export async function removeDownload(id: string): Promise<void> {
   if (!OFFLINE_DB_SUPPORTED) return;
+  operations.delete(id);
+  const owner = getCurrentUser()?.id;
+  if (owner) await clearNoteVerification(owner, id);
   const existing = getDownload(id);
   if (existing?.localUri) {
     await FileSystem.deleteAsync(existing.localUri, { idempotent: true });
@@ -396,9 +350,20 @@ export async function removeDownload(id: string): Promise<void> {
 
 export async function clearAllDownloads(): Promise<void> {
   if (!OFFLINE_DB_SUPPORTED) return;
-  await FileSystem.deleteAsync(ROOT_DIR, { idempotent: true });
-  const db = getDb();
-  db.runSync(`DELETE FROM downloads;`);
+  if (clearing) return clearing;
+  storageGeneration++;
+  operations.clear();
+  pausedOperations.clear();
+  const transfers = [...activeResumables.values()];
+  activeResumables.clear();
+  clearing = (async () => {
+    await Promise.allSettled(transfers.map((transfer) => transfer.cancelAsync()));
+    const keys = await AsyncStorage.getAllKeys();
+    await AsyncStorage.multiRemove(keys.filter((key) => key.startsWith(RESUME_STATE_PREFIX) || key.startsWith(OFFLINE_NOTE_VERIFICATION_PREFIX)));
+    await FileSystem.deleteAsync(ROOT_DIR, { idempotent: true });
+    getDb().runSync(`DELETE FROM downloads;`);
+  })();
+  try { await clearing; } finally { clearing = null; }
 }
 
 /**
@@ -411,6 +376,19 @@ export function recoverInterruptedDownloads(): void {
   if (!OFFLINE_DB_SUPPORTED) return;
   const db = getDb();
   db.runSync(`UPDATE downloads SET status = 'paused' WHERE status = 'downloading';`);
+}
+
+/** Remove legacy quiz JSON, including orphan files, before any screen can open it. */
+export async function removeLegacyOfflineQuizzes(): Promise<void> {
+  if (!OFFLINE_DB_SUPPORTED) return;
+  if (await AsyncStorage.getItem(QUIZ_CLEANUP_KEY) === "1") return;
+
+  // The old writer stored answer keys in this directory. Delete the whole
+  // quiz directory so files without SQLite rows and all account/course copies
+  // are covered. Notes live in a separate directory and remain untouched.
+  await FileSystem.deleteAsync(dirFor("quiz"), { idempotent: true });
+  getDb().runSync(`DELETE FROM downloads WHERE content_type = 'quiz';`);
+  await AsyncStorage.setItem(QUIZ_CLEANUP_KEY, "1");
 }
 
 /** Content-version check: call after fetching fresh metadata from Supabase to flag stale downloads. */
@@ -446,13 +424,31 @@ export function getStorageStats(): StorageStats {
 
 /**
  * Quiz-specific "download": unlike Notes (a remote PDF URL), a QuizTest's
- * full data (including all questions) is already in memory by the time
+ * playable questions (without answer keys) are in memory by the time
  * the user taps Download - TestListScreen fetched it to render the
  * list. So there's nothing to fetch over HTTP; we just persist that
  * JSON to disk and record it as completed immediately. Kept in
  * downloadManager (not a separate module) so it shares the same
  * downloads table / storage stats / DownloadsScreen UI as Notes.
  */
+function publicQuizData(value: unknown): unknown {
+  if (!value || typeof value !== "object") return value;
+  const quiz = value as Record<string, unknown>;
+  if (!Array.isArray(quiz.questions)) return { ...quiz, questions: [] };
+  return {
+    ...quiz,
+    questions: quiz.questions.map((entry: unknown) => {
+      const question = entry && typeof entry === "object"
+        ? entry as Record<string, unknown> : {};
+      return {
+        question: typeof question.question === "string" ? question.question : "",
+        options: Array.isArray(question.options)
+          ? question.options.filter((option): option is string => typeof option === "string") : [],
+      };
+    }),
+  };
+}
+
 export async function saveQuizForOffline(params: {
   id: string;
   title: string;
@@ -463,15 +459,23 @@ export async function saveQuizForOffline(params: {
   quizData: unknown; // the full QuizTest object (with questions[])
 }): Promise<void> {
   if (!OFFLINE_DB_SUPPORTED) return;
+  if (clearing) return;
+  const generation = storageGeneration;
+  const owner = getCurrentUser()?.id;
   const dir = dirFor("quiz");
   await ensureDir(dir);
+  if (!owner || generation !== storageGeneration || getCurrentUser()?.id !== owner) return;
 
   const fileUri = `${dir}${params.id}.json`;
-  const json = JSON.stringify(params.quizData);
+  const json = JSON.stringify(publicQuizData(params.quizData));
   await FileSystem.writeAsStringAsync(fileUri, json);
 
   const fileInfo = await FileSystem.getInfoAsync(fileUri);
   const size = fileInfo.exists ? (fileInfo.size ?? json.length) : json.length;
+  if (generation !== storageGeneration || getCurrentUser()?.id !== owner) {
+    await FileSystem.deleteAsync(fileUri, { idempotent: true });
+    return;
+  }
 
   upsertRow({
     id: params.id,
@@ -496,7 +500,19 @@ export async function saveQuizForOffline(params: {
 /** Reads a downloaded quiz's JSON back into a usable object (QuizTest shape). */
 export async function loadOfflineQuiz<T = unknown>(localUri: string): Promise<T> {
   const raw = await FileSystem.readAsStringAsync(localUri);
-  return JSON.parse(raw) as T;
+  const safe = publicQuizData(JSON.parse(raw)) as T;
+  // Scrub an older download when opened; never reintroduce a legacy answer key.
+  const clean = JSON.stringify(safe);
+  if (clean !== raw) {
+    try {
+      await FileSystem.writeAsStringAsync(localUri, clean);
+    } catch {
+      // Never open a legacy file while its answer-bearing copy remains on disk.
+      await FileSystem.deleteAsync(localUri, { idempotent: true });
+      throw new Error("This offline quiz needs to be downloaded again.");
+    }
+  }
+  return safe;
 }
 
 export function isDownloaded(id: string): boolean {

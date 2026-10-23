@@ -16,7 +16,6 @@ import {
 } from "react-native";
 
 import { useNavigation } from "@react-navigation/native";
-import { supabase } from "../config/supabase";
 import { getCurrentUser, getCurrentUserDisplayName, performSignOut } from "../services/authState";
 
 // Real brand glyphs for the "Follow us" row (Instagram/Facebook/YouTube/

@@ -25,7 +25,7 @@ import { logError } from "../../utils/logger";
 // whole Subject - only PDF Notes are paid (and chapter-scoped) content.
 // No purchase check, no lock icons, no Unlock panel here.
 //
-// OFFLINE MODE: a Test's full question data is already in this list
+// OFFLINE MODE: a Test's playable questions are already in this list
 // response (no separate fetch when opening one), so "downloading" a
 // test is just persisting that JSON locally - see saveQuiz in
 // useDownloads. This also means the list itself still renders from the

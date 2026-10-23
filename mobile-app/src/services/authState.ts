@@ -18,20 +18,22 @@ let currentUser: User | null = null;
 // can never open the first student's purchases.
 const OFFLINE_OWNER_KEY = "medveda:offline-owner";
 
-async function purgeOfflineContent(): Promise<void> {
+async function purgeOfflineContent(): Promise<boolean> {
   try {
     // Loaded lazily: downloadManager pulls in course state, which imports this module.
     const { clearAllDownloads } = await import("../utils/downloadManager");
     await clearAllDownloads();
+    return true;
   } catch (err) {
     logDebug("purgeOfflineContent failed:", err);
+    return false;
   }
 }
 
 async function claimOfflineStorage(user: User): Promise<void> {
   try {
     const owner = await AsyncStorage.getItem(OFFLINE_OWNER_KEY);
-    if (owner && owner !== user.id) await purgeOfflineContent();
+    if (owner && owner !== user.id && !await purgeOfflineContent()) return;
     if (owner !== user.id) await AsyncStorage.setItem(OFFLINE_OWNER_KEY, user.id);
   } catch {
     // storage unavailable: nothing to protect or claim
@@ -50,8 +52,8 @@ export async function performSignOut(): Promise<void> {
   }
   currentUser = null;
   await supabase.auth.signOut();
-  await purgeOfflineContent();
-  await AsyncStorage.removeItem(OFFLINE_OWNER_KEY).catch(() => {});
+  if (await purgeOfflineContent())
+    await AsyncStorage.removeItem(OFFLINE_OWNER_KEY).catch(() => {});
 }
 
 // BUG FIX: registerForPushNotifications() existed in pushNotifications.ts

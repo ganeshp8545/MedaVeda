@@ -286,3 +286,27 @@ than facts established by source code.
 | Web browsing | None found | No browsing-history collection evidence. |
 | App info and performance | Crash/error reports and app/device details only if Sentry DSN is present; app version/build/platform analytics | Sentry conditional; Supabase app-open analytics active. |
 | Device or other IDs | Expo push token, platform; user UUID under identifiers | Push token to Supabase/Expo only after permission. No ad ID evidence. |
+
+## DB-01 retention disclosure draft — owner/legal review (2026-10-20)
+
+Fraud-prevention hashes of email addresses and phone numbers, together with the
+original account ID, are kept up to 180 days after account deletion, then deleted.
+The prepared purge deletes entire `first_purchase_identities` rows older than
+180 days from `first_purchase_at`; records may therefore expire sooner after
+deletion, including while the account is active. These hashes are personal data,
+used for repeat first-purchase discount and referral-abuse detection.
+After expiry and purge, a returning identity may qualify again, subject to other
+eligibility checks. No billing or referral logic was changed.
+
+Evidence: `supabase/migrations/20261020103000_first_purchase_identity_retention.sql`.
+This migration and its commented cron pattern are prepared only: neither applied
+nor scheduled. Actual production retention is NOT VERIFIED. Verify purge cadence,
+cutoff lag, monitoring and operation before publishing these disclosures or changing
+Console answers. Website source templates and generated pages, plus PrivacyScreen,
+contain draft factual text flagged for owner/legal review; no new legal basis is claimed.
+
+SEC-01 local data: per-account/per-note last successful entitlement-check time and
+last-observed device time are stored in AsyncStorage. Offline grace is seven days;
+legacy downloads require an online check. Detected clock rollback invalidates the
+grace. Confirmed 401/403 clears verification and deletes the local download. Normal
+removal/all-download cleanup also removes verification timestamps.

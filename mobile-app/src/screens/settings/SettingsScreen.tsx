@@ -15,7 +15,6 @@ import ConfirmationDialog from "../../components/ConfirmationDialog";
 import { COLORS } from "../../theme/colors";
 import { SPACING } from "../../theme/spacing";
 
-import { supabase } from "../../config/supabase";
 import { deleteAccount } from "../../services/usersService";
 import { performSignOut } from "../../services/authState";
 import { logError } from "../../utils/logger";

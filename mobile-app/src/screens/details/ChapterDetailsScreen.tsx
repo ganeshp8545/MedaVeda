@@ -71,7 +71,7 @@ export default function ChapterDetailsScreen() {
       yearTitle,
       courseId: getCourseYear().courseId,
     });
-  }, [chapterId]);
+  }, [chapterId, chapterTitle, subjectId, subjectTitle, yearId, yearTitle]);
 
   useFocusEffect(
     useCallback(() => {
